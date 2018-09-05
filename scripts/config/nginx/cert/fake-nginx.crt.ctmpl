@@ -1,0 +1,3 @@
+{{ with secret "venafi-pki/issue/fake" "common_name=fake.example.com" }}
+{{ .Data.certificate }}{{ end }}
+

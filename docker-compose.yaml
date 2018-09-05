@@ -1,0 +1,34 @@
+version: '2'
+services:
+
+  consul:
+    image: "consul:1.1.0"
+    hostname: "consul"
+    command: "agent -dev -client 0.0.0.0"
+    ports:
+      - "8400:8400"
+      - "8500:8500"
+      - "8600:53/udp"
+
+  vault:
+    depends_on:
+      - consul
+#   Venafi plugin image
+    image: "venafi/vault-venafi:0.1.106"
+#   Uncomment if you want to use compose in dev mode
+#    build: .
+    hostname: "vault"
+    links:
+      - "consul:consul"
+    environment:
+      VAULT_ADDR: http://127.0.0.1:8200
+    ports:
+      - "8200:8200"
+#    Uncomment mount if you want to use developement version of the plugin
+#    volumes:
+#      - ./scripts/tools:/tools
+#      - ./scripts/config/vault:/config
+#      - ./scripts/config/vault/policies:/policies
+#      - ./bin:/vault_plugin
+#      - ./Makefile:/Makefile
+    entrypoint: /tools/wait-for-it.sh -t 20 -h consul -p 8500 -s -- vault server -config=/config/vault-config-with-consul.hcl -log-level=debug

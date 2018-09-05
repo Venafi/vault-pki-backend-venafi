@@ -1,0 +1,3 @@
+{{ with secret "venafi-pki/issue/tpp" "common_name=tpp.venqa.venafi.com" }}
+{{ .Data.certificate }}{{ end }}
+
