@@ -1,6 +1,6 @@
 ###Build parameters
 IMAGE_NAME := vault-venafi
-DOCKER_IMAGE := 192.168.3.9:5000/venafi/$(IMAGE_NAME)
+DOCKER_IMAGE := venafi/$(IMAGE_NAME)
 BUILD_TAG := build
 PLUGIN_NAME := venafi-pki-backend
 PLUGIN_DIR := bin
