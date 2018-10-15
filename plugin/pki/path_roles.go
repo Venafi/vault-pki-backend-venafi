@@ -2,10 +2,10 @@ package pki
 
 import (
 	"context"
-		"strings"
+	"strings"
 	"time"
 
-		"github.com/hashicorp/vault/helper/consts"
+	"github.com/hashicorp/vault/helper/consts"
 	"github.com/hashicorp/vault/helper/parseutil"
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
@@ -43,7 +43,7 @@ func pathRoles(b *backend) *framework.Path {
 			},
 
 			"zone": &framework.FieldSchema{
-				Type:        framework.TypeString,
+				Type: framework.TypeString,
 				Description: `Name of Venafi Platfrom or Cloud policy. 
 Example for Platform: testpolicy\\vault
 Example for Venafi Cloud: Default`,
@@ -56,6 +56,12 @@ Example for Venafi Cloud: Default`,
 			"tpp_password": &framework.FieldSchema{
 				Type:        framework.TypeString,
 				Description: `Password for web API user Example: password`,
+			},
+			"trust_bundle_file": &framework.FieldSchema{
+				Type: framework.TypeString,
+				Description: `Use to specify a PEM formatted file with certificates to be used as trust anchors when communicating with the remote server.
+Example:
+  trust_bundle = "/full/path/to/chain.pem""`,
 			},
 			"apikey": &framework.FieldSchema{
 				Type:        framework.TypeString,
@@ -223,6 +229,7 @@ func (b *backend) pathRoleCreate(ctx context.Context, req *logical.Request, data
 		TPPPassword:     data.Get("tpp_password").(string),
 		Apikey:          data.Get("apikey").(string),
 		TPPUser:         data.Get("tpp_user").(string),
+		TrustBundleFile: data.Get("trust_bundle_file").(string),
 		Fakemode:        data.Get("fakemode").(bool),
 		StoreByCN:       data.Get("store_by_cn").(bool),
 		StoreBySerial:   data.Get("store_by_serial").(bool),
@@ -253,42 +260,44 @@ func (b *backend) pathRoleCreate(ctx context.Context, req *logical.Request, data
 type roleEntry struct {
 
 	//Venafi values
-	TPPURL          string `json:"tpp_url"`
-	CloudURL        string `json:"cloud_url"`
-	Zone            string `json:"zone"`
-	TPPPassword     string `json:"tpp_password"`
-	Apikey          string `json:"apikey"`
-	TPPUser         string `json:"tpp_user"`
-	Fakemode        bool   `json:"fakemode"`
-	StoreByCN       bool   `json:"store_by_cn"`
-	StoreBySerial   bool   `json:"store_by_serial"`
-	StorePrivateKey bool   `json:"store_pkey"`
-	LeaseMax                      string        `json:"lease_max"`
-	Lease                         string        `json:"lease"`
-	TTL                           time.Duration `json:"ttl_duration" mapstructure:"ttl_duration"`
-	MaxTTL                        time.Duration `json:"max_ttl_duration" mapstructure:"max_ttl_duration"`
-	GenerateLease                 bool          `json:"generate_lease,omitempty"`
-	DeprecatedMaxTTL              string        `json:"max_ttl" mapstructure:"max_ttl"`
-	DeprecatedTTL                 string        `json:"ttl" mapstructure:"ttl"`
-
+	TPPURL           string        `json:"tpp_url"`
+	CloudURL         string        `json:"cloud_url"`
+	Zone             string        `json:"zone"`
+	TPPPassword      string        `json:"tpp_password"`
+	Apikey           string        `json:"apikey"`
+	TPPUser          string        `json:"tpp_user"`
+	TrustBundleFile  string        `json:"trust_bundle_file"`
+	Fakemode         bool          `json:"fakemode"`
+	StoreByCN        bool          `json:"store_by_cn"`
+	StoreBySerial    bool          `json:"store_by_serial"`
+	StorePrivateKey  bool          `json:"store_pkey"`
+	LeaseMax         string        `json:"lease_max"`
+	Lease            string        `json:"lease"`
+	TTL              time.Duration `json:"ttl_duration" mapstructure:"ttl_duration"`
+	MaxTTL           time.Duration `json:"max_ttl_duration" mapstructure:"max_ttl_duration"`
+	GenerateLease    bool          `json:"generate_lease,omitempty"`
+	DeprecatedMaxTTL string        `json:"max_ttl" mapstructure:"max_ttl"`
+	DeprecatedTTL    string        `json:"ttl" mapstructure:"ttl"`
 }
 
 func (r *roleEntry) ToResponseData() map[string]interface{} {
 	responseData := map[string]interface{}{
 		//Venafi
-		"tpp_url":         r.TPPURL,
-		"cloud_url":       r.CloudURL,
-		"zone":            r.Zone,
-		"tpp_password":    r.TPPPassword,
-		"apikey":          r.Apikey,
-		"tpp_user":        r.TPPUser,
-		"fakemode":        r.Fakemode,
-		"store_by_cn":     r.StoreByCN,
-		"store_by_serial": r.StoreBySerial,
-		"store_pkey":      r.StorePrivateKey,
-		"ttl":                                int64(r.TTL.Seconds()),
-		"max_ttl":                            int64(r.MaxTTL.Seconds()),
-		"generate_lease": r.GenerateLease,
+		"tpp_url":   r.TPPURL,
+		"cloud_url": r.CloudURL,
+		"zone":      r.Zone,
+		//We shouldn't show credentials
+		//"tpp_password":      r.TPPPassword,
+		//"apikey":            r.Apikey,
+		"tpp_user":          r.TPPUser,
+		"trust_bundle_file": r.TrustBundleFile,
+		"fakemode":          r.Fakemode,
+		"store_by_cn":       r.StoreByCN,
+		"store_by_serial":   r.StoreBySerial,
+		"store_pkey":        r.StorePrivateKey,
+		"ttl":               int64(r.TTL.Seconds()),
+		"max_ttl":           int64(r.MaxTTL.Seconds()),
+		"generate_lease":    r.GenerateLease,
 	}
 	return responseData
 }

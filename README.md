@@ -34,6 +34,18 @@ X509v3 extensions:
 
 4. Option in TPP CA configuration template "Automatically include CN as DNS SAN" should be set to true.
 
+## Import trust chain for the Platform
+If your Platform using internal certificate you may use trust_bundle option. You can import it to the chain.pem file. main.tf file is already configured to use this file as a trust bundle.
+
+```
+echo | openssl s_client -showcerts -servername TPP_ADDRESS -connect TPP_ADDRESS:TPP_PORT | openssl x509 -outform pem -out chain.pem
+```
+
+Example:
+
+```
+echo | openssl s_client -showcerts -servername venafi.example.com -connect venafi.example.com:5008 | openssl x509 -outform pem -out chain.pem
+```
 
 ## Step by step
 1. Export your Venafi Platform or Cloud configuration variables (or both)

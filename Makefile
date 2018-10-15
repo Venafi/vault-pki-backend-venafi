@@ -194,6 +194,8 @@ cloud: cloud_config_write cloud_cert_write cloud_cert_read_certificate cloud_cer
 #TPP role tasks
 tpp_config_write:
 	vault write $(MOUNT)/roles/$(TPP_ROLE) tpp_url=$(TPPURL) tpp_user=$(TPPUSER) tpp_password=$(TPPPASSWORD) zone="$(TPPZONE)" $(ROLE_OPTIONS)
+tpp_config_write_trust_bundle:
+	vault write $(MOUNT)/roles/$(TPP_ROLE) tpp_url=$(TPPURL) tpp_user=$(TPPUSER) tpp_password=$(TPPPASSWORD) zone="$(TPPZONE)" trust_bundle_file=$(TRUST_BUNDLE) $(ROLE_OPTIONS)
 tpp_config_read:
 	vault read $(MOUNT)/roles/$(TPP_ROLE)
 

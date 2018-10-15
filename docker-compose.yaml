@@ -24,8 +24,10 @@ services:
       VAULT_ADDR: http://127.0.0.1:8200
     ports:
       - "8200:8200"
-#    Uncomment mount if you want to use developement version of the plugin
 #    volumes:
+#    If you want to use trust bundle file option
+#       - ./chain.pem:/chain.pem
+#    Uncomment this mounts if you want to use developement version of the plugin
 #      - ./scripts/tools:/tools
 #      - ./scripts/config/vault:/config
 #      - ./scripts/config/vault/policies:/policies

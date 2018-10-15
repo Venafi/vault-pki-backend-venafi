@@ -3,7 +3,7 @@ package pki
 import (
 	"context"
 	"encoding/pem"
-		"strings"
+	"strings"
 
 	"github.com/hashicorp/vault/helper/errutil"
 	"github.com/hashicorp/vault/logical"
@@ -61,7 +61,6 @@ func (b *backend) pathVenafiFetchRead(ctx context.Context, req *logical.Request,
 	response = &logical.Response{
 		Data: map[string]interface{}{},
 	}
-
 
 	switch {
 	case req.Path == "crl" || req.Path == "crl/pem":
