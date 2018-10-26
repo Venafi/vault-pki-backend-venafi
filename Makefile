@@ -213,7 +213,7 @@ tpp_cert_read_pkey:
 	@openssl x509 -in $(CERT_TMP_FILE) -pubkey -noout -outform pem | sha256sum
 
 
-tpp: tpp_config_write tpp_cert_write tpp_cert_read_certificate tpp_cert_read_pkey
+tpp: tpp_config_write_trust_bundle tpp_cert_write tpp_cert_read_certificate tpp_cert_read_pkey
 
 
 #Consul template tasks
@@ -239,7 +239,7 @@ nginx:
 	docker rm -f vault-demo-nginx || echo "Container not found"
 	docker run --name vault-demo-nginx -p 443:443 -v $$(pwd)/scripts/config/nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro \
 	-v $$(pwd)/scripts/config/nginx/cert:/etc/nginx/ssl -d nginx
-	docker logs -f vault-demo-nginx
+	docker logs -f vault-	demo-nginx
 
 #Helper tasks
 doc:
