@@ -239,7 +239,7 @@ nginx:
 	docker rm -f vault-demo-nginx || echo "Container not found"
 	docker run --name vault-demo-nginx -p 443:443 -v $$(pwd)/scripts/config/nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro \
 	-v $$(pwd)/scripts/config/nginx/cert:/etc/nginx/ssl -d nginx
-	docker logs -f vault-	demo-nginx
+	docker logs -f vault-demo-nginx
 
 #Helper tasks
 doc:
