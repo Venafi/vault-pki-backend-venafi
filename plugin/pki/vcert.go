@@ -7,6 +7,7 @@ import (
 	"github.com/Venafi/vcert/pkg/endpoint"
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
+	"io/ioutil"
 	"log"
 )
 
@@ -33,16 +34,36 @@ func (b *backend) ClientVenafi(ctx context.Context, s logical.Storage, data *fra
 			LogVerbose:    true,
 		}
 	} else if role.TPPURL != "" && role.TPPUser != "" && role.TPPPassword != "" {
-		log.Printf("Using Platform with url %s to issue certificate\n",role.TPPURL)
-		cfg = &vcert.Config{
-			ConnectorType: endpoint.ConnectorTypeTPP,
-			BaseUrl:       role.TPPURL,
-			Credentials: &endpoint.Authentication{
-				User:     role.TPPUser,
-				Password: role.TPPPassword,
-			},
-			Zone:       role.Zone,
-			LogVerbose: true,
+		log.Printf("Using Platform with url %s to issue certificate\n", role.TPPURL)
+		if role.TrustBundleFile != "" {
+			log.Printf("Trying to read trust bundle from file %s\n", role.TrustBundleFile)
+			trustBundle, err := ioutil.ReadFile(role.TrustBundleFile)
+			if err != nil {
+				return nil, err
+			}
+			trustBundlePEM := string(trustBundle)
+			cfg = &vcert.Config{
+				ConnectorType:   endpoint.ConnectorTypeTPP,
+				BaseUrl:         role.TPPURL,
+				ConnectionTrust: trustBundlePEM,
+				Credentials: &endpoint.Authentication{
+					User:     role.TPPUser,
+					Password: role.TPPPassword,
+				},
+				Zone:       role.Zone,
+				LogVerbose: true,
+			}
+		} else {
+			cfg = &vcert.Config{
+				ConnectorType: endpoint.ConnectorTypeTPP,
+				BaseUrl:       role.TPPURL,
+				Credentials: &endpoint.Authentication{
+					User:     role.TPPUser,
+					Password: role.TPPPassword,
+				},
+				Zone:       role.Zone,
+				LogVerbose: true,
+			}
 		}
 
 	} else if role.Apikey != "" {

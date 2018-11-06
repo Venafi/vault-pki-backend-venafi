@@ -24,11 +24,20 @@ services:
       VAULT_ADDR: http://127.0.0.1:8200
     ports:
       - "8200:8200"
-#    Uncomment mount if you want to use developement version of the plugin
 #    volumes:
+#    If you want to use trust bundle file option
+#       - ./chain.pem:/chain.pem
+#    Uncomment this mounts if you want to use developement version of the plugin
 #      - ./scripts/tools:/tools
 #      - ./scripts/config/vault:/config
 #      - ./scripts/config/vault/policies:/policies
 #      - ./bin:/vault_plugin
 #      - ./Makefile:/Makefile
     entrypoint: /tools/wait-for-it.sh -t 20 -h consul -p 8500 -s -- vault server -config=/config/vault-config-with-consul.hcl -log-level=debug
+#TODO: this is a workaround to avoid internal network conflict, need to find a better solution when netwrok will not be in docker-compose file.
+networks:
+  default:
+    ipam:
+      driver: default
+      config:
+      - subnet: "10.84.0.1/24"
