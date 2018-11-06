@@ -37,9 +37,10 @@ X509v3 extensions:
 ### Import trust chain for the Platform
 
 If Venafi Platform uses an internal (self-signed) certificate, you must get your server root certificate
-using open ssl command below and provide it as an option to the 'trust_bundle_file' parameter. Otherwise, the plugin will fail because of untrusted certificate error.
+using open ssl command below and provide it as an option to the 'trust_bundle_file' vault parameter. Otherwise, the plugin will fail because of untrusted certificate error.
 Use the following command to import the certificate to the chain.pem file.
-The main.tf file is already configured to use this file as a trust bundle.
+
+To get server certificate run following openssl command
 
 ```
 echo | openssl s_client -showcerts -servername TPP_ADDRESS -connect TPP_ADDRESS:TPP_PORT | openssl x509 -outform pem -out chain.pem
@@ -50,6 +51,23 @@ Example:
 ```
 echo | openssl s_client -showcerts -servername venafi.example.com -connect venafi.example.com:5008 | openssl x509 -outform pem -out chain.pem
 ```
+
+Example of configuring vault role with trust bundle:
+
+
+```
+vault write venafi-pki/roles/custom-tpp \
+    tpp_url=https://tpp.venafi.example/vedsdk \
+    tpp_user=admin \
+    tpp_password=password \
+    zone=testpolicy\\vault \
+    generate_lease=true \
+    store_by_cn="true" \
+    store_by_serial="true" \
+    store_pkey="true" \
+    trust_bundle_file="./chain.pem"
+```
+
 
 ## Step by step
 1. Export your Venafi Platform or Cloud configuration variables (or both)
