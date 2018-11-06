@@ -34,3 +34,10 @@ services:
 #      - ./bin:/vault_plugin
 #      - ./Makefile:/Makefile
     entrypoint: /tools/wait-for-it.sh -t 20 -h consul -p 8500 -s -- vault server -config=/config/vault-config-with-consul.hcl -log-level=debug
+#TODO: this is a workaround to avoid internal network conflict, need to find a better solution when netwrok will not be in docker-compose file.
+networks:
+  default:
+    ipam:
+      driver: default
+      config:
+      - subnet: "10.84.0.1/24"
