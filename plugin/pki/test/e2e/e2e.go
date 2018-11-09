@@ -137,13 +137,13 @@ var _ = Describe("Vault PKI Venafi backend e2e tests	", func() {
 					})
 					It("Fetching "+endpoint.name+" endpoint certificate with CN "+cn, func() {
 						By("Should be listed in certificates list")
-						cmd = fmt.Sprintf(`docker exec %s vault list venafi-pki/certs`,vaultContainerName)
+						cmd = fmt.Sprintf(`docker exec %s vault list venafi-pki/certs`, vaultContainerName)
 						out, err, code = testRun(cmd)
 						Expect(code).To(BeZero())
 						Expect(out).To(MatchRegexp(cn))
 
 						By("Should return valid JSON")
-						cmd = fmt.Sprintf(`docker exec %s vault read -format=json venafi-pki/cert/%s`,vaultContainerName,cn)
+						cmd = fmt.Sprintf(`docker exec %s vault read -format=json venafi-pki/cert/%s`, vaultContainerName, cn)
 						fmt.Println(cmd)
 						out, err, code = testRun(cmd)
 						cert := vaultJSONCertificate{}

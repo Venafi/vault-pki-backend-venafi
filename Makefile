@@ -1,6 +1,6 @@
 ###Build parameters
 IMAGE_NAME := vault-venafi
-DOCKER_IMAGE := 192.168.3.9:5000/venafi/$(IMAGE_NAME)
+DOCKER_IMAGE := venafi/$(IMAGE_NAME)
 BUILD_TAG := build
 PLUGIN_NAME := venafi-pki-backend
 PLUGIN_DIR := bin
@@ -194,6 +194,8 @@ cloud: cloud_config_write cloud_cert_write cloud_cert_read_certificate cloud_cer
 #TPP role tasks
 tpp_config_write:
 	vault write $(MOUNT)/roles/$(TPP_ROLE) tpp_url=$(TPPURL) tpp_user=$(TPPUSER) tpp_password=$(TPPPASSWORD) zone="$(TPPZONE)" $(ROLE_OPTIONS)
+tpp_config_write_trust_bundle:
+	vault write $(MOUNT)/roles/$(TPP_ROLE) tpp_url=$(TPPURL) tpp_user=$(TPPUSER) tpp_password=$(TPPPASSWORD) zone="$(TPPZONE)" trust_bundle_file=$(TRUST_BUNDLE) $(ROLE_OPTIONS)
 tpp_config_read:
 	vault read $(MOUNT)/roles/$(TPP_ROLE)
 
@@ -211,7 +213,7 @@ tpp_cert_read_pkey:
 	@openssl x509 -in $(CERT_TMP_FILE) -pubkey -noout -outform pem | sha256sum
 
 
-tpp: tpp_config_write tpp_cert_write tpp_cert_read_certificate tpp_cert_read_pkey
+tpp: tpp_config_write_trust_bundle tpp_cert_write tpp_cert_read_certificate tpp_cert_read_pkey
 
 
 #Consul template tasks

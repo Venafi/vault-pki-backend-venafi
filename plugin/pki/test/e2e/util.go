@@ -84,9 +84,9 @@ type RunContext struct {
 	TPPTestingEnabled   bool
 	CloudTestingEnabled bool
 	FakeTestingEnabled  bool
-	TPPIssuerCN           string
-	CloudIssuerCN         string
-	FakeIssuerCN          string
+	TPPIssuerCN         string
+	CloudIssuerCN       string
+	FakeIssuerCN        string
 }
 
 func GetContext() *RunContext {

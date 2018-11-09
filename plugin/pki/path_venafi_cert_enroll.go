@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
-	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
@@ -13,7 +12,6 @@ import (
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
 	"log"
-	"net/http"
 	"strings"
 	"time"
 )
@@ -46,8 +44,6 @@ func pathVenafiCertEnroll(b *backend) *framework.Path {
 
 func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request, data *framework.FieldData) (
 	*logical.Response, error) {
-	//TODO: switch to vcert insecure flag
-	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 
 	log.Printf("Getting the role\n")
 	roleName := data.Get("role").(string)

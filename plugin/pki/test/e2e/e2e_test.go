@@ -6,10 +6,10 @@ import (
 	"bufio"
 	"fmt"
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/reporters"
 	. "github.com/onsi/gomega"
 	"strings"
 	"time"
-	"github.com/onsi/ginkgo/reporters"
 )
 
 func init() {
