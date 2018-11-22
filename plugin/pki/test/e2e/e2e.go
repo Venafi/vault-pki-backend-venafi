@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	vaultContainerName = "vault-pki-vcert_vault_1"
+	vaultContainerName = "vault-pki-backend-venafi_vault_1"
 )
 
 var _ = Describe("Vault PKI Venafi backend e2e tests	", func() {
