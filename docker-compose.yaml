@@ -24,6 +24,8 @@ services:
       VAULT_ADDR: http://127.0.0.1:8200
     ports:
       - "8200:8200"
+    extra_hosts:
+    - "ha-tpp1.sqlha.com:192.168.6.23"
     volumes:
 #    If you want to use trust bundle file option
        - /tmp/chain.pem:/chain.pem
