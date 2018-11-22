@@ -51,7 +51,7 @@ var _ = Describe("Vault PKI Venafi backend e2e tests	", func() {
 			ctx.FakeIssuerCN},
 		{tpp,
 			"tpp",
-			fmt.Sprintf("tpp_url=%s tpp_user=%s tpp_password=%s zone=%s %s", ctx.TPPurl, ctx.TPPuser, ctx.TPPPassword, ctx.TPPZone, defaultOpts),
+			fmt.Sprintf("tpp_url=%s tpp_user=%s tpp_password=%s zone=%s trust_bundle_file=/tmp/chain.pem %s", ctx.TPPurl, ctx.TPPuser, ctx.TPPPassword, ctx.TPPZone, defaultOpts),
 			ctx.TPPTestingEnabled,
 			ctx.TPPIssuerCN},
 		{cloud,
