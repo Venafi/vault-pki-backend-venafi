@@ -1,3 +1,4 @@
 chain.pem
 credentials
 .idea
+!*/**
