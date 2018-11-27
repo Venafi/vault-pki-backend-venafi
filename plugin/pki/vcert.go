@@ -86,7 +86,7 @@ func (b *backend) ClientVenafi(ctx context.Context, s logical.Storage, data *fra
 		return nil, fmt.Errorf("failed to get Venafi issuer client: %s", err)
 	}
 
-	log.Printf("Venafi vcert client. type = %T, p = %p, v = %v\n", client, &client, client)
+	//log.Printf("Venafi vcert client. type = %T, p = %p, v = %v\n", client, &client, client)
 	return client, nil
 
 }

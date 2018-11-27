@@ -38,7 +38,7 @@ RANDOM_SITE_EXP := $$(head /dev/urandom | docker run --rm -i busybox tr -dc a-z0
 .EXPORT_ALL_VARIABLES:
 VAULT_ADDR = http://127.0.0.1:8200
 #Must be set,otherwise cloud certificates will timeout
-VAULT_CLIENT_TIMEOUT = 180s
+VAULT_CLIENT_TIMEOUT = 300s
 
 #List of certificates issuers CN
 TPP_ISSUER_CN = QA Venafi CA
