@@ -139,6 +139,15 @@ prod: prod_server_prepare prod_server_down prod_server_up prod_server_init prod_
 	@echo "export VAULT_TOKEN=enter-root-token-here"
 	@echo "make cloud -e"
 
+prod_hack: prod_server_prepare prod_server_down prod_server_up prod_server_init prod_server_unseal prod_server_auth
+	@echo "Vault started. To configure hackaton cloud export VAULT_TOKEN variable and run following commands:"
+	@echo "export VAULT_TOKEN=enter-root-token-here"
+	@echo "make cloud_policy"
+	@echo "source credentials-ext-cloud"
+	@echo "make cloud_hack -e"
+	@echo "source credentials-int-cloud"
+	@echo "make cloud_hack -e"
+
 mount_prod:
 	$(eval SHA256 := $(shell echo $$($(DOCKER_CMD) $(SHA256_DOCKER_CMD))))
 	$(VAULT_CMD) write sys/plugins/catalog/$(PLUGIN_NAME) sha_256="$$SHA256" command="$(PLUGIN_NAME)"
@@ -188,6 +197,20 @@ cloud_cert_read_pkey:
 	@openssl pkey -in /tmp/privateKey.key -pubout -outform pem| sha256sum
 	@openssl x509 -in $(CERT_TMP_FILE) -pubkey -noout -outform pem | sha256sum
 
+cloud_hack: mount_prod cloud_config_write
+
+#Creating cloud users and policies
+cloud_policy:
+	vault policy fmt scripts/config/vault/cloud-int-policy.hcl
+	vault policy fmt scripts/config/vault/cloud-ext-policy.hcl
+	vault policy write cloud-int-policy scripts/config/vault/cloud-int-policy.hcl
+	vault policy write cloud-ext-policy scripts/config/vault/cloud-ext-policy.hcl
+
+cloud_tokens:
+	@echo "Creating token for internal policy"
+	echo "VAULT_TOKEN=$$(vault token create -policy=cloud-int-policy -display-name=cloud-int -field=token)" > int-token
+	@echo "Creating token for external policy"
+	echo "VAULT_TOKEN=$$(vault token create -policy=cloud-ext-policy -display-name=cloud-ext -field=token)" > ext-token
 
 cloud: cloud_config_write cloud_cert_write cloud_cert_read_certificate cloud_cert_read_pkey
 

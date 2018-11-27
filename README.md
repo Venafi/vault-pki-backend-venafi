@@ -440,3 +440,51 @@ and run:
 cd plugin/pki/test/e2e
 ginkgo -v
 ```
+
+# Setup hackaton project
+
+1. Checkout repo
+
+2. Create credentials-ext-cloud file with cloud API key for external zone
+    Example:
+    ```
+    export CLOUDAPIKEY='xxxxxxx-xxxx-xxxx-xxxx-xxxxxxx'
+    export CLOUDURL="https://api.dev08.qa.venafi.io/v1"
+    export CLOUDZONE="External"
+    export MOUNT="cloud-ext"
+    export VENAFI_CLOUD_TESTING="true"
+    ```
+
+3.  Create credentials-int-cloud file with cloud API key for internal zone
+       Example:
+       ```
+       export CLOUDAPIKEY='xxxxxxx-xxxx-xxxx-xxxx-xxxxxxx'
+       export CLOUDURL="https://api.dev08.qa.venafi.io/v1"
+       export CLOUDZONE="Internal"
+       export MOUNT="cloud-int"
+       export VENAFI_CLOUD_TESTING="true"
+       ```
+       
+4. Run  `make prod_hack` to setup Vault with consul. If you want to recreate insllation delete consul volume by running `docker volume rm vault-pki-backend-venafi_consul_data`
+
+5. To create cloud policies run:  
+    `make cloud_policy` 
+
+6. To mount external cloud role run:  
+    `source credentials-ext-cloud && make cloud_hack -e`
+   
+7. To mount internal cloud role run:  
+    `source credentials-int-cloud && make cloud_hack -e`
+
+8. To create external and internal tokens and save them into int-token and ext-token files run:  
+    `make cloud_tokens`
+
+9. To test external role run:
+    ```bash
+    source ext-token && source credentials-ext-cloud && make cloud_cert_write -e
+    ```
+
+10. To test internal role run:
+    ```bash
+    source int-token && source credentials-int-cloud && make cloud_cert_write -e
+    ```
