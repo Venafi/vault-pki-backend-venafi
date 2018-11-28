@@ -493,7 +493,7 @@ ginkgo -v
 
     ```bash
     source int-token && source credentials-int-cloud
-    VAULT_CN=desired-host.venafi.example.com consul-template -once -config=scripts/config/apache/consul-template-cloud.hcl -vault-token=$(VAULT_TOKEN)
+    VAULT_CN=desired-host.venafi.example.com consul-template -once -config=scripts/config/apache/consul-template-cloud.hcl
     ```
     
     Certificate and private key will be saved to scripts/config/apache/certs folder

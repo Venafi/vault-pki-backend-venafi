@@ -30,12 +30,12 @@ vault {
 }
 
 template {
-  source = "scripts/config/apache/certs/cloud-apache.crt.ctmpl"
-  destination = "scripts/config/apache/certs/cloud-apache.crt"
+  source = "scripts/config/apache/certs/server.crt.ctmpl"
+  destination = "scripts/config/apache/certs/server.crt"
 }
 
 template {
-  source = "scripts/config/apache/certs/cloud-apache.key.ctmpl"
-  destination = "scripts/config/apache/certs/cloud-apache.key"
-  command = "/bin/sh -c 'scripts/tools/apache.sh cloud 2443'"
+  source = "scripts/config/apache/certs/server.key.ctmpl"
+  destination = "scripts/config/apache/certs/server.key"
+  command = "/bin/sh -c 'scripts/tools/apache.sh 2443'"
 }
