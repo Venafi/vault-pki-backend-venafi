@@ -488,3 +488,12 @@ ginkgo -v
     ```bash
     source int-token && source credentials-int-cloud && make cloud_cert_write -e
     ```
+
+11. To generate certificate with consult template run:
+
+    ```bash
+    source int-token && source credentials-int-cloud
+    VAULT_CN=desired-host.venafi.example.com consul-template -once -config=scripts/config/apache/consul-template-cloud.hcl -vault-token=$(VAULT_TOKEN)
+    ```
+    
+    Certificate and private key will be saved to scripts/config/apache/certs folder

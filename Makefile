@@ -208,9 +208,9 @@ cloud_policy:
 
 cloud_tokens:
 	@echo "Creating token for internal policy"
-	echo "VAULT_TOKEN=$$(vault token create -policy=cloud-int-policy -display-name=cloud-int -field=token)" > int-token
+	echo "export VAULT_TOKEN=$$(vault token create -policy=cloud-int-policy -display-name=cloud-int -field=token)" > int-token
 	@echo "Creating token for external policy"
-	echo "VAULT_TOKEN=$$(vault token create -policy=cloud-ext-policy -display-name=cloud-ext -field=token)" > ext-token
+	echo "export VAULT_TOKEN=$$(vault token create -policy=cloud-ext-policy -display-name=cloud-ext -field=token)" > ext-token
 
 cloud: cloud_config_write cloud_cert_write cloud_cert_read_certificate cloud_cert_read_pkey
 
