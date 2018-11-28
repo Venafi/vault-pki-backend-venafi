@@ -4,5 +4,6 @@ credentials-ext-cloud
 credentials-int-cloud
 int-token
 ext-token
+root-token
 .idea
 !*/**

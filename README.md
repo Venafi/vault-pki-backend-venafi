@@ -479,6 +479,8 @@ ginkgo -v
 8. To create external and internal tokens and save them into int-token and ext-token files run:  
     `make cloud_tokens`
 
+   Tokens lifetime are set to 2m by default. In Makefile it is set by EXT_TOKEN_TTL and INT_TOKEN_TTL variables
+   
 9. To test external role run:
     ```bash
     source ext-token && source credentials-ext-cloud && make cloud_cert_write -e

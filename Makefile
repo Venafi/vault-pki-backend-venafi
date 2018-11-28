@@ -12,6 +12,8 @@ VAULT_CONT := $$(docker-compose ps |grep Up|grep vault_1|awk '{print $$1}')
 DOCKER_CMD := docker exec -it $(VAULT_CONT)
 VAULT_CMD := $(DOCKER_CMD) vault
 CT_CMD := consul-template
+EXT_TOKEN_TTL := 2m
+INT_TOKEN_TTL := 2m
 
 MOUNT := venafi-pki
 FAKE_ROLE := fake
@@ -208,9 +210,9 @@ cloud_policy:
 
 cloud_tokens:
 	@echo "Creating token for internal policy"
-	echo "export VAULT_TOKEN=$$(vault token create -policy=cloud-int-policy -display-name=cloud-int -field=token)" > int-token
+	echo "export VAULT_TOKEN=$$(vault token create -policy=cloud-int-policy -display-name=cloud-int -explicit-max-ttl=$(INT_TOKEN_TTL) -field=token)" > int-token
 	@echo "Creating token for external policy"
-	echo "export VAULT_TOKEN=$$(vault token create -policy=cloud-ext-policy -display-name=cloud-ext -field=token)" > ext-token
+	echo "export VAULT_TOKEN=$$(vault token create -policy=cloud-ext-policy -display-name=cloud-ext -explicit-max-ttl=$(EXT_TOKEN_TTL) -field=token)" > ext-token
 
 cloud: cloud_config_write cloud_cert_write cloud_cert_read_certificate cloud_cert_read_pkey
 
