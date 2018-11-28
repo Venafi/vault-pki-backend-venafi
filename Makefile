@@ -51,7 +51,7 @@ unset:
 
 #Build and push
 build_go:
-	go build -o $(PLUGIN_PATH) || exit 1
+	go build -ldflags '-s -w -extldflags "-static"' -a -o $(PLUGIN_PATH) || exit 1
 	chmod +x $(PLUGIN_PATH)
 
 build: build_go
