@@ -61,7 +61,7 @@ Example for Venafi Cloud: Default`,
 				Type: framework.TypeString,
 				Description: `Use to specify a PEM formatted file with certificates to be used as trust anchors when communicating with the remote server.
 Example:
-  trust_bundle_file = "/full/path/to/chain.pem""`,
+  trust_bundle_file = "/full/path/to/bundle.pem""`,
 			},
 			"apikey": &framework.FieldSchema{
 				Type:        framework.TypeString,

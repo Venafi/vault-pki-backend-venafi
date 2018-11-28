@@ -26,7 +26,7 @@ services:
       - "8200:8200"
     volumes:
 #    If you want to use trust bundle file option
-       - /tmp/chain.pem:/chain.pem
+       - /opt/venafi/bundle.pem:/bundle.pem
 #    Uncomment this mounts if you want to use developement version of the plugin
 #      - ./scripts/tools:/tools
 #      - ./scripts/config/vault:/config
