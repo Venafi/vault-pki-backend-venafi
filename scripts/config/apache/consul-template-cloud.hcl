@@ -23,7 +23,7 @@ log_level = "info"
 pid_file = "/tmp/venafi-hck2018-consul-template.pid"
 
 vault {
-  address = "http://127.0.0.1:8200"
+//  address = "http://127.0.0.1:8200"
   grace = "5m"
   unwrap_token = false
   renew_token = false
