@@ -38,6 +38,6 @@ template {
 template {
   source = "scripts/config/apache/certs/server.key.ctmpl"
 //  destination = "scripts/config/apache/certs/server.key"
-  destination = "/etc/pki/tls/certs/localhost.key"
+  destination = "/etc/pki/tls/private/localhost.key"
   command = "/bin/sh -c 'scripts/tools/apache.sh 2443'"
 }
