@@ -31,11 +31,13 @@ vault {
 
 template {
   source = "scripts/config/apache/certs/server.crt.ctmpl"
-  destination = "scripts/config/apache/certs/server.crt"
+//  destination = "scripts/config/apache/certs/server.crt"
+  destination = "/etc/pki/tls/certs/localhost.crt"
 }
 
 template {
   source = "scripts/config/apache/certs/server.key.ctmpl"
-  destination = "scripts/config/apache/certs/server.key"
+//  destination = "scripts/config/apache/certs/server.key"
+  destination = "/etc/pki/tls/certs/localhost.key"
   command = "/bin/sh -c 'scripts/tools/apache.sh 2443'"
 }
