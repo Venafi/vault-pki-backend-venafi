@@ -28,66 +28,68 @@ func pathRoles(b *backend) *framework.Path {
 	return &framework.Path{
 		Pattern: "roles/" + framework.GenericNameRegex("name"),
 		Fields: map[string]*framework.FieldSchema{
-			"name": &framework.FieldSchema{
+			"name": {
 				Type:        framework.TypeString,
 				Description: "Name of the role",
 			},
-			"tpp_url": &framework.FieldSchema{
+			"tpp_url": {
 				Type:        framework.TypeString,
 				Description: `URL of Venafi Platfrom. Example: https://tpp.venafi.example/vedsdk`,
 			},
 
-			"cloud_url": &framework.FieldSchema{
+			"cloud_url": {
 				Type:        framework.TypeString,
 				Description: `URL for Venafi Cloud. Set it only if you want to use non production Cloud`,
 			},
 
-			"zone": &framework.FieldSchema{
+			"zone": {
 				Type: framework.TypeString,
 				Description: `Name of Venafi Platfrom or Cloud policy. 
 Example for Platform: testpolicy\\vault
 Example for Venafi Cloud: Default`,
+				Required: true,
 			},
 
-			"tpp_user": &framework.FieldSchema{
+			"tpp_user": {
 				Type:        framework.TypeString,
 				Description: `web API user for Venafi Platfrom Example: admin`,
 			},
-			"tpp_password": &framework.FieldSchema{
+			"tpp_password": {
 				Type:        framework.TypeString,
 				Description: `Password for web API user Example: password`,
 			},
-			"trust_bundle_file": &framework.FieldSchema{
+			"trust_bundle_file": {
 				Type: framework.TypeString,
 				Description: `Use to specify a PEM formatted file with certificates to be used as trust anchors when communicating with the remote server.
 Example:
   trust_bundle_file = "/full/path/to/chain.pem""`,
 			},
-			"apikey": &framework.FieldSchema{
+			"apikey": {
 				Type:        framework.TypeString,
 				Description: `API key for Venafi Cloud. Example: 142231b7-cvb0-412e-886b-6aeght0bc93d`,
 			},
-			"fakemode": &framework.FieldSchema{
+			"fakemode": {
 				Type:        framework.TypeBool,
 				Description: `Set it to true to use face CA instead of Cloud or Platform to issue certificates. Useful for testing.`,
+				Default:     false,
 			},
 
-			"store_by_cn": &framework.FieldSchema{
+			"store_by_cn": {
 				Type:        framework.TypeBool,
 				Description: `Set it to true to store certificates by CN in certs/ path`,
 			},
 
-			"store_by_serial": &framework.FieldSchema{
+			"store_by_serial": {
 				Type:        framework.TypeBool,
 				Description: `Set it to true to store certificates by unique serial number in certs/ path`,
 			},
 
-			"store_pkey": &framework.FieldSchema{
+			"store_pkey": {
 				Type:        framework.TypeBool,
 				Description: `Set it to true to store certificates privates key in certificate fields`,
 			},
 
-			"ttl": &framework.FieldSchema{
+			"ttl": {
 				Type: framework.TypeDurationSecond,
 				Description: `The lease duration if no specific lease duration is
 requested. The lease duration controls the expiration
@@ -95,12 +97,12 @@ of certificates issued by this backend. Defaults to
 the value of max_ttl.`,
 			},
 
-			"max_ttl": &framework.FieldSchema{
+			"max_ttl": {
 				Type:        framework.TypeDurationSecond,
 				Description: "The maximum allowed lease duration",
 			},
 
-			"generate_lease": &framework.FieldSchema{
+			"generate_lease": {
 				Type: framework.TypeBool,
 				Description: `
 If set, certificates issued/signed against this role will have Vault leases
@@ -238,7 +240,9 @@ func (b *backend) pathRoleCreate(ctx context.Context, req *logical.Request, data
 		TTL:             time.Duration(data.Get("ttl").(int)) * time.Second,
 		GenerateLease:   data.Get("generate_lease").(bool),
 	}
-
+	if !entry.Fakemode && entry.Apikey == "" && (entry.TPPURL == "" || entry.TPPUser == "" || entry.TPPPassword == "") {
+		return logical.ErrorResponse("Invalid mode. fakemode or apikey or tpp credentials required"), nil
+	}
 	if entry.MaxTTL > 0 && entry.TTL > entry.MaxTTL {
 		return logical.ErrorResponse(
 			`"ttl" value must be less than "max_ttl" value`,
