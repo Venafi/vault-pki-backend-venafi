@@ -171,7 +171,7 @@ fake: fake_config_write fake_cert_write fake_cert_read_certificate fake_cert_rea
 
 #Cloud role tasks
 cloud_config_write:
-	vault write $(MOUNT)/roles/$(CLOUD_ROLE) cloud_url=$(CLOUDURL) zone="$(CLOUDZONE)" apikey=$(CLOUDAPIKEY) $(ROLE_OPTIONS)
+	vault write $(MOUNT)/roles/$(CLOUD_ROLE) cloud_url=$(CLOUDURL) zone="$(CLOUDZONE)" apikey=$(CLOUDAPIKEY) $(ROLE_OPTIONS)  key_type="ec"
 cloud_config_read:
 	vault read $(MOUNT)/roles/$(CLOUD_ROLE)
 

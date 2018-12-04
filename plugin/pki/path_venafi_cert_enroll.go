@@ -235,28 +235,9 @@ func createVenafiCSR(commonName string, altNames []string, pk privateKey) (*vcer
 	}
 
 	log.Printf("Requested SAN: %s", req.DNSNames)
-	//If not set setting key size to 2048 if not set or set less than 2048
-	switch {
-	case pk.keyBits == 0:
-		req.KeyLength = defaultKeySize
-	case pk.keyBits > defaultKeySize:
-		req.KeyLength = pk.keyBits
-	default:
-		log.Printf("Key Size is less than %d, setting it to %d", defaultKeySize, defaultKeySize)
-		req.KeyLength = defaultKeySize
-	}
 
-	if pk.keyType == "rsa" || len(pk.keyType) == 0 {
-		//If not set setting key size to 2048 if not set or set less than 2048
-		switch {
-		case pk.keyBits == 0:
-			req.KeyLength = defaultKeySize
-		case pk.keyBits > defaultKeySize:
-			req.KeyLength = pk.keyBits
-		default:
-			log.Printf("Key Size is less than %d, setting it to %d", defaultKeySize, defaultKeySize)
-			req.KeyLength = defaultKeySize
-		}
+	if pk.keyType == "rsa" {
+		req.KeyLength = pk.keyBits
 	} else if pk.keyType == "ec" {
 		req.KeyType = vcertificate.KeyTypeECDSA
 		switch {

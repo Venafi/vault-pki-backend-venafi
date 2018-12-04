@@ -101,7 +101,7 @@ the key_type. Default: 2048`,
 			},
 			"key_curve": &framework.FieldSchema{
 				Type:        framework.TypeString,
-				Default: "P256",
+				Default:     "P256",
 				Description: `Key curve for EC key type. Valid values are: "P224","P256","P384","P521"`,
 			},
 			"ttl": &framework.FieldSchema{
