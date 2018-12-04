@@ -267,13 +267,6 @@ func createVenafiCSR(commonName string, altNames []string, pk privateKey) (*vcer
 		return nil, nil, err
 	}
 
-	//reader := rand.Reader
-
-	//key, err := rsa.GenerateKey(reader, req.KeyLength)
-	//if err != nil {
-	//	return req, nil, fmt.Errorf("error generating key: %s", err)
-	//}
-	//req.PrivateKey = key
 	key, err := getPrivateKeyPEMBock(req.PrivateKey)
 	if err != nil {
 		return nil, nil, err
