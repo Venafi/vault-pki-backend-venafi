@@ -74,23 +74,10 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 
 	var pk privateKey
 
-	switch pk.keyType {
-	case "RSA":
-		pk = privateKey{
-			keySize: 2048,
-			keyType: "RSA",
-		}
-	case "ECDSA":
-		pk = privateKey{
-			keyCurve: "P514",
-			keyType:  "ECDSA",
-		}
-	default:
-		pk = privateKey{
-			keySize: 2048,
-			keyType: "RSA",
-		}
-	}
+	pk.keyType = role.KeyType
+	pk.keyBits = role.KeyBits
+	pk.keyCurve = role.KeyCurve
+	log.Printf("Signing private key with parameteres %v", pk)
 
 	certReq, pkey, err := createVenafiCSR(commonName, altNames, pk)
 	if err != nil {
@@ -211,7 +198,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 }
 
 type privateKey struct {
-	keySize  int
+	keyBits  int
 	keyCurve string
 	keyType  string
 }
@@ -250,10 +237,10 @@ func createVenafiCSR(commonName string, altNames []string, pk privateKey) (*vcer
 	log.Printf("Requested SAN: %s", req.DNSNames)
 	//If not set setting key size to 2048 if not set or set less than 2048
 	switch {
-	case pk.keySize == 0:
+	case pk.keyBits == 0:
 		req.KeyLength = defaultKeySize
-	case pk.keySize > defaultKeySize:
-		req.KeyLength = pk.keySize
+	case pk.keyBits > defaultKeySize:
+		req.KeyLength = pk.keyBits
 	default:
 		log.Printf("Key Size is less than %d, setting it to %d", defaultKeySize, defaultKeySize)
 		req.KeyLength = defaultKeySize
@@ -262,10 +249,10 @@ func createVenafiCSR(commonName string, altNames []string, pk privateKey) (*vcer
 	if pk.keyType == "RSA" || len(pk.keyType) == 0 {
 		//If not set setting key size to 2048 if not set or set less than 2048
 		switch {
-		case pk.keySize == 0:
+		case pk.keyBits == 0:
 			req.KeyLength = defaultKeySize
-		case pk.keySize > defaultKeySize:
-			req.KeyLength = pk.keySize
+		case pk.keyBits > defaultKeySize:
+			req.KeyLength = pk.keyBits
 		default:
 			log.Printf("Key Size is less than %d, setting it to %d", defaultKeySize, defaultKeySize)
 			req.KeyLength = defaultKeySize
