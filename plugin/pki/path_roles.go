@@ -87,16 +87,22 @@ Example:
 				Description: `Set it to true to store certificates privates key in certificate fields`,
 			},
 			"key_type": &framework.FieldSchema{
-				Type:        framework.TypeString,
-				Description: `Set it to true to store certificates privates key in certificate fields`,
+				Type:    framework.TypeString,
+				Default: "rsa",
+				Description: `The type of key to use; defaults to RSA. "rsa"
+				and "ec" (ECDSA) are the only valid values.`,
 			},
 			"key_bits": &framework.FieldSchema{
-				Type:        framework.TypeInt,
-				Description: `Set it to true to store certificates privates key in certificate fields`,
+				Type:    framework.TypeInt,
+				Default: 2048,
+				Description: `The number of bits to use. You will almost
+certainly want to change this if you adjust
+the key_type. Default: 2048`,
 			},
 			"key_curve": &framework.FieldSchema{
 				Type:        framework.TypeString,
-				Description: `Set it to true to store certificates privates key in certificate fields`,
+				Default: "P256",
+				Description: `Key curve for EC key type. Valid values are: "P224","P256","P384","P521"`,
 			},
 			"ttl": &framework.FieldSchema{
 				Type: framework.TypeDurationSecond,

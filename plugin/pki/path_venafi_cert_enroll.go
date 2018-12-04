@@ -246,7 +246,7 @@ func createVenafiCSR(commonName string, altNames []string, pk privateKey) (*vcer
 		req.KeyLength = defaultKeySize
 	}
 
-	if pk.keyType == "RSA" || len(pk.keyType) == 0 {
+	if pk.keyType == "rsa" || len(pk.keyType) == 0 {
 		//If not set setting key size to 2048 if not set or set less than 2048
 		switch {
 		case pk.keyBits == 0:
@@ -257,10 +257,10 @@ func createVenafiCSR(commonName string, altNames []string, pk privateKey) (*vcer
 			log.Printf("Key Size is less than %d, setting it to %d", defaultKeySize, defaultKeySize)
 			req.KeyLength = defaultKeySize
 		}
-	} else if pk.keyType == "ECDSA" {
+	} else if pk.keyType == "ec" {
 		req.KeyType = vcertificate.KeyTypeECDSA
 		switch {
-		case len(pk.keyCurve) == 0 || pk.keyCurve == "P224":
+		case pk.keyCurve == "P224":
 			req.KeyCurve = vcertificate.EllipticCurveP224
 		case pk.keyCurve == "P256":
 			req.KeyCurve = vcertificate.EllipticCurveP256
@@ -268,10 +268,12 @@ func createVenafiCSR(commonName string, altNames []string, pk privateKey) (*vcer
 			req.KeyCurve = vcertificate.EllipticCurveP384
 		case pk.keyCurve == "P521":
 			req.KeyCurve = vcertificate.EllipticCurveP521
+		default:
+
 		}
 
 	} else {
-		return req, nil, fmt.Errorf("Can't determine key algorithm %s", pk.keyType)
+		return req, nil, fmt.Errorf("can't determine key algorithm %s", pk.keyType)
 	}
 
 	switch req.KeyType {
