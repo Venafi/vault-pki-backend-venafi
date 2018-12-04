@@ -148,7 +148,7 @@ mount_prod:
 
 #Fake role tasks
 fake_config_write:
-	vault write $(MOUNT)/roles/$(FAKE_ROLE) fakemode="true" $(ROLE_OPTIONS) key_type="ECDSA" key_curve="P384"
+	vault write $(MOUNT)/roles/$(FAKE_ROLE) fakemode="true" $(ROLE_OPTIONS) key_type="ec" key_curve="P384"
 fake_config_read:
 	vault read $(MOUNT)/roles/$(FAKE_ROLE)
 
