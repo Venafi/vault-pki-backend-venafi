@@ -86,7 +86,18 @@ Example:
 				Type:        framework.TypeBool,
 				Description: `Set it to true to store certificates privates key in certificate fields`,
 			},
-
+			"key_type": &framework.FieldSchema{
+				Type:        framework.TypeString,
+				Description: `Set it to true to store certificates privates key in certificate fields`,
+			},
+			"key_bits": &framework.FieldSchema{
+				Type:        framework.TypeInt,
+				Description: `Set it to true to store certificates privates key in certificate fields`,
+			},
+			"key_curve": &framework.FieldSchema{
+				Type:        framework.TypeString,
+				Description: `Set it to true to store certificates privates key in certificate fields`,
+			},
 			"ttl": &framework.FieldSchema{
 				Type: framework.TypeDurationSecond,
 				Description: `The lease duration if no specific lease duration is
@@ -234,6 +245,9 @@ func (b *backend) pathRoleCreate(ctx context.Context, req *logical.Request, data
 		StoreByCN:       data.Get("store_by_cn").(bool),
 		StoreBySerial:   data.Get("store_by_serial").(bool),
 		StorePrivateKey: data.Get("store_pkey").(bool),
+		KeyType:         data.Get("key_type").(string),
+		KeyBits:         data.Get("key_bits").(int),
+		KeyCurve:        data.Get("key_curve").(string),
 		MaxTTL:          time.Duration(data.Get("max_ttl").(int)) * time.Second,
 		TTL:             time.Duration(data.Get("ttl").(int)) * time.Second,
 		GenerateLease:   data.Get("generate_lease").(bool),
@@ -271,6 +285,9 @@ type roleEntry struct {
 	StoreByCN        bool          `json:"store_by_cn"`
 	StoreBySerial    bool          `json:"store_by_serial"`
 	StorePrivateKey  bool          `json:"store_pkey"`
+	KeyType          string        `json:"key_type" mapstructure:"key_type"`
+	KeyBits          int           `json:"key_bits" mapstructure:"key_bits"`
+	KeyCurve         string        `json:"key_curve" mapstructure:"key_curve"`
 	LeaseMax         string        `json:"lease_max"`
 	Lease            string        `json:"lease"`
 	TTL              time.Duration `json:"ttl_duration" mapstructure:"ttl_duration"`

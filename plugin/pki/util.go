@@ -3,6 +3,7 @@ package pki
 import (
 	"bytes"
 	"context"
+	"crypto/ecdsa"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
@@ -54,4 +55,19 @@ func createBackendWithStorage(t *testing.T) (*backend, logical.Storage) {
 		t.Fatal(err)
 	}
 	return b, config.StorageView
+}
+
+func getPrivateKeyPEMBock(key interface{}) (*pem.Block, error) {
+	switch k := key.(type) {
+	case *rsa.PrivateKey:
+		return &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(k)}, nil
+	case *ecdsa.PrivateKey:
+		b, err := x509.MarshalECPrivateKey(k)
+		if err != nil {
+			return nil, err
+		}
+		return &pem.Block{Type: "EC PRIVATE KEY", Bytes: b}, nil
+	default:
+		return nil, fmt.Errorf("Unable to format Key")
+	}
 }
