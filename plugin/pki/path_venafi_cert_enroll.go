@@ -236,26 +236,23 @@ func createVenafiCSR(commonName string, altNames []string, pk privateKey) (*vcer
 
 	log.Printf("Requested SAN: %s", req.DNSNames)
 
-	if pk.keyType == "rsa" {
+	switch {
+	case pk.keyType == "rsa":
 		req.KeyLength = pk.keyBits
-	} else if pk.keyType == "ec" {
-		req.KeyType = vcertificate.KeyTypeECDSA
-		switch {
-		case pk.keyCurve == "P224":
-			req.KeyCurve = vcertificate.EllipticCurveP224
-		case pk.keyCurve == "P256":
-			req.KeyCurve = vcertificate.EllipticCurveP256
-		case pk.keyCurve == "P384":
-			req.KeyCurve = vcertificate.EllipticCurveP384
-		case pk.keyCurve == "P521":
-			req.KeyCurve = vcertificate.EllipticCurveP521
-		default:
-
-		}
-
-	} else {
+	case pk.keyType == "ec":
+		req.KeyCurve = vcertificate.EllipticCurveP256
+	case pk.keyType == "ec256":
+		req.KeyCurve = vcertificate.EllipticCurveP256
+	case pk.keyType == "ec224":
+		req.KeyCurve = vcertificate.EllipticCurveP224
+	case pk.keyType == "ec384":
+		req.KeyCurve = vcertificate.EllipticCurveP384
+	case pk.keyType == "ec521":
+		req.KeyCurve = vcertificate.EllipticCurveP521
+	default:
 		return req, nil, fmt.Errorf("can't determine key algorithm %s", pk.keyType)
 	}
+
 
 	switch req.KeyType {
 	case vcertificate.KeyTypeECDSA:
