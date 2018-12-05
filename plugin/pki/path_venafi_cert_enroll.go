@@ -76,7 +76,6 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 
 	pk.keyType = role.KeyType
 	pk.keyBits = role.KeyBits
-	pk.keyCurve = role.KeyCurve
 	log.Printf("Signing private key with parameteres %v", pk)
 
 	certReq, pkey, err := createVenafiCSR(commonName, altNames, pk)
@@ -252,7 +251,6 @@ func createVenafiCSR(commonName string, altNames []string, pk privateKey) (*vcer
 	default:
 		return req, nil, fmt.Errorf("can't determine key algorithm %s", pk.keyType)
 	}
-
 
 	switch req.KeyType {
 	case vcertificate.KeyTypeECDSA:
