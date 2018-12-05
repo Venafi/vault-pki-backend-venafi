@@ -292,15 +292,15 @@ type roleEntry struct {
 	StoreByCN        bool          `json:"store_by_cn"`
 	StoreBySerial    bool          `json:"store_by_serial"`
 	StorePrivateKey  bool          `json:"store_pkey"`
-	KeyType          string        `json:"key_type" mapstructure:"key_type"`
-	KeyBits          int           `json:"key_bits" mapstructure:"key_bits"`
+	KeyType          string        `json:"key_type"`
+	KeyBits          int           `json:"key_bits"`
 	LeaseMax         string        `json:"lease_max"`
 	Lease            string        `json:"lease"`
-	TTL              time.Duration `json:"ttl_duration" mapstructure:"ttl_duration"`
-	MaxTTL           time.Duration `json:"max_ttl_duration" mapstructure:"max_ttl_duration"`
+	TTL              time.Duration `json:"ttl_duration"`
+	MaxTTL           time.Duration `json:"max_ttl_duration"`
 	GenerateLease    bool          `json:"generate_lease,omitempty"`
-	DeprecatedMaxTTL string        `json:"max_ttl" mapstructure:"max_ttl"`
-	DeprecatedTTL    string        `json:"ttl" mapstructure:"ttl"`
+	DeprecatedMaxTTL string        `json:"max_ttl"`
+	DeprecatedTTL    string        `json:"ttl"`
 }
 
 func (r *roleEntry) ToResponseData() map[string]interface{} {
