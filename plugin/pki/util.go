@@ -3,6 +3,7 @@ package pki
 import (
 	"bytes"
 	"context"
+	"crypto/ecdsa"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
@@ -37,12 +38,6 @@ func normalizeSerial(serial string) string {
 	return strings.Replace(strings.ToLower(serial), ":", "-", -1)
 }
 
-func encodePKCS1PrivateKey(pk *rsa.PrivateKey) []byte {
-	block := &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(pk)}
-
-	return pem.EncodeToMemory(block)
-}
-
 func createBackendWithStorage(t *testing.T) (*backend, logical.Storage) {
 	config := logical.TestBackendConfig()
 	config.StorageView = &logical.InmemStorage{}
@@ -55,3 +50,24 @@ func createBackendWithStorage(t *testing.T) (*backend, logical.Storage) {
 	}
 	return b, config.StorageView
 }
+
+func getPrivateKeyPEMBock(key interface{}) (*pem.Block, error) {
+	switch k := key.(type) {
+	case *rsa.PrivateKey:
+		return &pem.Block{Type: PKCS1Block, Bytes: x509.MarshalPKCS1PrivateKey(k)}, nil
+	case *ecdsa.PrivateKey:
+		b, err := x509.MarshalECPrivateKey(k)
+		if err != nil {
+			return nil, err
+		}
+		return &pem.Block{Type: ECBlock, Bytes: b}, nil
+	default:
+		return nil, fmt.Errorf("Unable to format Key")
+	}
+}
+
+const (
+	PKCS1Block string = "RSA PRIVATE KEY"
+	PKCS8Block string = "PRIVATE KEY"
+	ECBlock    string = "EC PRIVATE KEY"
+)

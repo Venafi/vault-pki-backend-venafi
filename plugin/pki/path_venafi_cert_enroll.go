@@ -3,7 +3,6 @@ package pki
 import (
 	"context"
 	"crypto/rand"
-	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
@@ -72,8 +71,14 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 	if err != nil {
 		return logical.ErrorResponse(err.Error()), nil
 	}
-	log.Println(cl)
-	certReq, pkey, err := createVenafiCSR(commonName, altNames, 2048)
+
+	var pk privateKey
+
+	pk.keyType = role.KeyType
+	pk.keyBits = role.KeyBits
+	log.Printf("Signing private key with parameteres %v", pk)
+
+	certReq, pkey, err := createVenafiCSR(commonName, altNames, pk)
 	if err != nil {
 		return logical.ErrorResponse(err.Error()), nil
 	}
@@ -116,7 +121,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 	parsedCertificate, err := x509.ParseCertificate(pemBlock.Bytes)
 	serialNumber := getHexFormatted(parsedCertificate.SerialNumber.Bytes(), ":")
 
-	encoded_key := encodePKCS1PrivateKey(pkey)
+	encoded_key := pem.EncodeToMemory(pkey)
 	log.Println("Writing chain:", chain, "And key: ", encoded_key)
 
 	var entry *logical.StorageEntry
@@ -191,7 +196,14 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 	return logResp, nil
 }
 
-func createVenafiCSR(commonName string, altNames []string, keySize int) (*vcertificate.Request, *rsa.PrivateKey, error) {
+type privateKey struct {
+	keyBits  int
+	keyCurve string
+	keyType  string
+}
+
+func createVenafiCSR(commonName string, altNames []string, pk privateKey) (*vcertificate.Request, *pem.Block, error) {
+	var err error
 	const defaultKeySize = 2048
 	req := &vcertificate.Request{}
 
@@ -222,24 +234,38 @@ func createVenafiCSR(commonName string, altNames []string, keySize int) (*vcerti
 	}
 
 	log.Printf("Requested SAN: %s", req.DNSNames)
-	//If not set setting key size to 2048 if not set or set less than 2048
+
 	switch {
-	case keySize == 0:
-		req.KeyLength = defaultKeySize
-	case keySize > defaultKeySize:
-		req.KeyLength = keySize
+	case pk.keyType == "rsa":
+		req.KeyLength = pk.keyBits
+	case pk.keyType == "ec":
+		req.KeyCurve = vcertificate.EllipticCurveP256
+	case pk.keyType == "ec256":
+		req.KeyCurve = vcertificate.EllipticCurveP256
+	case pk.keyType == "ec224":
+		req.KeyCurve = vcertificate.EllipticCurveP224
+	case pk.keyType == "ec384":
+		req.KeyCurve = vcertificate.EllipticCurveP384
+	case pk.keyType == "ec521":
+		req.KeyCurve = vcertificate.EllipticCurveP521
 	default:
-		log.Printf("Key Size is less than %d, setting it to %d", defaultKeySize, defaultKeySize)
-		req.KeyLength = defaultKeySize
+		return req, nil, fmt.Errorf("can't determine key algorithm %s", pk.keyType)
 	}
 
-	reader := rand.Reader
+	switch req.KeyType {
+	case vcertificate.KeyTypeECDSA:
+		req.PrivateKey, err = vcertificate.GenerateECDSAPrivateKey(req.KeyCurve)
+	case vcertificate.KeyTypeRSA:
+		req.PrivateKey, err = vcertificate.GenerateRSAPrivateKey(req.KeyLength)
+	default:
+		log.Printf("Unable to generate certificate request, key type %s is not supported", req.KeyType.String())
+		return nil, nil, err
+	}
 
-	key, err := rsa.GenerateKey(reader, req.KeyLength)
+	key, err := getPrivateKeyPEMBock(req.PrivateKey)
 	if err != nil {
-		return req, nil, fmt.Errorf("error generating key: %s", err)
+		return nil, nil, err
 	}
-	req.PrivateKey = key
 
 	//Setting up CSR
 	certificateRequest := x509.CertificateRequest{}
@@ -254,7 +280,10 @@ func createVenafiCSR(commonName string, altNames []string, keySize int) (*vcerti
 	zoneConfig.UpdateCertificateRequest(req)
 		...should happen somewhere here before CSR is signed */
 
-	csr, err := x509.CreateCertificateRequest(rand.Reader, &certificateRequest, key)
+	csr, err := x509.CreateCertificateRequest(rand.Reader, &certificateRequest, req.PrivateKey)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	req.CSR = csr
 
