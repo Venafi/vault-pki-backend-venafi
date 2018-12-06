@@ -42,7 +42,7 @@ func init() {
 	unseal := run(fmt.Sprintf("docker exec %s vault operator unseal %s", vaultContainerName, key))
 	fmt.Println(unseal)
 
-	auth := run(fmt.Sprintf("docker exec %s vault auth %s", vaultContainerName, token))
+	auth := run(fmt.Sprintf("docker exec %s vault login %s", vaultContainerName, token))
 	fmt.Println(auth)
 
 	s = strings.Split(run(fmt.Sprintf("docker exec %s sha256sum /vault_plugin/venafi-pki-backend", vaultContainerName)), " ")

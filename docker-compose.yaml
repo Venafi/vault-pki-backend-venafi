@@ -14,7 +14,7 @@ services:
     depends_on:
       - consul
 #   Venafi plugin image
-    image: "venafi/vault-venafi:0.1.120"
+    image: "venafi/vault-venafi:build"
 #   Uncomment if you want to use compose in dev mode
 #    build: .
     hostname: "vault"
@@ -28,7 +28,7 @@ services:
     - "ha-tpp1.sqlha.com:192.168.6.23"
     volumes:
 #    If you want to use trust bundle file option
-       - /tmp/chain.pem:/tmp/chain.pem
+       - /tmp/chain.pem:/opt/venafi/bundle.pem
 #    Uncomment this mounts if you want to use developement version of the plugin
 #      - ./scripts/tools:/tools
 #      - ./scripts/config/vault:/config
