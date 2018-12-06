@@ -54,14 +54,20 @@ func createBackendWithStorage(t *testing.T) (*backend, logical.Storage) {
 func getPrivateKeyPEMBock(key interface{}) (*pem.Block, error) {
 	switch k := key.(type) {
 	case *rsa.PrivateKey:
-		return &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(k)}, nil
+		return &pem.Block{Type: PKCS1Block, Bytes: x509.MarshalPKCS1PrivateKey(k)}, nil
 	case *ecdsa.PrivateKey:
 		b, err := x509.MarshalECPrivateKey(k)
 		if err != nil {
 			return nil, err
 		}
-		return &pem.Block{Type: "EC PRIVATE KEY", Bytes: b}, nil
+		return &pem.Block{Type: ECBlock, Bytes: b}, nil
 	default:
 		return nil, fmt.Errorf("Unable to format Key")
 	}
 }
+
+const (
+	PKCS1Block string = "RSA PRIVATE KEY"
+	PKCS8Block string = "PRIVATE KEY"
+	ECBlock    string = "EC PRIVATE KEY"
+)
