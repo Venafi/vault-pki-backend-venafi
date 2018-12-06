@@ -38,12 +38,6 @@ func normalizeSerial(serial string) string {
 	return strings.Replace(strings.ToLower(serial), ":", "-", -1)
 }
 
-func encodePKCS1PrivateKey(pk *rsa.PrivateKey) []byte {
-	block := &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(pk)}
-
-	return pem.EncodeToMemory(block)
-}
-
 func createBackendWithStorage(t *testing.T) (*backend, logical.Storage) {
 	config := logical.TestBackendConfig()
 	config.StorageView = &logical.InmemStorage{}
