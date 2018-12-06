@@ -14,7 +14,7 @@ services:
     depends_on:
       - consul
 #   Venafi plugin image
-    image: "venafi/vault-venafi:build"
+    image: "venafi/vault-venafi:0.1.120"
 #   Uncomment if you want to use compose in dev mode
 #    build: .
     hostname: "vault"
