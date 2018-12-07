@@ -89,15 +89,8 @@ Example:
 			"key_type": &framework.FieldSchema{
 				Type:    framework.TypeString,
 				Default: "rsa",
-				Description: `The type of key to use; defaults to RSA.
-					Valid values are:
-					"rsa": RSA key type
-					"ec":  ECDSA which implements P-256
-					"ecdsa_224": ECDSA which implements P-224
-					"ecdsa_256": ECDSA which implements P-256
-					"ecdsa_384": ECDSA which implements P-384
-	                "ecdsa_521": ECDSA which implements P-521
-`,
+				Description: `The type of key to use; defaults to RSA. "rsa"
+				and "ec" (ECDSA) are the only valid values.`,
 			},
 			"key_bits": &framework.FieldSchema{
 				Type:    framework.TypeInt,
@@ -105,6 +98,11 @@ Example:
 				Description: `The number of bits to use. You will almost
 certainly want to change this if you adjust
 the key_type. Default: 2048`,
+			},
+			"key_curve": &framework.FieldSchema{
+				Type:        framework.TypeString,
+				Default:     "P256",
+				Description: `Key curve for EC key type. Valid values are: "P224","P256","P384","P521"`,
 			},
 			"ttl": &framework.FieldSchema{
 				Type: framework.TypeDurationSecond,
@@ -255,6 +253,7 @@ func (b *backend) pathRoleCreate(ctx context.Context, req *logical.Request, data
 		StorePrivateKey: data.Get("store_pkey").(bool),
 		KeyType:         data.Get("key_type").(string),
 		KeyBits:         data.Get("key_bits").(int),
+		KeyCurve:        data.Get("key_curve").(string),
 		MaxTTL:          time.Duration(data.Get("max_ttl").(int)) * time.Second,
 		TTL:             time.Duration(data.Get("ttl").(int)) * time.Second,
 		GenerateLease:   data.Get("generate_lease").(bool),
@@ -294,6 +293,7 @@ type roleEntry struct {
 	StorePrivateKey  bool          `json:"store_pkey"`
 	KeyType          string        `json:"key_type"`
 	KeyBits          int           `json:"key_bits"`
+	KeyCurve         string        `json:"key_curve"`
 	LeaseMax         string        `json:"lease_max"`
 	Lease            string        `json:"lease"`
 	TTL              time.Duration `json:"ttl_duration"`
