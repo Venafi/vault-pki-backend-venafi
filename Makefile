@@ -7,6 +7,7 @@ PLUGIN_DIR := bin
 PLUGIN_PATH := $(PLUGIN_DIR)/$(PLUGIN_NAME)
 
 ###Demo scripts parameteres
+TRUST_BUNDLE := /opt/venafi/bundle.pem
 VAULT_VERSION := $(shell vault --version|awk '{print $$2}')
 VAULT_CONT := $$(docker-compose ps |grep Up|grep vault_1|awk '{print $$1}')
 DOCKER_CMD := docker exec -it $(VAULT_CONT)
@@ -210,8 +211,6 @@ cloud: cloud_config_write cloud_cert_write cloud_cert_read_certificate cloud_cer
 
 #TPP role tasks
 tpp_config_write:
-	vault write $(MOUNT)/roles/$(TPP_ROLE) tpp_url=$(TPPURL) tpp_user=$(TPPUSER) tpp_password=$(TPPPASSWORD) zone="$(TPPZONE)" $(ROLE_OPTIONS)
-tpp_config_write_trust_bundle:
 	vault write $(MOUNT)/roles/$(TPP_ROLE) tpp_url=$(TPPURL) tpp_user=$(TPPUSER) tpp_password=$(TPPPASSWORD) zone="$(TPPZONE)" trust_bundle_file=$(TRUST_BUNDLE) $(ROLE_OPTIONS)
 tpp_config_read:
 	vault read $(MOUNT)/roles/$(TPP_ROLE)
@@ -230,7 +229,7 @@ tpp_cert_read_pkey:
 	@openssl x509 -in $(CERT_TMP_FILE) -pubkey -noout -outform pem | sha256sum
 
 
-tpp: tpp_config_write_trust_bundle tpp_cert_write tpp_cert_read_certificate tpp_cert_read_pkey
+tpp: tpp_config_write tpp_cert_write tpp_cert_read_certificate tpp_cert_read_pkey
 
 
 #Consul template tasks

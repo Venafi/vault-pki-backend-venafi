@@ -1,5 +1,6 @@
 bin
 chain.pem
+bundle.pem
 credentials
 credentials-ext-cloud
 credentials-int-cloud

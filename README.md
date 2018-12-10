@@ -1,59 +1,43 @@
-# Venafi plugin backend for Hashicorp Vault
+# Venafi PKI plugin backend for HashiCorp Vault
 
-# Quickstart
+<img src="https://www.venafi.com/sites/default/files/content/body/Light_background_logo.png" width="330px" height="69px"/>  
 
-## Requirements
+This solution enables [HashiCorp Vault](https://www.vaultproject.io/) users to have certificate requests fulfilled by the [Venafi Platform](https://www.venafi.com/platform/trust-protection-platform) or [Venafi Cloud](https://pki.venafi.com/venafi-cloud/) ensuring compliance with corporate security policy and providing visibility into certificate issuance enterprise wide.
 
-1. Hashicorp Vault https://www.vaultproject.io/downloads.html
+# Requirements
 
-1. Consul template : https://github.com/hashicorp/consul-template#installation
+1. Hashicorp Vault: https://www.vaultproject.io/downloads.html
 
-1. docker-compose: https://docs.docker.com/compose/install/
+2. Consul Template: https://github.com/hashicorp/consul-template#installation
 
-# Requirements for TPP policy
+3. Docker Compose: https://docs.docker.com/compose/install/
 
-1. Policy should have default template configured
+# Requirements for usage with Trust Protection Platform
 
-2. Currently vcert (which is used in Venafi issuers) supports only user provided CSR. So it is must be set in the policy.
+> Note: The following assume certificates will be enrolled by a Microsoft Active Directory Certificate Services (ADCS) certificate authority. Other CAs will also work with this solution but may have slightly different requirements.
 
-3. MSCA configuration should have http URI set before the ldap URI in X509 extensions, otherwise NGINX ingress controller couldn't get certificate chain from URL and OSCP will not work. Example:
+1. The Microsoft CA template appropriate for issuing Vault certificates must be assigned by policy, and should have the "Automatically include CN as DNS SAN" option enabled.
+
+2. The WebSDK user that Vault will be using to authenticate with the Venafi Platform has been granted view, read, write, and create permission to their policy folder.
+
+3. The CRL distribution point and Authority Information Access (AIA) URIs configured for certificates issued by the Microsoft ADCS must start with an HTTP URI (non-default configuration).  If an LDAP URI appears first in the X509v3 extensions, NGINX ingress controllers will fail because they aren't able to retrieve CRL and OCSP information. Example:
 
 ```
 X509v3 extensions:
-    X509v3 Subject Alternative Name:
-    DNS:test-cert-manager1.venqa.venafi.com}}
-    X509v3 Subject Key Identifier: }}
-    61:5B:4D:40:F2:CF:87:D5:75:5E:58:55:EF:E8:9E:02:9D:E1:81:8E}}
-    X509v3 Authority Key Identifier: }}
-    keyid:3C:AC:9C:A6:0D:A1:30:D4:56:A7:3D:78:BC:23:1B:EC:B4:7B:4D:75}}X509v3 CRL Distribution Points:Full Name:
-    URI:http://qavenafica.venqa.venafi.com/CertEnroll/QA%20Venafi%20CA.crl}}
-    URI:ldap:///CN=QA%20Venafi%20CA,CN=qavenafica,CN=CDP,CN=Public%20Key%20Services,CN=Services,CN=Configuration,DC=venqa,DC=venafi,DC=com?certificateRevocationList?base?objectClass=cRLDistributionPoint}}{{Authority Information Access: }}
-    CA Issuers - URI:http://qavenafica.venqa.venafi.com/CertEnroll/qavenafica.venqa.venafi.com_QA%20Venafi%20CA.crt}}
-    CA Issuers - URI:ldap:///CN=QA%20Venafi%20CA,CN=AIA,CN=Public%20Key%20Services,CN=Services,CN=Configuration,DC=venqa,DC=venafi,DC=com?cACertificate?base?objectClass=certificationAuthority}}
+    X509v3 Subject Alternative Name: DNS:test-cert-manager1.venqa.venafi.com
+    X509v3 Subject Key Identifier: 61:5B:4D:40:F2:CF:87:D5:75:5E:58:55:EF:E8:9E:02:9D:E1:81:8E
+    X509v3 Authority Key Identifier: keyid:3C:AC:9C:A6:0D:A1:30:D4:56:A7:3D:78:BC:23:1B:EC:B4:7B:4D:75
+    X509v3 CRL Distribution Points: Full Name:
+        URI:http://qavenafica.venqa.venafi.com/CertEnroll/QA%20Venafi%20CA.crl
+        URI:ldap:///CN=QA%20Venafi%20CA,CN=qavenafica,CN=CDP,CN=Public%20Key%20Services,CN=Services,CN=Configuration,DC=venqa,DC=venafi,DC=com?certificateRevocationList?base?objectClass=cRLDistributionPoint
+    Authority Information Access:
+        CA Issuers - URI:http://qavenafica.venqa.venafi.com/CertEnroll/qavenafica.venqa.venafi.com_QA%20Venafi%20CA.crt
+        CA Issuers - URI:ldap:///CN=QA%20Venafi%20CA,CN=AIA,CN=Public%20Key%20Services,CN=Services,CN=Configuration,DC=venqa,DC=venafi,DC=com?cACertificate?base?objectClass=certificationAuthority
 ```
 
-4. Option in TPP CA configuration template "Automatically include CN as DNS SAN" should be set to true.
+### Establishing Trust between Vault and Trust Protection Platform
 
-### Import trust chain for the Platform
-
-If Venafi Platform uses an internal (self-signed) certificate, you must get your server root certificate
-using open ssl command below and provide it as an option to the 'trust_bundle_file' vault parameter. Otherwise, the plugin will fail because of untrusted certificate error.
-Use the following command to import the certificate to the chain.pem file.
-
-To get server certificate run following openssl command
-
-```
-echo | openssl s_client -showcerts -servername TPP_ADDRESS -connect TPP_ADDRESS:TPP_PORT | openssl x509 -outform pem -out chain.pem
-```
-
-Example:
-
-```
-echo | openssl s_client -showcerts -servername venafi.example.com -connect venafi.example.com:5008 | openssl x509 -outform pem -out chain.pem
-```
-
-Example of configuring vault role with trust bundle:
-
+It is not common for the Venafi Platform's REST API (WebSDK) to be secured using a certificate issued by a publicly trusted CA, therefore establishing trust for that server certificate is a critical part of your configuration.  Ideally this is done by obtaining the root CA certificate in the issuing chain in PEM format and copying that file to your Vault server (e.g. /opt/venafi/bundle.pem).  You then reference that file whenever you create a new PKI role in your Vault using the 'trust_bundle_file' parameter like this:
 
 ```
 vault write venafi-pki/roles/custom-tpp \
@@ -65,62 +49,62 @@ vault write venafi-pki/roles/custom-tpp \
     store_by_cn="true" \
     store_by_serial="true" \
     store_pkey="true" \
-    trust_bundle_file="./chain.pem"
+    trust_bundle_file="/opt/venafi/bundle.pem"
 ```
 
+# Quickstart, Step by Step
+> Note: Here we'll use a Makefile to encapsulate several command sequences in a single step. For specific details on those commands and their parameters, please review the contents of the [Makefile](Makefile) itself.
 
-## Step by step
-1. Export your Venafi Platform or Cloud configuration variables (or both)
+1. Export your Venafi Platform and/or Venafi Cloud configuration variables
 
-    Platfrom variables:
+    Venafi Platform variables:
     ```
-    export TPPUSER=<web API user for Venafi Platfrom Example: admin>
-    export TPPPASSWORD=<Password for web API user Example: password>
-    export TPPURL=<URL of Venafi Platform Example: https://venafi.example.com/vedsdk>
-    export TPPZONE=<Prepared Platform policy>
+    export TPPUSER=<WebSDK User for Venafi Platform, e.g. "admin">
+    export TPPPASSWORD=<Password for WebSDK User, e.g. "password">
+    export TPPURL=<URL of Venafi Platform WebSDK, e.g. "https://venafi.example.com/vedsdk">
+    export TPPZONE=<Name of the policy folder under which all certificates will be requested>
+    export TRUST_BUNDLE=/bundle.pem
     ```
 
-    Platform policy name could be tricky. If you have spaces enter policy in double quotes:
+    The syntax for the Venafi Platform policy folder can be tricky. If the policy folder name contains spaces then it must be wrapped in double quotes like this:
     ```
     export TPPZONE="My Policy"
     ```
 
-    And if you have backslash (nested policy) you should enter four backslashes:
+    And if the policy folder is not at the root of the policy tree (nested folder) you need to escape the backslash delimiters twice (four backslashes in total):
     ```
-    export TPPZONE="first\\\\second"
-    ```
-
-
-    Cloud variables:
-    ```
-    export CLOUDAPIKEY=<API key for cloud Example: 142231b7-cvb0-412e-886b-6aeght0bc93d>
-    export CLOUDZONE=<Cloud policy for requesting certificates Example: Default>
-    export CLOUDURL=<Set it only if you want to use non production Cloud>
+    export TPPZONE="Parent Folder\\\\Child Folder"
     ```
 
-1. Run `make prod`
+    Venafi Cloud variables:
+    ```
+    export CLOUDAPIKEY=<API key for Venafi Cloud, e.g. "142231b7-cvb0-412e-886b-6aeght0bc93d">
+    export CLOUDZONE=<Zone that governs all certificates that are requested, e.g. "Default">
+    export CLOUDURL=<only set when instructed to use a non-production instance of Venafi Cloud>
+    ```
 
-3. Follow instructions: enter unseal key, enter root token
+2. Run `make prod`
 
-4. Export root token to the VAULT_TOKEN variable (seet example in the output)
+3. Follow the Vault's on screen instructions to enter the unseal key and then the root token
+
+4. Export the root token to the VAULT_TOKEN variable (see example in the output)
     ```
     export VAULT_TOKEN="enter-root-token-here"
     ```
 
-5. Check vault status on http://localhost:8200/ui (need ROOT token) and consul on http://localhost:8500
+5. Check Vault status on http://localhost:8200/ui (root token required) and Consul on http://localhost:8500
 
-4. Run `make consul_template_fake -e` to check that vault is working
+6. Run `make consul_template_fake -e` to check that Vault is working
 
-4. Run following commands to check Paltfrom
+7. Run the following commands to check Venafi Platform
     ```
-
     make consul_template_tpp -e
     echo|openssl s_client -connect localhost:3443
     ```
 
     Or go to the URL https://127.0.0.1:3443
 
-8. Run following commands to check Cloud
+8. Run the following commands to check Venafi Cloud
     ```
     make consul_template_cloud -e
     echo|openssl s_client -connect localhost:2443
@@ -128,15 +112,14 @@ vault write venafi-pki/roles/custom-tpp \
 
     Or go to the URL https://127.0.0.1:2443
 
-
-10. You also can check how vault is working without consul template by running following commands for Fake, Platform and Cloud endpoints:
+9. You also can check how Vault is working without using a Consul Template by running the following commands for Fake, Platform and Cloud endpoints, respectively:
     ```
     make fake -e
-    make tpp -r
+    make tpp -e
     make cloud -e
     ```
 
-11. Cleanup:
+10. Cleanup:
     ```
     docker-compose down
     docker ps|grep vault-demo-nginx|awk '{print $1}'|xargs docker rm -f
@@ -144,58 +127,59 @@ vault write venafi-pki/roles/custom-tpp \
 
 # Usage scenarios
 
-Firstly you need to mount the plugin, you can do it by running `make prod` as it described in previous section. Or manually, using following instructions:
+Firstly you need to mount the plugin which you can do by running `make prod` as described in the previous section. You can also do it manually, using following instructions:
 
-1. If you want to use different plugin image edit image section in vault service in docker-compose.yaml file .
+1. If you want to use different plugin image, edit the image section under vault service in the [docker-compose.yaml](docker-compose.yaml) file.
 
-1. Start docker compose configuration:
+2. Start Docker Compose using the configuration:
     ```
     docker-compose up -d
     ```
 
-2. Check that all services started using commands:
+3. Check that all services started using the following commands:
     ```
     docker-compose ps
     docker-compose logs
     ```
-2. Login into started vault container:
+
+4. Log into the running Vault container:
     ```
     docker exec -it $(docker-compose ps |grep Up|grep vault_1|awk '{print $1}') sh
     ```
 
-3. Set VAULT_ADDR variable
+5. Set the VAULT_ADDR variable:
     ```
     export VAULT_ADDR='http://127.0.0.1:8200'
     ```
 
-3. Initialize the Vault:
+6. Initialize the Vault:
     ```
     vault operator init -key-shares=1 -key-threshold=1
     ```
     Here we intializing the Vault with only 1 unseal key part, this is not recommended for production usage. Read more - https://www.vaultproject.io/docs/concepts/seal.html
 
-4. Enter unseal key, you'll see it as "Unseal Key 1":
+7. Enter the unseal key, you'll see it as "Unseal Key 1":
     ```
-    vault operator unseal UNSEAL_KEY_HEERE
+    vault operator unseal UNSEAL_KEY_HERE
     ```
 
-5. Authenticate with root token, you will see it as "Initial Root Token"
+8. Authenticate with the root token, you will see it as "Initial Root Token":
     ```
     vault auth
     ```
 
-6. After successfull authentication get sha 256 checksum of binary plugin and store it in variable:
+9. After successfull authentication get the SHA-256 checksum of plugin binary and store it in variable:
     ```
     SHA256=`sha256sum "/vault_plugin/venafi-pki-backend" | cut -d' ' -f1`
     echo $SHA256
     ```
 
-7. "Write" plugin into the Vault
+10. "Write" the plugin into the Vault:
     ```
     vault write sys/plugins/catalog/venafi-pki-backend sha_256="$SHA256" command="venafi-pki-backend"
     ```
 
-8. Enable Venafi secret backend
+11. Enable the Venafi secret backend:
     ```
     vault secrets enable -path=venafi-pki -plugin-name=venafi-pki-backend plugin
     ```
@@ -213,7 +197,8 @@ vault write venafi-pki/roles/custom-tpp \
     generate_lease=true \
     store_by_cn="true" \
     store_by_serial="true" \
-    store_pkey="true"
+    store_pkey="true" \
+    trust_bundle_file="/opt/venafi/bundle.pem"
 ```
 
 To setup proper parameters please read path help for the role configuration:
@@ -371,28 +356,27 @@ Delete container with running application
 docker rm -f hello-node-ssl
 ```
 
-# Developement quickstart (for Linux only)
-
+# Development Quickstart (for Linux only)
 
 1. Configure Go build environement (https://golang.org/doc/install) 
 
-2. Change dir to the project directory and make sure you don't have sym link in the path (Vault don't allow symlinks in the plugin paths). You can do it by running `cd $(pwd -P)`
+2. Change to the project directory and make sure you don't have any symbolic link in the path (Vault doesn't allow symlinks in the plugin paths). You can do it by running `cd $(pwd -P)`
 
-2. Run `unset VAULT_TOKEN && make dev_server` it will start vault in developement mode
+3. Run `unset VAULT_TOKEN && make dev_server` to start Vault in development mode
 
-2. Open new windown in the same directory unset AUTH_TOKEN and export VAULT_ADDRT
+4. Open new window in the same directory and run
 ```
 unset VAULT_TOKEN
 export VAULT_ADDR='http://127.0.0.1:8200'
 ```
 
-3. Run `vault unseal` and enter unseal key (look for it in the server window) 
+5. Run `vault unseal` and enter unseal key (look for it in the server window) 
 
-4. Put the latest vcert code to your $GOPATH
+6. Put the latest VCert code to your $GOPATH
 
-3. Run `make dev` it will build the plugin and mount it to the vault
+7. Run `make dev` to build the plugin and mount it to the Vault
 
-4. Run `make fake` it will run configuration which is using fake CA to generate certificate. Check the output you should see something like this:
+8. Run `make fake` to use the configuration with a temporary CA generating the certificate. Check the output you should see something like this:
 
 ```
 vault read -field=Chain venafi-pki/certs/fake|openssl x509 -text -inform pem -noout -certopt no_header,no_version,no_serial,no_signame,no_pubkey,no_sigdump,no_aux
@@ -408,30 +392,31 @@ vault read -field=Chain venafi-pki/certs/fake|openssl x509 -text -inform pem -no
                 CA:FALSE
             X509v3 Authority Key Identifier: 
                 keyid:CE:A4:45:0E:F2:D7:D2:6C:F8:02:33:DB:E3:9B:4B:19:AB:E6:F0:07
-
             X509v3 Subject Alternative Name: 
                 DNS:alt-bnhz5.fake.example.com, DNS:alt2-bnhz5.fake.example.com, DNS:fake-bnhz5.fake.example.com
-
 ```
 
-5. Edit Makefile and configure credentials for the Venafi Cloud and TPP
+5. Edit Makefile and configure credentials for the Venafi Cloud and/or Venafi Platform
 
-6. Run `make cloud` and `make tpp` to check the cloud and TPP functionality.
+6. Run `make cloud` and `make tpp` to check the Cloud and TPP functionality.
 
 # Deploy new image for prod
 
-1. Run `make push`, this will build binary, docker image and deploy it to the docker  hub.
+1. Run `make push` to build the plugin binary and docker image, then deploy the image to DockerHub.
 
 # Debug information
 
-1. run `make server_debug`
+1. Run `make server_debug`
 
-2. connect to the dlv server using debuger setup (pki-backend-debug in idea for example)
-3. unseal the vault
+2. Connect to the dlv server using debugger setup (pki-backend-debug in idea, for example)
+
+3. Unseal the Vault
 
 # Testing
-There're integration tests written on Ginkgo: https://github.com/onsi/ginkgo
-To run them install ginkgo cli:
+
+There are integration tests written on Ginkgo: https://github.com/onsi/ginkgo
+
+To run them install Ginkgo CLI:
 ```
 go get -u github.com/onsi/ginkgo/ginkgo
 ```
