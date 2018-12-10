@@ -50,12 +50,29 @@ FAKE_ISSUER_CN = VCert Test Mode CA
 unset:
 	unset VAULT_TOKEN
 
-#Build and push
-build_go:
-	go build -o $(PLUGIN_PATH) || exit 1
-	chmod +x $(PLUGIN_PATH)
 
-build: build_go
+#Build
+build:
+	env CGO_ENABLED=0 GOOS=linux   GOARCH=amd64 go build -ldflags '-s -w -extldflags "-static"' -a -o $(PLUGIN_DIR)/linux/$(PLUGIN_NAME) || exit 1
+	env CGO_ENABLED=0 GOOS=linux   GOARCH=386   go build -ldflags '-s -w -extldflags "-static"' -a -o $(PLUGIN_DIR)/linux86/$(PLUGIN_NAME) || exit 1
+	env CGO_ENABLED=0 GOOS=darwin  GOARCH=amd64 go build -ldflags '-s -w -extldflags "-static"' -a -o $(PLUGIN_DIR)/darwin/$(PLUGIN_NAME) || exit 1
+	env CGO_ENABLED=0 GOOS=darwin  GOARCH=386   go build -ldflags '-s -w -extldflags "-static"' -a -o $(PLUGIN_DIR)/darwin86/$(PLUGIN_NAME) || exit 1
+	env CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags '-s -w -extldflags "-static"' -a -o $(PLUGIN_DIR)/windows/$(PLUGIN_NAME).exe || exit 1
+	env CGO_ENABLED=0 GOOS=windows GOARCH=386   go build -ldflags '-s -w -extldflags "-static"' -a -o $(PLUGIN_DIR)/windows86/$(PLUGIN_NAME).exe || exit 1
+	chmod +x $(PLUGIN_DIR)/*
+
+compress:
+	mkdir -p $(DIST_DIR)
+	rm -f $(DIST_DIR)/*
+	zip -j "${CURRENT_DIR}/$(DIST_DIR)/${PLUGIN_NAME}_${VERSION}_linux.zip" "$(PLUGIN_DIR)/linux/$(PLUGIN_NAME)" || exit 1
+	zip -j "${CURRENT_DIR}/$(DIST_DIR)/${PLUGIN_NAME}_${VERSION}_linux86.zip" "$(PLUGIN_DIR)/linux86/$(PLUGIN_NAME)" || exit 1
+	zip -j "${CURRENT_DIR}/$(DIST_DIR)/${PLUGIN_NAME}_${VERSION}_darwin.zip" "$(PLUGIN_DIR)/darwin/$(PLUGIN_NAME)" || exit 1
+	zip -j "${CURRENT_DIR}/$(DIST_DIR)/${PLUGIN_NAME}_${VERSION}_darwin86.zip" "$(PLUGIN_DIR)/darwin86/$(PLUGIN_NAME)" || exit 1
+	zip -j "${CURRENT_DIR}/$(DIST_DIR)/${PLUGIN_NAME}_${VERSION}_windows.zip" "$(PLUGIN_DIR)/windows/$(PLUGIN_NAME).exe" || exit 1
+	zip -j "${CURRENT_DIR}/$(DIST_DIR)/${PLUGIN_NAME}_${VERSION}_windows86.zip" "$(PLUGIN_DIR)/windows86/$(PLUGIN_NAME).exe" || exit 1
+
+
+build_docker:
 	docker build -t $(DOCKER_IMAGE):$(BUILD_TAG) .
 
 test: test_go test_e2e
@@ -72,7 +89,7 @@ test_e2e:
 	sed -i "s#image:.*$(IMAGE_NAME).*#image: $(DOCKER_IMAGE):$(BUILD_TAG)#" docker-compose.yaml
 	cd plugin/pki/test/e2e/ && ginkgo -v
 
-push: build test_e2e
+push: build build_docker test_e2e
 	docker push $(DOCKER_IMAGE):$(BUILD_TAG)
 
 
@@ -122,9 +139,9 @@ prod_server_unseal:
 	@echo Enter unseal key:
 	$(VAULT_CMD) operator unseal
 
-prod_server_auth:
+prod_server_login:
 	@echo Enter root token:
-	$(VAULT_CMD) auth
+	$(VAULT_CMD) login
 
 prod_server_down:
 	docker-compose down --remove-orphans
@@ -135,7 +152,7 @@ prod_server_logs:
 prod_server_sh:
 	$(DOCKER_CMD) sh
 
-prod: prod_server_prepare prod_server_down prod_server_up prod_server_init prod_server_unseal prod_server_auth mount_prod
+prod: prod_server_prepare prod_server_down prod_server_up prod_server_init prod_server_unseal prod_server_login mount_prod
 	@echo "Vault started. To run make command export VAULT_TOKEN variable and run make with -e flag, for example:"
 	@echo "export VAULT_TOKEN=enter-root-token-here"
 	@echo "make cloud -e"
@@ -149,7 +166,7 @@ mount_prod:
 
 #Fake role tasks
 fake_config_write:
-	vault write $(MOUNT)/roles/$(FAKE_ROLE) fakemode="true" $(ROLE_OPTIONS)
+	vault write $(MOUNT)/roles/$(FAKE_ROLE) fakemode="true" $(ROLE_OPTIONS) key_type="ec" key_curve="P384"
 fake_config_read:
 	vault read $(MOUNT)/roles/$(FAKE_ROLE)
 
@@ -172,7 +189,7 @@ fake: fake_config_write fake_cert_write fake_cert_read_certificate fake_cert_rea
 
 #Cloud role tasks
 cloud_config_write:
-	vault write $(MOUNT)/roles/$(CLOUD_ROLE) cloud_url=$(CLOUDURL) zone="$(CLOUDZONE)" apikey=$(CLOUDAPIKEY) $(ROLE_OPTIONS)
+	vault write $(MOUNT)/roles/$(CLOUD_ROLE) cloud_url=$(CLOUDURL) zone="$(CLOUDZONE)" apikey=$(CLOUDAPIKEY) $(ROLE_OPTIONS)  key_type="ec"
 cloud_config_read:
 	vault read $(MOUNT)/roles/$(CLOUD_ROLE)
 
