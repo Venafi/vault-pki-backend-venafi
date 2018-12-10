@@ -11,6 +11,8 @@ import (
 	"github.com/hashicorp/vault/logical"
 	"strings"
 	"testing"
+	"time"
+	"math/rand"
 )
 
 func sliceContains(slice []string, item string) bool {
@@ -64,6 +66,16 @@ func getPrivateKeyPEMBock(key interface{}) (*pem.Block, error) {
 	default:
 		return nil, fmt.Errorf("Unable to format Key")
 	}
+}
+
+func randSeq(n int) string {
+	rand.Seed(time.Now().UTC().UnixNano())
+	var letters = []rune("abcdefghijklmnopqrstuvwxyz1234567890")
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = letters[rand.Intn(len(letters))]
+	}
+	return string(b)
 }
 
 const (
