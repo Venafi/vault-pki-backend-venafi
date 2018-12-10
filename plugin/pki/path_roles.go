@@ -86,7 +86,24 @@ Example:
 				Type:        framework.TypeBool,
 				Description: `Set it to true to store certificates privates key in certificate fields`,
 			},
-
+			"key_type": &framework.FieldSchema{
+				Type:    framework.TypeString,
+				Default: "rsa",
+				Description: `The type of key to use; defaults to RSA. "rsa"
+				and "ec" (ECDSA) are the only valid values.`,
+			},
+			"key_bits": &framework.FieldSchema{
+				Type:    framework.TypeInt,
+				Default: 2048,
+				Description: `The number of bits to use. You will almost
+certainly want to change this if you adjust
+the key_type. Default: 2048`,
+			},
+			"key_curve": &framework.FieldSchema{
+				Type:        framework.TypeString,
+				Default:     "P256",
+				Description: `Key curve for EC key type. Valid values are: "P224","P256","P384","P521"`,
+			},
 			"ttl": &framework.FieldSchema{
 				Type: framework.TypeDurationSecond,
 				Description: `The lease duration if no specific lease duration is
@@ -234,6 +251,9 @@ func (b *backend) pathRoleCreate(ctx context.Context, req *logical.Request, data
 		StoreByCN:       data.Get("store_by_cn").(bool),
 		StoreBySerial:   data.Get("store_by_serial").(bool),
 		StorePrivateKey: data.Get("store_pkey").(bool),
+		KeyType:         data.Get("key_type").(string),
+		KeyBits:         data.Get("key_bits").(int),
+		KeyCurve:        data.Get("key_curve").(string),
 		MaxTTL:          time.Duration(data.Get("max_ttl").(int)) * time.Second,
 		TTL:             time.Duration(data.Get("ttl").(int)) * time.Second,
 		GenerateLease:   data.Get("generate_lease").(bool),
@@ -271,13 +291,16 @@ type roleEntry struct {
 	StoreByCN        bool          `json:"store_by_cn"`
 	StoreBySerial    bool          `json:"store_by_serial"`
 	StorePrivateKey  bool          `json:"store_pkey"`
+	KeyType          string        `json:"key_type"`
+	KeyBits          int           `json:"key_bits"`
+	KeyCurve         string        `json:"key_curve"`
 	LeaseMax         string        `json:"lease_max"`
 	Lease            string        `json:"lease"`
-	TTL              time.Duration `json:"ttl_duration" mapstructure:"ttl_duration"`
-	MaxTTL           time.Duration `json:"max_ttl_duration" mapstructure:"max_ttl_duration"`
+	TTL              time.Duration `json:"ttl_duration"`
+	MaxTTL           time.Duration `json:"max_ttl_duration"`
 	GenerateLease    bool          `json:"generate_lease,omitempty"`
-	DeprecatedMaxTTL string        `json:"max_ttl" mapstructure:"max_ttl"`
-	DeprecatedTTL    string        `json:"ttl" mapstructure:"ttl"`
+	DeprecatedMaxTTL string        `json:"max_ttl"`
+	DeprecatedTTL    string        `json:"ttl"`
 }
 
 func (r *roleEntry) ToResponseData() map[string]interface{} {
