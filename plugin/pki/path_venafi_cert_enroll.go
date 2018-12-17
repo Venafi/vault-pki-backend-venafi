@@ -106,7 +106,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 				return logical.ErrorResponse(err.Error()), nil
 			}
 		}
-		log.Printf("Certificate is %s", cert)
+		log.Printf("Certificate is %s", *cert)
 		log.Printf("successfully got certificate: cn=%q altNames=%+v", commonName, altNames)
 		break
 	}
@@ -115,7 +115,6 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 	cs := append([]string{cert.Certificate}, cert.Chain...)
 	chain := strings.Join(cs, "\n")
 	log.Println("certificate: ", chain)
-	log.Println("private_key: ", certReq.PrivateKey)
 
 	//Parsing certificate and getting it's serial number
 	pemBlock, _ := pem.Decode([]byte(certificate))
@@ -124,6 +123,8 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 
 	encoded_key := pem.EncodeToMemory(pkey)
 	log.Println("Writing chain:", chain, "And key: ", encoded_key)
+	encoded_key := encodePKCS1PrivateKey(pkey)
+	log.Println("Writing chain:", chain, "And key: ", string(encoded_key))
 
 	var entry *logical.StorageEntry
 
