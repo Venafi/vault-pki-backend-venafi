@@ -109,7 +109,6 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 	cs := append([]string{cert.Certificate}, cert.Chain...)
 	chain := strings.Join(cs, "\n")
 	log.Println("certificate: ", chain)
-	log.Printf("private_key: %+v\n", certReq.PrivateKey)
 
 	//Parsing certificate and getting it's serial number
 	pemBlock, _ := pem.Decode([]byte(certificate))
