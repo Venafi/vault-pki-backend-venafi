@@ -30,7 +30,6 @@ import (
 	"time"
 
 	"golang.org/x/net/context"
-	"golang.org/x/net/trace"
 	"google.golang.org/grpc/balancer"
 	_ "google.golang.org/grpc/balancer/roundrobin" // To register roundrobin.
 	"google.golang.org/grpc/codes"
@@ -875,7 +874,6 @@ type addrConn struct {
 
 	cc     *ClientConn
 	dopts  dialOptions
-	events trace.EventLog
 	acbw   balancer.SubConn
 	scopts balancer.NewSubConnOptions
 
@@ -932,22 +930,6 @@ func (ac *addrConn) adjustParams(r transport.GoAwayReason) {
 	}
 }
 
-// printf records an event in ac's event log, unless ac has been closed.
-// REQUIRES ac.mu is held.
-func (ac *addrConn) printf(format string, a ...interface{}) {
-	if ac.events != nil {
-		ac.events.Printf(format, a...)
-	}
-}
-
-// errorf records an error in ac's event log, unless ac has been closed.
-// REQUIRES ac.mu is held.
-func (ac *addrConn) errorf(format string, a ...interface{}) {
-	if ac.events != nil {
-		ac.events.Errorf(format, a...)
-	}
-}
-
 // resetTransport makes sure that a healthy ac.transport exists.
 //
 // The transport will close itself when it encounters an error, or on GOAWAY, or on deadline waiting for handshake, or
@@ -983,6 +965,7 @@ func (ac *addrConn) resetTransport(resolveNow bool) {
 			ac.updateConnectivityState(connectivity.TransientFailure)
 			ac.cc.handleSubConnStateChange(ac.acbw, ac.state)
 		}
+		ac.transport = nil
 		ac.mu.Unlock()
 
 		if err := ac.nextAddr(); err != nil {
@@ -994,7 +977,6 @@ func (ac *addrConn) resetTransport(resolveNow bool) {
 			ac.mu.Unlock()
 			return
 		}
-		ac.transport = nil
 
 		backoffIdx := ac.backoffIdx
 		backoffFor := ac.dopts.bs.Backoff(backoffIdx)
@@ -1023,7 +1005,6 @@ func (ac *addrConn) resetTransport(resolveNow bool) {
 			return
 		}
 
-		ac.printf("connecting")
 		if ac.state != connectivity.Connecting {
 			ac.updateConnectivityState(connectivity.Connecting)
 			ac.cc.handleSubConnStateChange(ac.acbw, ac.state)
@@ -1059,6 +1040,10 @@ func (ac *addrConn) createTransport(backoffNum int, addr resolver.Address, copts
 	prefaceReceived := make(chan struct{})
 	onCloseCalled := make(chan struct{})
 
+	var prefaceMu sync.Mutex
+	var serverPrefaceReceived bool
+	var clientPrefaceWrote bool
+
 	onGoAway := func(r transport.GoAwayReason) {
 		ac.mu.Lock()
 		ac.adjustParams(r)
@@ -1081,9 +1066,6 @@ func (ac *addrConn) createTransport(backoffNum int, addr resolver.Address, copts
 		case <-skipReset: // The outer resetTransport loop will handle reconnection.
 			return
 		case <-allowedToReset: // We're in the clear to reset.
-			ac.mu.Lock()
-			ac.transport = nil
-			ac.mu.Unlock()
 			oneReset.Do(func() { ac.resetTransport(false) })
 		}
 	}
@@ -1100,11 +1082,18 @@ func (ac *addrConn) createTransport(backoffNum int, addr resolver.Address, copts
 
 		// TODO(deklerk): optimization; does anyone else actually use this lock? maybe we can just remove it for this scope
 		ac.mu.Lock()
-		ac.successfulHandshake = true
-		ac.backoffDeadline = time.Time{}
-		ac.connectDeadline = time.Time{}
-		ac.addrIdx = 0
-		ac.backoffIdx = 0
+
+		prefaceMu.Lock()
+		serverPrefaceReceived = true
+		if clientPrefaceWrote {
+			ac.successfulHandshake = true
+			ac.backoffDeadline = time.Time{}
+			ac.connectDeadline = time.Time{}
+			ac.addrIdx = 0
+			ac.backoffIdx = 0
+		}
+		prefaceMu.Unlock()
+
 		ac.mu.Unlock()
 	}
 
@@ -1117,6 +1106,13 @@ func (ac *addrConn) createTransport(backoffNum int, addr resolver.Address, copts
 	newTr, err := transport.NewClientTransport(connectCtx, ac.cc.ctx, target, copts, onPrefaceReceipt, onGoAway, onClose)
 
 	if err == nil {
+		prefaceMu.Lock()
+		clientPrefaceWrote = true
+		if serverPrefaceReceived {
+			ac.successfulHandshake = true
+		}
+		prefaceMu.Unlock()
+
 		if ac.dopts.waitForHandshake {
 			select {
 			case <-prefaceTimer.C:
@@ -1160,8 +1156,6 @@ func (ac *addrConn) createTransport(backoffNum int, addr resolver.Address, copts
 
 			return errConnClosing
 		}
-		ac.updateConnectivityState(connectivity.TransientFailure)
-		ac.cc.handleSubConnStateChange(ac.acbw, ac.state)
 		ac.mu.Unlock()
 		grpclog.Warningf("grpc: addrConn.createTransport failed to connect to %v. Err :%v. Reconnecting...", addr, err)
 
@@ -1185,7 +1179,6 @@ func (ac *addrConn) createTransport(backoffNum int, addr resolver.Address, copts
 		return errConnClosing
 	}
 
-	ac.printf("ready")
 	ac.updateConnectivityState(connectivity.Ready)
 	ac.cc.handleSubConnStateChange(ac.acbw, ac.state)
 	ac.transport = newTr
@@ -1302,10 +1295,6 @@ func (ac *addrConn) tearDown(err error) {
 		ac.mu.Unlock()
 		ac.transport.GracefulClose()
 		ac.mu.Lock()
-	}
-	if ac.events != nil {
-		ac.events.Finish()
-		ac.events = nil
 	}
 	if channelz.IsOn() {
 		channelz.AddTraceEvent(ac.channelzID, &channelz.TraceEventDesc{
