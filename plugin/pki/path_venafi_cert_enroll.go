@@ -122,8 +122,6 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 	serialNumber := getHexFormatted(parsedCertificate.SerialNumber.Bytes(), ":")
 
 	encoded_key := pem.EncodeToMemory(pkey)
-	log.Println("Writing chain:", chain, "And key: ", encoded_key)
-	encoded_key := encodePKCS1PrivateKey(pkey)
 	log.Println("Writing chain:", chain, "And key: ", string(encoded_key))
 
 	var entry *logical.StorageEntry
