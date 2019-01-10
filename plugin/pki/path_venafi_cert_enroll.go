@@ -76,6 +76,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 
 	pk.keyType = role.KeyType
 	pk.keyBits = role.KeyBits
+	pk.keyCurve = role.KeyCurve
 	log.Printf("Signing private key with parameteres %v", pk)
 
 	certReq, pkey, err := createVenafiCSR(commonName, altNames, pk)
@@ -105,7 +106,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 				return logical.ErrorResponse(err.Error()), nil
 			}
 		}
-		log.Printf("Certificate is %s", cert)
+		log.Printf("Certificate is %s", *cert)
 		log.Printf("successfully got certificate: cn=%q altNames=%+v", commonName, altNames)
 		break
 	}
@@ -114,7 +115,6 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 	cs := append([]string{cert.Certificate}, cert.Chain...)
 	chain := strings.Join(cs, "\n")
 	log.Println("certificate: ", chain)
-	log.Println("private_key: ", certReq.PrivateKey)
 
 	//Parsing certificate and getting it's serial number
 	pemBlock, _ := pem.Decode([]byte(certificate))
@@ -122,7 +122,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 	serialNumber := getHexFormatted(parsedCertificate.SerialNumber.Bytes(), ":")
 
 	encoded_key := pem.EncodeToMemory(pkey)
-	log.Println("Writing chain:", chain, "And key: ", encoded_key)
+	log.Println("Writing chain:", chain, "And key: ", string(encoded_key))
 
 	var entry *logical.StorageEntry
 
@@ -235,20 +235,24 @@ func createVenafiCSR(commonName string, altNames []string, pk privateKey) (*vcer
 
 	log.Printf("Requested SAN: %s", req.DNSNames)
 
-	switch {
-	case pk.keyType == "rsa":
+	if pk.keyType == "rsa" {
 		req.KeyLength = pk.keyBits
-	case pk.keyType == "ec":
-		req.KeyCurve = vcertificate.EllipticCurveP256
-	case pk.keyType == "ec256":
-		req.KeyCurve = vcertificate.EllipticCurveP256
-	case pk.keyType == "ec224":
-		req.KeyCurve = vcertificate.EllipticCurveP224
-	case pk.keyType == "ec384":
-		req.KeyCurve = vcertificate.EllipticCurveP384
-	case pk.keyType == "ec521":
-		req.KeyCurve = vcertificate.EllipticCurveP521
-	default:
+	} else if pk.keyType == "ec" {
+		req.KeyType = vcertificate.KeyTypeECDSA
+		switch {
+		case pk.keyCurve == "P224":
+			req.KeyCurve = vcertificate.EllipticCurveP224
+		case pk.keyCurve == "P256":
+			req.KeyCurve = vcertificate.EllipticCurveP256
+		case pk.keyCurve == "P384":
+			req.KeyCurve = vcertificate.EllipticCurveP384
+		case pk.keyCurve == "P521":
+			req.KeyCurve = vcertificate.EllipticCurveP521
+		default:
+
+		}
+
+	} else {
 		return req, nil, fmt.Errorf("can't determine key algorithm %s", pk.keyType)
 	}
 

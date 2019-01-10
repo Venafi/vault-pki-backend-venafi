@@ -1,3 +1,7 @@
+###Metadata about this makefile and position
+MKFILE_PATH := $(lastword $(MAKEFILE_LIST))
+CURRENT_DIR := $(patsubst %/,%,$(dir $(realpath $(MKFILE_PATH))))
+
 ###Build parameters
 IMAGE_NAME := vault-venafi
 DOCKER_IMAGE := venafi/$(IMAGE_NAME)
@@ -5,6 +9,8 @@ BUILD_TAG := build
 PLUGIN_NAME := venafi-pki-backend
 PLUGIN_DIR := bin
 PLUGIN_PATH := $(PLUGIN_DIR)/$(PLUGIN_NAME)
+DIST_DIR := bin/dist
+VERSION := 0.3-11.5.161
 
 ###Demo scripts parameteres
 TRUST_BUNDLE := /opt/venafi/bundle.pem
@@ -50,12 +56,34 @@ FAKE_ISSUER_CN = VCert Test Mode CA
 unset:
 	unset VAULT_TOKEN
 
-#Build and push
-build_go:
-	go build -o $(PLUGIN_PATH) || exit 1
-	chmod +x $(PLUGIN_PATH)
 
-build: build_go
+#Build
+build:
+	env CGO_ENABLED=0 GOOS=linux   GOARCH=amd64 go build -ldflags '-s -w -extldflags "-static"' -a -o $(PLUGIN_DIR)/linux/$(PLUGIN_NAME) || exit 1
+	env CGO_ENABLED=0 GOOS=linux   GOARCH=386   go build -ldflags '-s -w -extldflags "-static"' -a -o $(PLUGIN_DIR)/linux86/$(PLUGIN_NAME) || exit 1
+	env CGO_ENABLED=0 GOOS=darwin  GOARCH=amd64 go build -ldflags '-s -w -extldflags "-static"' -a -o $(PLUGIN_DIR)/darwin/$(PLUGIN_NAME) || exit 1
+	env CGO_ENABLED=0 GOOS=darwin  GOARCH=386   go build -ldflags '-s -w -extldflags "-static"' -a -o $(PLUGIN_DIR)/darwin86/$(PLUGIN_NAME) || exit 1
+	env CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags '-s -w -extldflags "-static"' -a -o $(PLUGIN_DIR)/windows/$(PLUGIN_NAME).exe || exit 1
+	env CGO_ENABLED=0 GOOS=windows GOARCH=386   go build -ldflags '-s -w -extldflags "-static"' -a -o $(PLUGIN_DIR)/windows86/$(PLUGIN_NAME).exe || exit 1
+	chmod +x $(PLUGIN_DIR)/*
+
+#quickly build linux for testing
+quick_build:
+	go build -ldflags '-s -w -extldflags "-static"' -a -o $(PLUGIN_DIR)/$(PLUGIN_NAME) || exit 1
+
+compress:
+	mkdir -p $(DIST_DIR)
+	rm -f $(DIST_DIR)/*
+	echo "Path $(CURRENT_DIR)/$(DIST_DIR)/$(PLUGIN_NAME)_$(VERSION)"
+	zip -j "$(CURRENT_DIR)/$(DIST_DIR)/$(PLUGIN_NAME)_$(VERSION)_linux.zip" "$(PLUGIN_DIR)/linux/$(PLUGIN_NAME)" || exit 1
+	zip -j "$(CURRENT_DIR)/$(DIST_DIR)/$(PLUGIN_NAME)_$(VERSION)_linux86.zip" "$(PLUGIN_DIR)/linux86/$(PLUGIN_NAME)" || exit 1
+	zip -j "$(CURRENT_DIR)/$(DIST_DIR)/$(PLUGIN_NAME)_$(VERSION)_darwin.zip" "$(PLUGIN_DIR)/darwin/$(PLUGIN_NAME)" || exit 1
+	zip -j "$(CURRENT_DIR)/$(DIST_DIR)/$(PLUGIN_NAME)_$(VERSION)_darwin86.zip" "$(PLUGIN_DIR)/darwin86/$(PLUGIN_NAME)" || exit 1
+	zip -j "$(CURRENT_DIR)/$(DIST_DIR)/$(PLUGIN_NAME)_$(VERSION)_windows.zip" "$(PLUGIN_DIR)/windows/$(PLUGIN_NAME).exe" || exit 1
+	zip -j "$(CURRENT_DIR)/$(DIST_DIR)/$(PLUGIN_NAME)_$(VERSION)_windows86.zip" "$(PLUGIN_DIR)/windows86/$(PLUGIN_NAME).exe" || exit 1
+
+
+build_docker:
 	docker build -t $(DOCKER_IMAGE):$(BUILD_TAG) .
 
 test: test_go test_e2e
@@ -72,7 +100,7 @@ test_e2e:
 	sed -i "s#image:.*$(IMAGE_NAME).*#image: $(DOCKER_IMAGE):$(BUILD_TAG)#" docker-compose.yaml
 	cd plugin/pki/test/e2e/ && ginkgo -v
 
-push: build test_e2e
+push: build build_docker test_e2e
 	docker push $(DOCKER_IMAGE):$(BUILD_TAG)
 
 
@@ -82,7 +110,7 @@ dev_server: unset
 	sed -e 's#__PLUGIN_DIR__#$(PLUGIN_DIR)#' scripts/config/vault/vault-config.hcl.sed > vault-config.hcl
 	vault server -log-level=debug -dev -config=vault-config.hcl
 
-dev: build_go mount_dev
+dev: quick_build mount_dev
 
 mount_dev: unset
 	vault write sys/plugins/catalog/$(PLUGIN_NAME) sha_256="$(SHA256)" command="$(PLUGIN_NAME)"
@@ -122,9 +150,9 @@ prod_server_unseal:
 	@echo Enter unseal key:
 	$(VAULT_CMD) operator unseal
 
-prod_server_auth:
+prod_server_login:
 	@echo Enter root token:
-	$(VAULT_CMD) auth
+	$(VAULT_CMD) login
 
 prod_server_down:
 	docker-compose down --remove-orphans
@@ -135,7 +163,7 @@ prod_server_logs:
 prod_server_sh:
 	$(DOCKER_CMD) sh
 
-prod: prod_server_prepare prod_server_down prod_server_up prod_server_init prod_server_unseal prod_server_auth mount_prod
+prod: prod_server_prepare prod_server_down prod_server_up prod_server_init prod_server_unseal prod_server_login mount_prod
 	@echo "Vault started. To run make command export VAULT_TOKEN variable and run make with -e flag, for example:"
 	@echo "export VAULT_TOKEN=enter-root-token-here"
 	@echo "make cloud -e"
@@ -149,7 +177,7 @@ mount_prod:
 
 #Fake role tasks
 fake_config_write:
-	vault write $(MOUNT)/roles/$(FAKE_ROLE) fakemode="true" $(ROLE_OPTIONS) key_type="ec" key_curve="P384"
+	vault write $(MOUNT)/roles/$(FAKE_ROLE) fakemode="true" $(ROLE_OPTIONS)
 fake_config_read:
 	vault read $(MOUNT)/roles/$(FAKE_ROLE)
 
@@ -172,7 +200,7 @@ fake: fake_config_write fake_cert_write fake_cert_read_certificate fake_cert_rea
 
 #Cloud role tasks
 cloud_config_write:
-	vault write $(MOUNT)/roles/$(CLOUD_ROLE) cloud_url=$(CLOUDURL) zone="$(CLOUDZONE)" apikey=$(CLOUDAPIKEY) $(ROLE_OPTIONS)  key_type="ec"
+	vault write $(MOUNT)/roles/$(CLOUD_ROLE) cloud_url=$(CLOUDURL) zone="$(CLOUDZONE)" apikey=$(CLOUDAPIKEY) $(ROLE_OPTIONS)
 cloud_config_read:
 	vault read $(MOUNT)/roles/$(CLOUD_ROLE)
 

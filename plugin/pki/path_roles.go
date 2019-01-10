@@ -28,85 +28,85 @@ func pathRoles(b *backend) *framework.Path {
 	return &framework.Path{
 		Pattern: "roles/" + framework.GenericNameRegex("name"),
 		Fields: map[string]*framework.FieldSchema{
-			"name": &framework.FieldSchema{
+			"name": {
 				Type:        framework.TypeString,
 				Description: "Name of the role",
 			},
-			"tpp_url": &framework.FieldSchema{
+			"tpp_url": {
 				Type:        framework.TypeString,
 				Description: `URL of Venafi Platfrom. Example: https://tpp.venafi.example/vedsdk`,
 			},
 
-			"cloud_url": &framework.FieldSchema{
+			"cloud_url": {
 				Type:        framework.TypeString,
 				Description: `URL for Venafi Cloud. Set it only if you want to use non production Cloud`,
 			},
 
-			"zone": &framework.FieldSchema{
+			"zone": {
 				Type: framework.TypeString,
 				Description: `Name of Venafi Platfrom or Cloud policy. 
 Example for Platform: testpolicy\\vault
 Example for Venafi Cloud: Default`,
+				Required: true,
 			},
 
-			"tpp_user": &framework.FieldSchema{
+			"tpp_user": {
 				Type:        framework.TypeString,
 				Description: `web API user for Venafi Platfrom Example: admin`,
 			},
-			"tpp_password": &framework.FieldSchema{
+			"tpp_password": {
 				Type:        framework.TypeString,
 				Description: `Password for web API user Example: password`,
 			},
-			"trust_bundle_file": &framework.FieldSchema{
+			"trust_bundle_file": {
 				Type: framework.TypeString,
 				Description: `Use to specify a PEM formatted file with certificates to be used as trust anchors when communicating with the remote server.
 Example:
   trust_bundle_file = "/full/path/to/bundle.pem""`,
 			},
-			"apikey": &framework.FieldSchema{
+			"apikey": {
 				Type:        framework.TypeString,
 				Description: `API key for Venafi Cloud. Example: 142231b7-cvb0-412e-886b-6aeght0bc93d`,
 			},
-			"fakemode": &framework.FieldSchema{
+			"fakemode": {
 				Type:        framework.TypeBool,
 				Description: `Set it to true to use face CA instead of Cloud or Platform to issue certificates. Useful for testing.`,
+				Default:     false,
 			},
 
-			"store_by_cn": &framework.FieldSchema{
+			"store_by_cn": {
 				Type:        framework.TypeBool,
 				Description: `Set it to true to store certificates by CN in certs/ path`,
 			},
 
-			"store_by_serial": &framework.FieldSchema{
+			"store_by_serial": {
 				Type:        framework.TypeBool,
 				Description: `Set it to true to store certificates by unique serial number in certs/ path`,
 			},
 
-			"store_pkey": &framework.FieldSchema{
+			"store_pkey": {
 				Type:        framework.TypeBool,
 				Description: `Set it to true to store certificates privates key in certificate fields`,
 			},
-			"key_type": &framework.FieldSchema{
+			"key_type": {
 				Type:    framework.TypeString,
 				Default: "rsa",
-				Description: `The type of key to use; defaults to RSA.
-					Valid values are:
-					"rsa": RSA key type
-					"ec":  ECDSA which implements P-256
-					"ecdsa_224": ECDSA which implements P-224
-					"ecdsa_256": ECDSA which implements P-256
-					"ecdsa_384": ECDSA which implements P-384
-	                "ecdsa_521": ECDSA which implements P-521
-`,
+				Description: `The type of key to use; defaults to RSA. "rsa"
+				and "ec" (ECDSA) are the only valid values.`,
 			},
-			"key_bits": &framework.FieldSchema{
+			"key_bits": {
 				Type:    framework.TypeInt,
 				Default: 2048,
 				Description: `The number of bits to use. You will almost
 certainly want to change this if you adjust
 the key_type. Default: 2048`,
 			},
-			"ttl": &framework.FieldSchema{
+			"key_curve": {
+				Type:        framework.TypeString,
+				Default:     "P256",
+				Description: `Key curve for EC key type. Valid values are: "P224","P256","P384","P521"`,
+			},
+			"ttl": {
 				Type: framework.TypeDurationSecond,
 				Description: `The lease duration if no specific lease duration is
 requested. The lease duration controls the expiration
@@ -114,12 +114,12 @@ of certificates issued by this backend. Defaults to
 the value of max_ttl.`,
 			},
 
-			"max_ttl": &framework.FieldSchema{
+			"max_ttl": {
 				Type:        framework.TypeDurationSecond,
 				Description: "The maximum allowed lease duration",
 			},
 
-			"generate_lease": &framework.FieldSchema{
+			"generate_lease": {
 				Type: framework.TypeBool,
 				Description: `
 If set, certificates issued/signed against this role will have Vault leases
@@ -255,11 +255,14 @@ func (b *backend) pathRoleCreate(ctx context.Context, req *logical.Request, data
 		StorePrivateKey: data.Get("store_pkey").(bool),
 		KeyType:         data.Get("key_type").(string),
 		KeyBits:         data.Get("key_bits").(int),
+		KeyCurve:        data.Get("key_curve").(string),
 		MaxTTL:          time.Duration(data.Get("max_ttl").(int)) * time.Second,
 		TTL:             time.Duration(data.Get("ttl").(int)) * time.Second,
 		GenerateLease:   data.Get("generate_lease").(bool),
 	}
-
+	if !entry.Fakemode && entry.Apikey == "" && (entry.TPPURL == "" || entry.TPPUser == "" || entry.TPPPassword == "") {
+		return logical.ErrorResponse("Invalid mode. fakemode or apikey or tpp credentials required"), nil
+	}
 	if entry.MaxTTL > 0 && entry.TTL > entry.MaxTTL {
 		return logical.ErrorResponse(
 			`"ttl" value must be less than "max_ttl" value`,
@@ -294,6 +297,7 @@ type roleEntry struct {
 	StorePrivateKey  bool          `json:"store_pkey"`
 	KeyType          string        `json:"key_type"`
 	KeyBits          int           `json:"key_bits"`
+	KeyCurve         string        `json:"key_curve"`
 	LeaseMax         string        `json:"lease_max"`
 	Lease            string        `json:"lease"`
 	TTL              time.Duration `json:"ttl_duration"`
