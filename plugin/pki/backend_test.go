@@ -151,8 +151,8 @@ func TestBackend_CSRValues(t *testing.T) {
 	}
 
 	testCase := logicaltest.TestCase{
-		Backend: b,
-		Steps:   []logicaltest.TestStep{},
+		LogicalBackend: b,
+		Steps:          []logicaltest.TestStep{},
 	}
 
 	intdata := map[string]interface{}{}
