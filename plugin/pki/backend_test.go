@@ -41,6 +41,7 @@ var (
 func TestPKI_BaseEnroll(t *testing.T) {
 	rand := randSeq(9)
 	domain := "example.com"
+	randCN := rand +  "." + domain
 
 	coreConfig := &vault.CoreConfig{
 		LogicalBackends: map[string]logical.Factory{
@@ -89,7 +90,7 @@ func TestPKI_BaseEnroll(t *testing.T) {
 	// Issue a cert with require_cn set to true and with common name supplied.
 	// It should succeed.
 	resp, err := client.Logical().Write("pki/issue/example", map[string]interface{}{
-		"common_name": "foobar.com",
+		"common_name": randCN,
 	})
 	if err != nil {
 		t.Fatal(err)
