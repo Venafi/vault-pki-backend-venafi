@@ -41,7 +41,7 @@ var (
 func TestPKI_BaseEnroll(t *testing.T) {
 	rand := randSeq(9)
 	domain := "example.com"
-	randCN := rand +  "." + domain
+	randCN := rand + "." + domain
 
 	coreConfig := &vault.CoreConfig{
 		LogicalBackends: map[string]logical.Factory{
@@ -1141,7 +1141,7 @@ func setCerts() {
 		NotBefore:             time.Now().Add(-30 * time.Second),
 		NotAfter:              time.Now().Add(262980 * time.Hour),
 		BasicConstraintsValid: true,
-		IsCA: true,
+		IsCA:                  true,
 	}
 	caBytes, err := x509.CreateCertificate(rand.Reader, caCertTemplate, caCertTemplate, cak.Public(), cak)
 	if err != nil {
