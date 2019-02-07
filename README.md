@@ -4,15 +4,13 @@
 
 This solution enables [HashiCorp Vault](https://www.vaultproject.io/) users to have certificate requests fulfilled by the [Venafi Platform](https://www.venafi.com/platform/trust-protection-platform) or [Venafi Cloud](https://pki.venafi.com/venafi-cloud/) ensuring compliance with corporate security policy and providing visibility into certificate issuance enterprise wide.
 
-# Requirements
+## Dependencies
 
-1. Hashicorp Vault: https://www.vaultproject.io/downloads.html
+* Hashicorp Vault: https://www.vaultproject.io/downloads.html
+* Consul Template: https://github.com/hashicorp/consul-template#installation
+* Docker Compose: https://docs.docker.com/compose/install/
 
-2. Consul Template: https://github.com/hashicorp/consul-template#installation
-
-3. Docker Compose: https://docs.docker.com/compose/install/
-
-# Requirements for usage with Trust Protection Platform
+## Requirements for use with Trust Protection Platform
 
 > Note: The following assume certificates will be enrolled by a Microsoft Active Directory Certificate Services (ADCS) certificate authority. Other CAs will also work with this solution but may have slightly different requirements.
 
@@ -37,22 +35,89 @@ X509v3 extensions:
 
 ### Establishing Trust between Vault and Trust Protection Platform
 
-It is not common for the Venafi Platform's REST API (WebSDK) to be secured using a certificate issued by a publicly trusted CA, therefore establishing trust for that server certificate is a critical part of your configuration.  Ideally this is done by obtaining the root CA certificate in the issuing chain in PEM format and copying that file to your Vault server (e.g. /opt/venafi/bundle.pem).  You then reference that file whenever you create a new PKI role in your Vault using the 'trust_bundle_file' parameter like this:
+It is not common for the Venafi Platform's REST API (WebSDK) to be secured using a certificate issued by a publicly trusted CA, therefore establishing trust for that server certificate is a critical part of your configuration.  Ideally this is done by obtaining the root CA certificate in the issuing chain in PEM format and copying that file to your Vault server (e.g. /opt/venafi/bundle.pem).  You then reference that file using the 'trust_bundle_file' parameter whenever you create a new PKI role in your Vault.
 
-```
-vault write venafi-pki/roles/custom-tpp \
-    tpp_url=https://tpp.venafi.example/vedsdk \
-    tpp_user=admin \
-    tpp_password=password \
-    zone=testpolicy\\vault \
-    generate_lease=true \
-    store_by_cn="true" \
-    store_by_serial="true" \
-    store_pkey="true" \
-    trust_bundle_file="/opt/venafi/bundle.pem"
-```
+## Quickstart, Step by Step
 
-# Quickstart, Step by Step
+1. Familiarize yourself with the [HashiCorp Vault Plugin System](https://www.vaultproject.io/docs/internals/plugins.html)
+
+2. Download the current `vault-pki-backend-venafi` release package for your operating system and unzip the plugin to the `/etc/vault/vault_plugins` directory (or a custom directory of our choosing):
+    ```
+    wget https://github.com/Venafi/vault-pki-backend-venafi/releases/download/v0.3-11.5-alpha.161/venafi-pki-backend_0.3-11.5.161_linux.zip
+    unzip venafi-pki-backend_0.3-11.5.161_linux.zip
+    mv vault-pki-backend-venafi /etc/vault/vault_plugins
+    ```
+
+3. Configure the plugin directory for your Vault by specifying it in the startup configuration file:
+    ```
+    echo 'plugin_directory = "/etc/vault/vault_plugins"' > vault-config.hcl
+    ```
+
+4. Start your Vault (note: if you don't have working configuration you can start it in dev mode):
+    ```
+    vault server -log-level=debug -dev -config=vault-config.hcl
+    ```
+
+5.  Export the VAULT_ADDR environment variable so that the Vault client will interact with the local Vault:
+    ```
+    export VAULT_ADDR=http://127.0.0.1:8200
+    ```
+
+6. Get the SHA-256 checksum of `vault-pki-backend-venafi` plugin binary:
+    ```
+    SHA256=$(shasum -a 256 /etc/vault/vault_plugins/vault-pki-backend-venafi | cut -d' ' -f1)
+    ```
+
+7. Add the `vault-pki-backend-venafi` plugin to the Vault system catalog:
+    ```
+    vault write sys/plugins/catalog/vault-pki-backend-venafi sha_256="${SHA256}" command="vault-pki-backend-venafi"
+    ```
+
+8. Enable the secrets backend for the `vault-pki-backend-venafi` plugin:
+    ```
+    vault secrets enable -path=venafi-pki -plugin-name=vault-pki-backend-venafi plugin
+    ```
+
+9. Create a [PKI role](https://www.vaultproject.io/docs/secrets/pki/index.html) for the `venafi-pki` backend:
+
+    **Venafi Cloud**:
+    ```
+    vault write venafi-pki/roles/cloud-backend \
+        apikey="AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEE" \
+        zone="Vault Certificates" \
+        generate_lease=true store_by_cn=true store_pkey=true store_by_serial=true ttl=1h max_ttl=1h \
+        allowed_domains=example.com \
+        allow_subdomains=true
+    ```
+    
+    **Venafi Platform**:
+    ```
+    vault write venafi-pki/roles/tpp-backend \
+        tpp_url="https://tpp.venafi.example:443/vedsdk" \
+        tpp_user="local:admin" \
+        tpp_password="password" \
+        zone="DevOps\\Vault Backend" \
+        trust_bundle_file="/opt/venafi/bundle.pem" \
+        generate_lease=true store_by_cn=true store_pkey=true store_by_serial=true ttl=1h max_ttl=1h \
+        allowed_domains=example.com \
+        allow_subdomains=true
+    ```
+    > Note: Role options can be viewed using `vault path-help vault-pki-backend-venafi/roles/<ROLE_NAME>`
+
+10. Enroll a certificate:
+
+    **Venafi Cloud**:
+    ```
+    vault write venafi-pki/issue/cloud-backend common_name="test.example.com" alt_names="test-1.example.com,test-2.example.com"
+    ```
+    
+    **Venafi Platform**:
+    ```
+    vault write venafi-pki/issue/tpp-backend common_name="test.example.com" alt_names="test-1.example.com,test-2.example.com"
+    ```
+
+## Demonstrating End-to-End
+
 > Note: Here we'll use a Makefile to encapsulate several command sequences in a single step. For specific details on those commands and their parameters, please review the contents of the [Makefile](Makefile) itself.
 
 1. Export your Venafi Platform and/or Venafi Cloud configuration variables
@@ -125,7 +190,7 @@ vault write venafi-pki/roles/custom-tpp \
     docker ps|grep vault-demo-nginx|awk '{print $1}'|xargs docker rm -f
     ```
 
-# Usage scenarios
+## Usage Scenarios
 
 Firstly you need to mount the plugin which you can do by running `make prod` as described in the previous section. You can also do it manually, using following instructions:
 
@@ -184,7 +249,7 @@ Firstly you need to mount the plugin which you can do by running `make prod` as 
     vault secrets enable -path=venafi-pki -plugin-name=venafi-pki-backend plugin
     ```
 
-## Get certificate and private key from TPP and run node application with them.
+### Get certificate and private key from TPP and run node application with them.
 
 Setup custom TPP role:
 
@@ -242,7 +307,7 @@ Run docker container with node application:
 
 Go to the https://localhost to check.
 
-## Get certificate and private key using consul-template engine
+### Get certificate and private key using consul-template engine
 
 We will use role configured on previous scenario
 
@@ -356,7 +421,7 @@ Delete container with running application
 docker rm -f hello-node-ssl
 ```
 
-# Development Quickstart (for Linux only)
+## Developer Quickstart (Linux only)
 
 1. Configure Go build environement (https://golang.org/doc/install) 
 
@@ -400,11 +465,11 @@ vault read -field=Chain venafi-pki/certs/fake|openssl x509 -text -inform pem -no
 
 6. Run `make cloud` and `make tpp` to check the Cloud and TPP functionality.
 
-# Deploy new image for prod
+## Deploy new image for prod
 
 1. Run `make push` to build the plugin binary and docker image, then deploy the image to DockerHub.
 
-# Debug information
+## Debug information
 
 1. Run `make server_debug`
 
@@ -412,7 +477,7 @@ vault read -field=Chain venafi-pki/certs/fake|openssl x509 -text -inform pem -no
 
 3. Unseal the Vault
 
-# Testing
+## Testing
 
 There are integration tests written on Ginkgo: https://github.com/onsi/ginkgo
 
