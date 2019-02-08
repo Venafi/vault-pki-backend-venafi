@@ -38,9 +38,9 @@ var (
 	parsedKeyUsageUnderTest int
 )
 
-func TestPKI_BaseEnroll(t *testing.T) {
+func TestPKI_Fake_BaseEnroll(t *testing.T) {
 	rand := randSeq(9)
-	domain := "example.com"
+	domain := "venafi.example.com"
 	randCN := rand + "." + domain
 
 	coreConfig := &vault.CoreConfig{
@@ -67,28 +67,15 @@ func TestPKI_BaseEnroll(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Create a role which does require CN (default)
 	_, err = client.Logical().Write("pki/roles/example", map[string]interface{}{
-		"allowed_domains":    domain,
-		"allow_subdomains":   "true",
-		"max_ttl":            "4h",
-		"allow_bare_domains": true,
 		"generate_lease":     true,
-		"tpp_import":         true,
-		"tpp_url":            os.Getenv("TPPURL"),
-		"tpp_user":           os.Getenv("TPPUSER"),
-		"tpp_password":       os.Getenv("TPPPASSWORD"),
-		"zone":               os.Getenv("TPPZONE"),
-		"trust_bundle_file":  os.Getenv("TRUST_BUNDLE"),
-		"tpp_import_timeout": 2,
-		"tpp_import_workers": 2,
+		"fakemode":         true,
+
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// Issue a cert with require_cn set to true and with common name supplied.
-	// It should succeed.
 	resp, err := client.Logical().Write("pki/issue/example", map[string]interface{}{
 		"common_name": randCN,
 	})
@@ -96,42 +83,84 @@ func TestPKI_BaseEnroll(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Issue a cert with require_cn set to true and with out supplying the
-	// common name. It should error out.
-	resp, err = client.Logical().Write("pki/issue/example", map[string]interface{}{})
-	if err == nil {
-		t.Fatalf("expected an error due to missing common_name")
+
+	if resp.Data["certificate"] == "" {
+		t.Fatalf("expected a cert to be generated")
 	}
 
-	// Modify the role to make the common name optional
-	_, err = client.Logical().Write("pki/roles/example", map[string]interface{}{
-		"allowed_domains":    "foobar.com,zipzap.com,abc.com,xyz.com",
-		"allow_bare_domains": true,
-		"allow_subdomains":   true,
-		"max_ttl":            "2h",
-		"require_cn":         false,
+	cert := resp.Data["certificate"].(string)
+	pemBlock, _ := pem.Decode([]byte(cert))
+	parsedCertificate, err := x509.ParseCertificate(pemBlock.Bytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if parsedCertificate.Subject.CommonName != randCN {
+		t.Fatalf("Certificate common name expected to be %s but actualy it is %s", parsedCertificate.Subject.CommonName, randCN)
+	}
+}
+
+func TestPKI_TPP_BaseEnroll(t *testing.T) {
+	rand := randSeq(9)
+	domain := "venafi.example.com"
+	randCN := rand + "." + domain
+
+	coreConfig := &vault.CoreConfig{
+		LogicalBackends: map[string]logical.Factory{
+			"pki": Factory,
+		},
+	}
+	cluster := vault.NewTestCluster(t, coreConfig, &vault.TestClusterOptions{
+		HandlerFunc: vaulthttp.Handler,
 	})
+	cluster.Start()
+	defer cluster.Cleanup()
 
-	// Issue a cert with require_cn set to false and without supplying the
-	// common name. It should succeed.
-	resp, err = client.Logical().Write("pki/issue/example", map[string]interface{}{})
+	client := cluster.Cores[0].Client
+	var err error
+	err = client.Sys().Mount("pki", &api.MountInput{
+		Type: "pki",
+		Config: api.MountConfigInput{
+			DefaultLeaseTTL: "16h",
+			MaxLeaseTTL:     "32h",
+		},
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	_, err = client.Logical().Write("pki/roles/example", map[string]interface{}{
+		"generate_lease":     true,
+		"tpp_url":            os.Getenv("TPPURL"),
+		"tpp_user":           os.Getenv("TPPUSER"),
+		"tpp_password":       os.Getenv("TPPPASSWORD"),
+		"zone":               os.Getenv("TPPZONE"),
+		"trust_bundle_file":  os.Getenv("TRUST_BUNDLE"),
+
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resp, err := client.Logical().Write("pki/issue/example", map[string]interface{}{
+		"common_name": randCN,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
 
 	if resp.Data["certificate"] == "" {
 		t.Fatalf("expected a cert to be generated")
 	}
 
-	// Issue a cert with require_cn set to false and with a common name. It
-	// should succeed.
-	resp, err = client.Logical().Write("pki/issue/example", map[string]interface{}{})
+	cert := resp.Data["certificate"].(string)
+	pemBlock, _ := pem.Decode([]byte(cert))
+	parsedCertificate, err := x509.ParseCertificate(pemBlock.Bytes)
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	if resp.Data["certificate"] == "" {
-		t.Fatalf("expected a cert to be generated")
+	if parsedCertificate.Subject.CommonName != randCN {
+		t.Fatalf("Certificate common name expected to be %s but actualy it is %s", parsedCertificate.Subject.CommonName, randCN)
 	}
 }
 
