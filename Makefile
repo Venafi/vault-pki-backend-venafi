@@ -10,7 +10,7 @@ PLUGIN_NAME := venafi-pki-backend
 PLUGIN_DIR := bin
 PLUGIN_PATH := $(PLUGIN_DIR)/$(PLUGIN_NAME)
 DIST_DIR := bin/dist
-VERSION := 0.3-11.5.161
+VERSION := 0.3.1
 
 ###Demo scripts parameteres
 VAULT_VERSION := $(shell vault --version|awk '{print $$2}')
