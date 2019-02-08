@@ -9,11 +9,8 @@ import (
 	"encoding/pem"
 	"fmt"
 	"github.com/hashicorp/vault/logical"
-	. "github.com/onsi/ginkgo"
-	"github.com/rendon/testcli"
 	"math/rand"
 	"os"
-	"os/exec"
 	"strconv"
 	"strings"
 	"testing"
@@ -89,67 +86,8 @@ const (
 	ECBlock    string = "EC PRIVATE KEY"
 )
 
-type vaultJSONCertificate struct {
-	Data VenafiCert
-}
 
-func splitAndFlat(parts ...interface{}) (ret []string) {
-	for _, part := range parts {
-		switch part.(type) {
-		case string:
-			ret = append(ret, strings.Fields(part.(string))...)
-		case []string:
-			for _, s := range part.([]string) {
-				ret = append(ret, strings.Fields(s)...)
-			}
-		default:
-			fmt.Printf("DEFAULT: %T\n", part)
-		}
-	}
-	return
-}
 
-func testRunCmd(some ...string) (out, err string, exitCode int) {
-	cmd := splitAndFlat(some)
-	testcli.Run(cmd[0], cmd[1:]...)
-	if testcli.Failure() {
-		exitCode = 1
-	}
-	return testcli.Stdout(), testcli.Stderr(), exitCode
-}
-
-func testRun(cmd string) (out, err string, exitCode int) {
-	out, err, exitCode = testRunCmd(cmd)
-	fmt.Fprintf(GinkgoWriter,
-		"===CMD: %s\n===OUT:%s\n===ERR:%s\n===EXIT(%d)",
-		strings.Fields(cmd), out, err, exitCode)
-	return
-}
-
-func run(command string) string {
-	var err error
-	cmd := splitAndFlat(command)
-	fmt.Println("Running: ", cmd)
-	out, err := exec.Command(cmd[0], cmd[1:]...).CombinedOutput()
-	if err != nil {
-		fmt.Println(string(out))
-		panic(err)
-	}
-	return string(out)
-}
-
-func commandWithArgs(run string, extraArgs ...string) {
-	args := []string{}
-	args = append(args, extraArgs...)
-	cmd := exec.Command(run, args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	err := cmd.Run()
-	if err != nil {
-		panic(err)
-		return
-	}
-}
 
 type RunContext struct {
 	TPPurl              string
@@ -189,7 +127,7 @@ func GetContext() *RunContext {
 	return &c
 }
 
-func sameStringSlice(x, y []string) bool {
+func SameStringSlice(x, y []string) bool {
 	if len(x) != len(y) {
 		return false
 	}

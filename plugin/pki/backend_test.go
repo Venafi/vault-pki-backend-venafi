@@ -84,7 +84,7 @@ func TestPKI_Fake_BaseEnroll(t *testing.T) {
 	wantDNSNames := []string{randCN, dns_ns, dns_ip, dns_email}
 	haveDNSNames := parsedCertificate.DNSNames
 
-	if !sameStringSlice(haveDNSNames, wantDNSNames) {
+	if !SameStringSlice(haveDNSNames, wantDNSNames) {
 		t.Fatalf("Certificate Subject Alternative Names %s doesn't match to requested %s", haveDNSNames, wantDNSNames)
 	}
 }
@@ -158,7 +158,7 @@ func TestPKI_TPP_BaseEnroll(t *testing.T) {
 	wantDNSNames := []string{randCN, dns_ns, dns_ip, dns_email}
 	haveDNSNames := parsedCertificate.DNSNames
 
-	if !sameStringSlice(haveDNSNames, wantDNSNames) {
+	if !SameStringSlice(haveDNSNames, wantDNSNames) {
 		t.Fatalf("Certificate Subject Alternative Names %s doesn't match to requested %s", haveDNSNames, wantDNSNames)
 	}
 }
@@ -232,7 +232,7 @@ func TestPKI_Cloud_BaseEnroll(t *testing.T) {
 	//wantDNSNames := []string{randCN, dns_ns, dns_ip, dns_email}
 	//haveDNSNames := parsedCertificate.DNSNames
 	//
-	//if !sameStringSlice(haveDNSNames, wantDNSNames) {
+	//if !SameStringSlice(haveDNSNames, wantDNSNames) {
 	//	t.Fatalf("Certificate Subject Alternative Names %s doesn't match to requested %s", haveDNSNames, wantDNSNames)
 	//}
 }

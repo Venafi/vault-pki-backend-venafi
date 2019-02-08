@@ -1,4 +1,4 @@
-package pki
+package e2e
 
 import (
 	"crypto/x509"
@@ -8,6 +8,7 @@ import (
 	"github.com/Venafi/vcert/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	. "github.com/Venafi/vault-pki-backend-venafi/plugin/pki"
 	"strings"
 )
 
@@ -127,7 +128,7 @@ var _ = Describe("Vault PKI Venafi backend e2e tests	", func() {
 							By("Should have requested SANs and CN in DNSNames")
 							wantDNSNames := []string{cn, dns1, dns2}
 							haveDNSNames := parsedCertificate.DNSNames
-							Expect(sameStringSlice(haveDNSNames, wantDNSNames)).To(BeTrue())
+							Expect(SameStringSlice(haveDNSNames, wantDNSNames)).To(BeTrue())
 						}
 
 						By("Should have valid issuer CN")
