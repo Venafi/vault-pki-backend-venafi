@@ -1,4 +1,4 @@
-FROM vault:0.11.5
+FROM vault:1.0.2
 
 # /vault/logs is made available to use as a location to store audit logs, if
 # desired; /vault/file is made available to use as a location with the file
