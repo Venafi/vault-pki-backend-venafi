@@ -93,12 +93,12 @@ test_go:
 	    -race \
 		$$(go list ./... | \
 			grep -v '/vendor/' | \
-			grep -v 'plugin/pki/test/e2e' \
+			grep -v '_e2e_' \
 		)
 
 test_e2e:
 	sed -i "s#image:.*$(IMAGE_NAME).*#image: $(DOCKER_IMAGE):$(BUILD_TAG)#" docker-compose.yaml
-	cd plugin/pki && ginkgo -v
+	ginkgo -v
 
 push: build build_docker test_e2e
 	docker push $(DOCKER_IMAGE):$(BUILD_TAG)
