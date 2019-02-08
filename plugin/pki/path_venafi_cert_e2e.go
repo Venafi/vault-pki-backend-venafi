@@ -1,4 +1,4 @@
-package e2e
+package pki
 
 import (
 	"crypto/x509"

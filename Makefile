@@ -98,7 +98,7 @@ test_go:
 
 test_e2e:
 	sed -i "s#image:.*$(IMAGE_NAME).*#image: $(DOCKER_IMAGE):$(BUILD_TAG)#" docker-compose.yaml
-	cd plugin/pki/test/e2e/ && ginkgo -v
+	cd plugin/pki && ginkgo -v
 
 push: build build_docker test_e2e
 	docker push $(DOCKER_IMAGE):$(BUILD_TAG)
