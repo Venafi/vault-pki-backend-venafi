@@ -22,6 +22,7 @@ services:
       - "consul:consul"
     environment:
       VAULT_ADDR: http://127.0.0.1:8200
+      TRUST_BUNDLE: /opt/venafi/bundle.pem
     ports:
       - "8200:8200"
     extra_hosts:

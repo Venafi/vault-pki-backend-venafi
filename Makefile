@@ -13,7 +13,6 @@ DIST_DIR := bin/dist
 VERSION := 0.3-11.5.161
 
 ###Demo scripts parameteres
-TRUST_BUNDLE := /opt/venafi/bundle.pem
 VAULT_VERSION := $(shell vault --version|awk '{print $$2}')
 VAULT_CONT := $$(docker-compose ps |grep Up|grep vault_1|awk '{print $$1}')
 DOCKER_CMD := docker exec -it $(VAULT_CONT)
