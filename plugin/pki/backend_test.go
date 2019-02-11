@@ -130,12 +130,14 @@ func TestPKI_Fake_BaseEnroll(t *testing.T) {
 }
 
 func TestPKI_TPP_BaseEnroll(t *testing.T) {
+	data := testData{}
 	rand := randSeq(9)
 	domain := "venafi.example.com"
-	randCN := rand + "." + domain
-	dns_ns := "alt-" + randCN
-	dns_ip := "192.168.1.1"
-	dns_email := "venafi@example.com"
+	data.cn = rand + "." + domain
+	data.dns_ns = "alt-" + data.cn
+	data.dns_ip = "192.168.1.1"
+	data.dns_email = "venafi@example.com"
+
 
 	coreConfig := &vault.CoreConfig{
 		LogicalBackends: map[string]logical.Factory{
@@ -174,39 +176,25 @@ func TestPKI_TPP_BaseEnroll(t *testing.T) {
 	}
 
 	resp, err := client.Logical().Write("pki/issue/example", map[string]interface{}{
-		"common_name": randCN,
-		"alt_names":   fmt.Sprintf("%s,%s,%s", dns_ns, dns_ip, dns_email),
+		"common_name": data.cn,
+		"alt_names":   fmt.Sprintf("%s,%s,%s", data.dns_ns, data.dns_ip, data.dns_email),
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if resp.Data["certificate"] == "" {
-		t.Fatalf("expected a cert to be generated")
-	}
+	data.cert = resp.Data["certificate"].(string)
+	data.private_key = resp.Data["private_key"].(string)
 
-	cert := resp.Data["certificate"].(string)
-	log.Println("Testing certificate:", cert)
-	certPEMBlock, _ := pem.Decode([]byte(cert))
-	parsedCertificate, err := x509.ParseCertificate(certPEMBlock.Bytes)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if parsedCertificate.Subject.CommonName != randCN {
-		t.Fatalf("Certificate common name expected to be %s but actualy it is %s", parsedCertificate.Subject.CommonName, randCN)
-	}
-	wantDNSNames := []string{randCN, dns_ns, dns_ip, dns_email}
-	haveDNSNames := parsedCertificate.DNSNames
-
-	if !SameStringSlice(haveDNSNames, wantDNSNames) {
-		t.Fatalf("Certificate Subject Alternative Names %s doesn't match to requested %s", haveDNSNames, wantDNSNames)
-	}
+	checkStandartCert(t, data)
 }
 
 func TestPKI_Cloud_BaseEnroll(t *testing.T) {
+	data := testData{}
 	rand := randSeq(9)
 	domain := "venafi.example.com"
-	randCN := rand + "." + domain
+	data.cn = rand + "." + domain
+	data.provider = "cloud"
 
 	coreConfig := &vault.CoreConfig{
 		LogicalBackends: map[string]logical.Factory{
@@ -243,8 +231,7 @@ func TestPKI_Cloud_BaseEnroll(t *testing.T) {
 	}
 
 	resp, err := client.Logical().Write("pki/issue/example", map[string]interface{}{
-		"common_name": randCN,
-		//"alt_names":   fmt.Sprintf("%s,%s,%s", dns_ns, dns_ip, dns_email),
+		"common_name": data.cn,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -254,14 +241,8 @@ func TestPKI_Cloud_BaseEnroll(t *testing.T) {
 		t.Fatalf("expected a cert to be generated")
 	}
 
-	cert := resp.Data["certificate"].(string)
-	log.Println("Testing certificate:", cert)
-	certPEMBlock, _ := pem.Decode([]byte(cert))
-	parsedCertificate, err := x509.ParseCertificate(certPEMBlock.Bytes)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if parsedCertificate.Subject.CommonName != randCN {
-		t.Fatalf("Certificate common name expected to be %s but actualy it is %s", parsedCertificate.Subject.CommonName, randCN)
-	}
+	data.cert = resp.Data["certificate"].(string)
+	data.private_key = resp.Data["private_key"].(string)
+
+	checkStandartCert(t, data)
 }
