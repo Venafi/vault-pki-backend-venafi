@@ -11,9 +11,9 @@ PLUGIN_DIR := bin
 PLUGIN_PATH := $(PLUGIN_DIR)/$(PLUGIN_NAME)
 DIST_DIR := bin/dist
 ifdef BUILD_NUMBER
-VERSION=`git describe --abbrev=0 --tags`+$(BUILD_NUMBER)
+	VERSION=`git describe --abbrev=0 --tags`+$(BUILD_NUMBER)
 else
-VERSION=`git describe --abbrev=0 --tags`
+	VERSION=`git describe --abbrev=0 --tags`
 endif
 
 ###Demo scripts parameteres
@@ -54,6 +54,10 @@ VAULT_CLIENT_TIMEOUT = 180s
 TPP_ISSUER_CN = QA Venafi CA
 CLOUD_ISSUER_CN = DigiCert Test SHA2 Intermediate CA-1
 FAKE_ISSUER_CN = VCert Test Mode CA
+
+
+version:
+	echo "$(VERSION)"
 
 #Need to unset VAULT_TOKEN when running vault with dev parameter.
 unset:
