@@ -21,20 +21,19 @@ var (
 )
 
 type testData struct {
-	cert string
+	cert        string
 	private_key string
-	wrong_cert string
-	wrong_pkey string
-	cn string
-	dns_ns string
-	dns_ip string
-	dns_email string
-	provider string
+	wrong_cert  string
+	wrong_pkey  string
+	cn          string
+	dns_ns      string
+	dns_ip      string
+	dns_email   string
+	provider    string
 }
 
+func checkStandartCert(t *testing.T, data testData) {
 
-func checkStandartCert(t *testing.T, data testData)  {
-	
 	log.Println("Testing certificate:", data.cert)
 	certPEMBlock, _ := pem.Decode([]byte(data.cert))
 	if certPEMBlock == nil {
@@ -63,7 +62,6 @@ func checkStandartCert(t *testing.T, data testData)  {
 			t.Fatalf("Certificate Subject Alternative Names %s doesn't match to requested %s", haveDNSNames, wantDNSNames)
 		}
 	}
-
 
 	_, err = tls.X509KeyPair([]byte(data.cert), []byte(data.private_key))
 	if err != nil {
@@ -137,7 +135,6 @@ func TestPKI_TPP_BaseEnroll(t *testing.T) {
 	data.dns_ns = "alt-" + data.cn
 	data.dns_ip = "192.168.1.1"
 	data.dns_email = "venafi@example.com"
-
 
 	coreConfig := &vault.CoreConfig{
 		LogicalBackends: map[string]logical.Factory{

@@ -2,12 +2,12 @@ package e2e
 
 import (
 	"fmt"
+	. "github.com/Venafi/vault-pki-backend-venafi/plugin/pki"
+	. "github.com/onsi/ginkgo"
 	"github.com/rendon/testcli"
 	"os"
 	"os/exec"
 	"strings"
-	. "github.com/onsi/ginkgo"
-	. "github.com/Venafi/vault-pki-backend-venafi/plugin/pki"
 )
 
 func testRunCmd(some ...string) (out, err string, exitCode int) {

@@ -86,9 +86,6 @@ const (
 	ECBlock    string = "EC PRIVATE KEY"
 )
 
-
-
-
 type RunContext struct {
 	TPPurl              string
 	TPPuser             string

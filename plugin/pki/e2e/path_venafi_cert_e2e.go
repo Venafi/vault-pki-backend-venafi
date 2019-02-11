@@ -5,10 +5,10 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"github.com/Venafi/vault-pki-backend-venafi/plugin/pki"
 	"github.com/Venafi/vcert/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/Venafi/vault-pki-backend-venafi/plugin/pki"
 	"strings"
 )
 
