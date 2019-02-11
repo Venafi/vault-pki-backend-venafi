@@ -12,7 +12,7 @@ import (
 
 // Factory creates a new backend implementing the logical.Backend interface
 func Factory(ctx context.Context, conf *logical.BackendConfig) (logical.Backend, error) {
-	b := Backend()
+	b := Backend(conf)
 	if err := b.Setup(ctx, conf); err != nil {
 		return nil, err
 	}
@@ -20,7 +20,7 @@ func Factory(ctx context.Context, conf *logical.BackendConfig) (logical.Backend,
 }
 
 // Backend returns a new Backend framework struct
-func Backend() *backend {
+func Backend(conf *logical.BackendConfig) *backend {
 	var b backend
 	b.Backend = &framework.Backend{
 		Help: strings.TrimSpace(backendHelp),
@@ -49,6 +49,7 @@ func Backend() *backend {
 	}
 
 	b.crlLifetime = time.Hour * 72
+	b.storage = conf.StorageView
 
 	return &b
 }
@@ -56,6 +57,7 @@ func Backend() *backend {
 type backend struct {
 	*framework.Backend
 
+	storage           logical.Storage
 	crlLifetime       time.Duration
 	revokeStorageLock sync.RWMutex
 }

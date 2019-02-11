@@ -10,10 +10,13 @@ PLUGIN_NAME := venafi-pki-backend
 PLUGIN_DIR := bin
 PLUGIN_PATH := $(PLUGIN_DIR)/$(PLUGIN_NAME)
 DIST_DIR := bin/dist
-VERSION := 0.3-11.5.161
+ifdef BUILD_NUMBER
+	VERSION=`git describe --abbrev=0 --tags`+$(BUILD_NUMBER)
+else
+	VERSION=`git describe --abbrev=0 --tags`
+endif
 
 ###Demo scripts parameteres
-TRUST_BUNDLE := /opt/venafi/bundle.pem
 VAULT_VERSION := $(shell vault --version|awk '{print $$2}')
 VAULT_CONT := $$(docker-compose ps |grep Up|grep vault_1|awk '{print $$1}')
 DOCKER_CMD := docker exec -it $(VAULT_CONT)
@@ -51,6 +54,10 @@ VAULT_CLIENT_TIMEOUT = 180s
 TPP_ISSUER_CN = QA Venafi CA
 CLOUD_ISSUER_CN = DigiCert Test SHA2 Intermediate CA-1
 FAKE_ISSUER_CN = VCert Test Mode CA
+
+
+version:
+	echo "$(VERSION)"
 
 #Need to unset VAULT_TOKEN when running vault with dev parameter.
 unset:
@@ -93,12 +100,12 @@ test_go:
 	    -race \
 		$$(go list ./... | \
 			grep -v '/vendor/' | \
-			grep -v 'plugin/pki/test/e2e' \
+			grep -v '/e2e' \
 		)
 
 test_e2e:
 	sed -i "s#image:.*$(IMAGE_NAME).*#image: $(DOCKER_IMAGE):$(BUILD_TAG)#" docker-compose.yaml
-	cd plugin/pki/test/e2e/ && ginkgo -v
+	cd plugin/pki/e2e && ginkgo -v
 
 push: build build_docker test_e2e
 	docker push $(DOCKER_IMAGE):$(BUILD_TAG)
