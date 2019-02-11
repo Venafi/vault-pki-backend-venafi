@@ -8,7 +8,7 @@ import (
 	"github.com/Venafi/vcert/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	. "github.com/Venafi/vault-pki-backend-venafi/plugin/pki"
+	"github.com/Venafi/vault-pki-backend-venafi/plugin/pki"
 	"strings"
 )
 
@@ -40,7 +40,7 @@ var _ = Describe("Vault PKI Venafi backend e2e tests	", func() {
 		issuerCN string
 	}
 
-	ctx := GetContext()
+	ctx := pki.GetContext()
 
 	defaultOpts := "generate_lease=true store_by_cn=true store_pkey=true store_by_serial=true"
 
@@ -128,7 +128,7 @@ var _ = Describe("Vault PKI Venafi backend e2e tests	", func() {
 							By("Should have requested SANs and CN in DNSNames")
 							wantDNSNames := []string{cn, dns1, dns2}
 							haveDNSNames := parsedCertificate.DNSNames
-							Expect(SameStringSlice(haveDNSNames, wantDNSNames)).To(BeTrue())
+							Expect(pki.SameStringSlice(haveDNSNames, wantDNSNames)).To(BeTrue())
 						}
 
 						By("Should have valid issuer CN")
