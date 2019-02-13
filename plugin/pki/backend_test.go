@@ -243,3 +243,5 @@ func TestPKI_Cloud_BaseEnroll(t *testing.T) {
 
 	checkStandartCert(t, data)
 }
+
+//TODO: add tests of fetching certificates by common name and serial
