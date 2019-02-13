@@ -2,11 +2,8 @@ package pki
 
 import (
 	"context"
-	"strings"
 	"time"
 
-	"github.com/hashicorp/vault/helper/consts"
-	"github.com/hashicorp/vault/helper/parseutil"
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
 )
@@ -150,50 +147,6 @@ func (b *backend) getRole(ctx context.Context, s logical.Storage, n string) (*ro
 	var result roleEntry
 	if err := entry.DecodeJSON(&result); err != nil {
 		return nil, err
-	}
-
-	// Migrate existing saved entries and save back if changed
-	modified := false
-	if len(result.DeprecatedTTL) == 0 && len(result.Lease) != 0 {
-		result.DeprecatedTTL = result.Lease
-		result.Lease = ""
-		modified = true
-	}
-	if result.TTL == 0 && len(result.DeprecatedTTL) != 0 {
-		parsed, err := parseutil.ParseDurationSecond(result.DeprecatedTTL)
-		if err != nil {
-			return nil, err
-		}
-		result.TTL = parsed
-		result.DeprecatedTTL = ""
-		modified = true
-	}
-	if len(result.DeprecatedMaxTTL) == 0 && len(result.LeaseMax) != 0 {
-		result.DeprecatedMaxTTL = result.LeaseMax
-		result.LeaseMax = ""
-		modified = true
-	}
-	if result.MaxTTL == 0 && len(result.DeprecatedMaxTTL) != 0 {
-		parsed, err := parseutil.ParseDurationSecond(result.DeprecatedMaxTTL)
-		if err != nil {
-			return nil, err
-		}
-		result.MaxTTL = parsed
-		result.DeprecatedMaxTTL = ""
-		modified = true
-	}
-
-	if modified && (b.System().LocalMount() || !b.System().ReplicationState().HasState(consts.ReplicationPerformanceSecondary)) {
-		jsonEntry, err := logical.StorageEntryJSON("role/"+n, &result)
-		if err != nil {
-			return nil, err
-		}
-		if err := s.Put(ctx, jsonEntry); err != nil {
-			// Only perform upgrades on replication primary
-			if !strings.Contains(err.Error(), logical.ErrReadOnly.Error()) {
-				return nil, err
-			}
-		}
 	}
 
 	return &result, nil
