@@ -84,9 +84,20 @@ Example:
 				Description: `Set it to true to store certificates by unique serial number in certs/ path`,
 			},
 
+			"service_generated_cert": {
+				Type:        framework.TypeBool,
+				Description: `Use service generated CSR for Venafi Platfrom (ignored if Saas endpoint used)`,
+				Default:     false,
+			},
 			"store_pkey": {
 				Type:        framework.TypeBool,
 				Description: `Set it to true to store certificates privates key in certificate fields`,
+			},
+			"chain_option": {
+				Type: framework.TypeString,
+				Description: `Specify ordering certificates in chain. Root can be "first" or
+            "last"`,
+				Default: "last",
 			},
 			"key_type": {
 				Type:    framework.TypeString,
@@ -242,23 +253,25 @@ func (b *backend) pathRoleCreate(ctx context.Context, req *logical.Request, data
 	name := data.Get("name").(string)
 
 	entry := &roleEntry{
-		TPPURL:          data.Get("tpp_url").(string),
-		CloudURL:        data.Get("cloud_url").(string),
-		Zone:            data.Get("zone").(string),
-		TPPPassword:     data.Get("tpp_password").(string),
-		Apikey:          data.Get("apikey").(string),
-		TPPUser:         data.Get("tpp_user").(string),
-		TrustBundleFile: data.Get("trust_bundle_file").(string),
-		Fakemode:        data.Get("fakemode").(bool),
-		StoreByCN:       data.Get("store_by_cn").(bool),
-		StoreBySerial:   data.Get("store_by_serial").(bool),
-		StorePrivateKey: data.Get("store_pkey").(bool),
-		KeyType:         data.Get("key_type").(string),
-		KeyBits:         data.Get("key_bits").(int),
-		KeyCurve:        data.Get("key_curve").(string),
-		MaxTTL:          time.Duration(data.Get("max_ttl").(int)) * time.Second,
-		TTL:             time.Duration(data.Get("ttl").(int)) * time.Second,
-		GenerateLease:   data.Get("generate_lease").(bool),
+		TPPURL:           data.Get("tpp_url").(string),
+		CloudURL:         data.Get("cloud_url").(string),
+		Zone:             data.Get("zone").(string),
+		TPPPassword:      data.Get("tpp_password").(string),
+		Apikey:           data.Get("apikey").(string),
+		TPPUser:          data.Get("tpp_user").(string),
+		TrustBundleFile:  data.Get("trust_bundle_file").(string),
+		Fakemode:         data.Get("fakemode").(bool),
+		ChainOption:      data.Get("chain_option").(string),
+		StoreByCN:        data.Get("store_by_cn").(bool),
+		StoreBySerial:    data.Get("store_by_serial").(bool),
+		ServiceGenerated: data.Get("service_generated_cert").(bool),
+		StorePrivateKey:  data.Get("store_pkey").(bool),
+		KeyType:          data.Get("key_type").(string),
+		KeyBits:          data.Get("key_bits").(int),
+		KeyCurve:         data.Get("key_curve").(string),
+		MaxTTL:           time.Duration(data.Get("max_ttl").(int)) * time.Second,
+		TTL:              time.Duration(data.Get("ttl").(int)) * time.Second,
+		GenerateLease:    data.Get("generate_lease").(bool),
 	}
 	if !entry.Fakemode && entry.Apikey == "" && (entry.TPPURL == "" || entry.TPPUser == "" || entry.TPPPassword == "") {
 		return logical.ErrorResponse("Invalid mode. fakemode or apikey or tpp credentials required"), nil
@@ -292,8 +305,10 @@ type roleEntry struct {
 	TPPUser          string        `json:"tpp_user"`
 	TrustBundleFile  string        `json:"trust_bundle_file"`
 	Fakemode         bool          `json:"fakemode"`
+	ChainOption      string        `json:"chain_option"`
 	StoreByCN        bool          `json:"store_by_cn"`
 	StoreBySerial    bool          `json:"store_by_serial"`
+	ServiceGenerated bool          `json:"service_generated_cert"`
 	StorePrivateKey  bool          `json:"store_pkey"`
 	KeyType          string        `json:"key_type"`
 	KeyBits          int           `json:"key_bits"`
@@ -316,15 +331,17 @@ func (r *roleEntry) ToResponseData() map[string]interface{} {
 		//We shouldn't show credentials
 		//"tpp_password":      r.TPPPassword,
 		//"apikey":            r.Apikey,
-		"tpp_user":          r.TPPUser,
-		"trust_bundle_file": r.TrustBundleFile,
-		"fakemode":          r.Fakemode,
-		"store_by_cn":       r.StoreByCN,
-		"store_by_serial":   r.StoreBySerial,
-		"store_pkey":        r.StorePrivateKey,
-		"ttl":               int64(r.TTL.Seconds()),
-		"max_ttl":           int64(r.MaxTTL.Seconds()),
-		"generate_lease":    r.GenerateLease,
+		"tpp_user":               r.TPPUser,
+		"trust_bundle_file":      r.TrustBundleFile,
+		"fakemode":               r.Fakemode,
+		"store_by_cn":            r.StoreByCN,
+		"store_by_serial":        r.StoreBySerial,
+		"service_generated_cert": r.ServiceGenerated,
+		"store_pkey":             r.StorePrivateKey,
+		"ttl":                    int64(r.TTL.Seconds()),
+		"max_ttl":                int64(r.MaxTTL.Seconds()),
+		"generate_lease":         r.GenerateLease,
+		"chain_option":           r.ChainOption,
 	}
 	return responseData
 }

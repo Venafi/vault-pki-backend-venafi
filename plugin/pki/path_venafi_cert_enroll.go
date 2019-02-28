@@ -2,11 +2,11 @@ package pki
 
 import (
 	"context"
-	"crypto/rand"
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"
-	vcertificate "github.com/Venafi/vcert/pkg/certificate"
+	"github.com/Venafi/vcert/pkg/certificate"
 	"github.com/Venafi/vcert/pkg/endpoint"
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
@@ -75,67 +75,95 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 	var pk privateKey
 
 	pk.keyType = role.KeyType
-	pk.keyBits = role.KeyBits
-	pk.keyCurve = role.KeyCurve
-	log.Printf("Signing private key with parameteres %v", pk)
 
-	certReq, pkey, err := createVenafiCSR(commonName, altNames, pk)
-	if err != nil {
-		return logical.ErrorResponse(err.Error()), nil
+	certReq := &certificate.Request{
+		Subject: pkix.Name{
+			CommonName: commonName,
+		},
+		DNSNames: altNames,
+		//TODO: add email, ip address parsing or split this options in certificate request
+		//EmailAddresses: []string{"e1@venafi.example.com", "e2@venafi.example.com"},
+		//IPAddresses:    []net.IP{net.IPv4(127, 0, 0, 1), net.IPv4(127, 0, 0, 2)},
+		CsrOrigin: certificate.LocalGeneratedCSR,
+		//TODO: add key password support
 	}
-	log.Printf("Running enroll request")
-	id, err := cl.RequestCertificate(certReq, "")
-	if err != nil {
-		return logical.ErrorResponse(err.Error()), nil
+
+	if cl.GetType() == endpoint.ConnectorTypeTPP && role.ServiceGenerated {
+		log.Println("Using service generated certificate for Venafi Platform")
+		certReq.CsrOrigin = certificate.ServiceGeneratedCSR
 	}
 
-	certReq.PickupID = id
-
-	var cert *vcertificate.PEMCollection
-	for {
-		cert, err = cl.RetrieveCertificate(certReq)
-		if err != nil {
-			_, pending := err.(endpoint.ErrCertificatePending)
-			_, timeout := err.(endpoint.ErrRetrieveCertificateTimeout)
-
-			if pending || timeout {
-				log.Printf("Certificate %s Issue pending with id %s", commonName, id)
-				time.Sleep(5 * time.Second)
-				continue
-			} else {
-				return logical.ErrorResponse(err.Error()), nil
-			}
+	if role.KeyType == "rsa" {
+		certReq.KeyLength = role.KeyBits
+	} else if role.KeyType == "ec" {
+		certReq.KeyType = certificate.KeyTypeECDSA
+		switch {
+		case role.KeyCurve == "P224":
+			certReq.KeyCurve = certificate.EllipticCurveP224
+		case role.KeyCurve == "P256":
+			certReq.KeyCurve = certificate.EllipticCurveP256
+		case role.KeyCurve == "P384":
+			certReq.KeyCurve = certificate.EllipticCurveP384
+		case role.KeyCurve == "P521":
+			certReq.KeyCurve = certificate.EllipticCurveP521
+		default:
+			return logical.ErrorResponse(fmt.Sprintf("can't use key curve %s", role.KeyCurve)), nil
 		}
-		log.Printf("Certificate is %s", *cert)
-		log.Printf("successfully got certificate: cn=%q altNames=%+v", commonName, altNames)
-		break
+
+	} else {
+		return logical.ErrorResponse(fmt.Sprintf("can't determine key algorithm for %s", role.KeyType)), nil
 	}
 
-	certificate := strings.Join([]string{cert.Certificate}, "\n")
-	cs := append([]string{cert.Certificate}, cert.Chain...)
-	chain := strings.Join(cs, "\n")
-	log.Println("certificate: ", chain)
 
-	//Parsing certificate and getting it's serial number
-	pemBlock, _ := pem.Decode([]byte(certificate))
+	if role.ChainOption == "first" {
+		certReq.ChainOption = certificate.ChainOptionRootFirst
+	} else if role.ChainOption == "last" {
+		certReq.ChainOption = certificate.ChainOptionRootLast
+	} else {
+		return logical.ErrorResponse(fmt.Sprintf("Invalid chain option %s", role.ChainOption)), nil
+	}
+
+	log.Println("Making certificate request")
+	err = cl.GenerateRequest(nil, certReq)
+	if err != nil {
+		return logical.ErrorResponse(err.Error()), nil
+	}
+
+	log.Printf("Running enroll request")
+
+	requestID, err := cl.RequestCertificate(certReq, "")
+	if err != nil {
+		return logical.ErrorResponse(err.Error()), nil
+	}
+
+	pickupReq := &certificate.Request{
+		PickupID: requestID,
+		//TODO: make timeout configurable
+		Timeout:  180 * time.Second,
+	}
+	pcc, err := cl.RetrieveCertificate(pickupReq)
+	if err != nil {
+		return logical.ErrorResponse(err.Error()), nil
+	}
+
+	pemBlock, _ := pem.Decode([]byte(pcc.Certificate))
 	parsedCertificate, err := x509.ParseCertificate(pemBlock.Bytes)
 	serialNumber := getHexFormatted(parsedCertificate.SerialNumber.Bytes(), ":")
 
-	encoded_key := pem.EncodeToMemory(pkey)
-	log.Println("Writing chain:", chain, "And key: ", string(encoded_key))
 
 	var entry *logical.StorageEntry
-
+	chain := strings.Join(append([]string{pcc.Certificate}, pcc.Chain...), "\n")
+	pcc.AddPrivateKey(certReq.PrivateKey, []byte(""))
 	if role.StorePrivateKey {
 		entry, err = logical.StorageEntryJSON("", VenafiCert{
-			Certificate:      certificate,
+			Certificate:      pcc.Certificate,
 			CertificateChain: chain,
-			PrivateKey:       string(encoded_key),
+			PrivateKey:       pcc.PrivateKey,
 			SerialNumber:     serialNumber,
 		})
 	} else {
 		entry, err = logical.StorageEntryJSON("", VenafiCert{
-			Certificate:      certificate,
+			Certificate:      pcc.Certificate,
 			CertificateChain: chain,
 			SerialNumber:     serialNumber,
 		})
@@ -169,8 +197,8 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 		"common_name":       commonName,
 		"serial_number":     serialNumber,
 		"certificate_chain": chain,
-		"certificate":       certificate,
-		"private_key":       string(encoded_key),
+		"certificate":       pcc.Certificate,
+		"private_key":       pcc.PrivateKey,
 	}
 
 	var logResp *logical.Response
@@ -200,100 +228,6 @@ type privateKey struct {
 	keyBits  int
 	keyCurve string
 	keyType  string
-}
-
-func createVenafiCSR(commonName string, altNames []string, pk privateKey) (*vcertificate.Request, *pem.Block, error) {
-	var err error
-	const defaultKeySize = 2048
-	req := &vcertificate.Request{}
-
-	if len(commonName) == 0 && len(altNames) == 0 {
-		return req, nil, fmt.Errorf("no domains specified on certificate")
-	}
-	if len(commonName) == 0 && len(altNames) > 0 {
-		commonName = altNames[0]
-	}
-
-	//Obtain a certificate from the Venafi server
-	log.Printf("Using CN %s and SAN %s", commonName, altNames)
-	req.Subject.CommonName = commonName
-	//Adding alt names if exists
-	dnsnum := len(altNames)
-	if dnsnum > 0 {
-		req.DNSNames = make([]string, 0, dnsnum)
-		for i := 0; i < dnsnum; i++ {
-			val := altNames[i]
-			log.Printf("Adding SAN %s.", val)
-			req.DNSNames = append(req.DNSNames, val)
-		}
-	}
-	//Appending common name to the DNS names if it is not there
-	if !sliceContains(req.DNSNames, commonName) {
-		log.Printf("Adding CN %s to SAN because it wasn't included.", commonName)
-		req.DNSNames = append(req.DNSNames, commonName)
-	}
-
-	log.Printf("Requested SAN: %s", req.DNSNames)
-
-	if pk.keyType == "rsa" {
-		req.KeyLength = pk.keyBits
-	} else if pk.keyType == "ec" {
-		req.KeyType = vcertificate.KeyTypeECDSA
-		switch {
-		case pk.keyCurve == "P224":
-			req.KeyCurve = vcertificate.EllipticCurveP224
-		case pk.keyCurve == "P256":
-			req.KeyCurve = vcertificate.EllipticCurveP256
-		case pk.keyCurve == "P384":
-			req.KeyCurve = vcertificate.EllipticCurveP384
-		case pk.keyCurve == "P521":
-			req.KeyCurve = vcertificate.EllipticCurveP521
-		default:
-
-		}
-
-	} else {
-		return req, nil, fmt.Errorf("can't determine key algorithm %s", pk.keyType)
-	}
-
-	switch req.KeyType {
-	case vcertificate.KeyTypeECDSA:
-		req.PrivateKey, err = vcertificate.GenerateECDSAPrivateKey(req.KeyCurve)
-	case vcertificate.KeyTypeRSA:
-		req.PrivateKey, err = vcertificate.GenerateRSAPrivateKey(req.KeyLength)
-	default:
-		log.Printf("Unable to generate certificate request, key type %s is not supported", req.KeyType.String())
-		return nil, nil, err
-	}
-
-	key, err := getPrivateKeyPEMBock(req.PrivateKey)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	//Setting up CSR
-	certificateRequest := x509.CertificateRequest{}
-	certificateRequest.Subject = req.Subject
-	certificateRequest.DNSNames = req.DNSNames
-	certificateRequest.EmailAddresses = req.EmailAddresses
-	certificateRequest.IPAddresses = req.IPAddresses
-	certificateRequest.Attributes = req.Attributes
-
-	/* TODO:
-	zoneConfig, err = cs.Conn.ReadZoneConfiguration(cf.Zone)
-	zoneConfig.UpdateCertificateRequest(req)
-		...should happen somewhere here before CSR is signed */
-
-	csr, err := x509.CreateCertificateRequest(rand.Reader, &certificateRequest, req.PrivateKey)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	req.CSR = csr
-
-	req.CSR = pem.EncodeToMemory(vcertificate.GetCertificateRequestPEMBlock(req.CSR))
-
-	return req, key, nil
 }
 
 type VenafiCert struct {
