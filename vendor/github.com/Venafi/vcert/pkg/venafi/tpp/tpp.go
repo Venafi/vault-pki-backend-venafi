@@ -17,6 +17,7 @@
 package tpp
 
 import (
+	"bytes"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
@@ -25,6 +26,9 @@ import (
 	"fmt"
 	"github.com/Venafi/vcert/pkg/certificate"
 	"github.com/Venafi/vcert/pkg/endpoint"
+	"io"
+	"io/ioutil"
+	"log"
 	"net/http"
 	"regexp"
 	"strings"
@@ -201,29 +205,24 @@ func retrieveChainOptionFromString(order string) retrieveChainOption {
 	}
 }
 
-// SetBaseURL sets the base URL used to cummuncate with TPP
+var baseUrlRegex = regexp.MustCompile("^https://[a-z\\d]+[-a-z\\d.]+[a-z\\d][:\\d]*/vedsdk/$")
+
+// SetBaseURL sets the base URL used to communicate with TPP
 func (c *Connector) SetBaseURL(url string) error {
 	modified := strings.ToLower(url)
-	reg := regexp.MustCompile("^http(|s)://")
-	if reg.FindStringIndex(modified) == nil {
+	if strings.HasPrefix(modified, "http://") {
+		modified = "https://" + modified[7:]
+	} else if !strings.HasPrefix(modified, "https://") {
 		modified = "https://" + modified
-	} else {
-		modified = reg.ReplaceAllString(modified, "https://")
 	}
-	reg = regexp.MustCompile("^https://.+?/")
-	if reg.FindStringIndex(modified) == nil {
+	if !strings.HasSuffix(modified, "/") {
 		modified = modified + "/"
 	}
 
-	reg = regexp.MustCompile("/vedsdk(|/)$")
-	if reg.FindStringIndex(modified) == nil {
+	if !strings.HasSuffix(modified, "vedsdk/") {
 		modified += "vedsdk/"
-	} else {
-		modified = reg.ReplaceAllString(modified, "/vedsdk/")
 	}
-
-	reg = regexp.MustCompile("^https://[a-z\\d]+[-a-z\\d.]+[a-z\\d][:\\d]*/vedsdk/$")
-	if loc := reg.FindStringIndex(modified); loc == nil {
+	if loc := baseUrlRegex.FindStringIndex(modified); loc == nil {
 		return fmt.Errorf("The specified TPP URL is invalid. %s\nExpected TPP URL format 'https://tpp.company.com/vedsdk/'", url)
 	}
 
@@ -236,6 +235,53 @@ func (c *Connector) getURL(resource urlResource) (string, error) {
 		return "", fmt.Errorf("The Host URL has not been set")
 	}
 	return fmt.Sprintf("%s%s", c.baseURL, resource), nil
+}
+
+func (c *Connector) request(method string, resource urlResource, data interface{}) (statusCode int, statusText string, body []byte, err error) {
+	url, err := c.getURL(resource)
+	if err != nil {
+		return
+	}
+	var payload io.Reader
+	var b []byte
+	if method == "POST" {
+		b, _ = json.Marshal(data)
+		payload = bytes.NewReader(b)
+	}
+
+	r, _ := http.NewRequest(method, url, payload)
+	if c.apiKey != "" {
+		r.Header.Add("x-venafi-api-key", c.apiKey)
+	}
+	r.Header.Add("content-type", "application/json")
+	r.Header.Add("cache-control", "no-cache")
+
+	res, err := c.getHTTPClient().Do(r)
+	if res != nil {
+		statusCode = res.StatusCode
+		statusText = res.Status
+	}
+	if err != nil {
+		return
+	}
+
+	defer res.Body.Close()
+	body, err = ioutil.ReadAll(res.Body)
+	// Do not enable trace in production
+	trace := false // IMPORTANT: sensitive information can be diclosured
+	// I hope you know what are you doing
+	if trace {
+		log.Println("#################")
+		if method == "POST" {
+			log.Printf("JSON sent for %s\n%s\n", url, string(b))
+		} else {
+			log.Printf("%s request sent to %s\n", method, url)
+		}
+		log.Printf("Response:\n%s\n", string(body))
+	} else if c.verbose {
+		log.Printf("Got %s status for %s %s\n", statusText, method, url)
+	}
+	return
 }
 
 func (c *Connector) getHTTPClient() *http.Client {
@@ -325,14 +371,9 @@ func parseAuthorizeResult(httpStatusCode int, httpStatus string, body []byte) (s
 	}
 }
 
-func parseAuthorizeData(b []byte) (authorizeResponse, error) {
-	var data authorizeResponse
-	err := json.Unmarshal(b, &data)
-	if err != nil {
-		return data, err
-	}
-
-	return data, nil
+func parseAuthorizeData(b []byte) (data authorizeResponse, err error) {
+	err = json.Unmarshal(b, &data)
+	return
 }
 
 func parseConfigResult(httpStatusCode int, httpStatus string, body []byte) (tppData tppPolicyData, err error) {
@@ -349,14 +390,9 @@ func parseConfigResult(httpStatusCode int, httpStatus string, body []byte) (tppD
 	}
 }
 
-func parseConfigData(b []byte) (tppPolicyData, error) {
-	var data tppPolicyData
-	err := json.Unmarshal(b, &data)
-	if err != nil {
-		return data, err
-	}
-
-	return data, nil
+func parseConfigData(b []byte) (data tppPolicyData, err error) {
+	err = json.Unmarshal(b, &data)
+	return
 }
 
 func parseRequestResult(httpStatusCode int, httpStatus string, body []byte) (string, error) {
@@ -372,14 +408,9 @@ func parseRequestResult(httpStatusCode int, httpStatus string, body []byte) (str
 	}
 }
 
-func parseRequestData(b []byte) (certificateRequestResponse, error) {
-	var data certificateRequestResponse
-	err := json.Unmarshal(b, &data)
-	if err != nil {
-		return data, err
-	}
-
-	return data, nil
+func parseRequestData(b []byte) (data certificateRequestResponse, err error) {
+	err = json.Unmarshal(b, &data)
+	return
 }
 
 func parseRetrieveResult(httpStatusCode int, httpStatus string, body []byte) (certificateRetrieveResponse, error) {
@@ -396,14 +427,9 @@ func parseRetrieveResult(httpStatusCode int, httpStatus string, body []byte) (ce
 	}
 }
 
-func parseRetrieveData(b []byte) (certificateRetrieveResponse, error) {
-	var data certificateRetrieveResponse
-	err := json.Unmarshal(b, &data)
-	if err != nil {
-		return data, err
-	}
-	// fmt.Printf("\n\n%s\n\n%+v\n\n", string(b), data)
-	return data, nil
+func parseRetrieveData(b []byte) (data certificateRetrieveResponse, err error) {
+	err = json.Unmarshal(b, &data)
+	return
 }
 
 func parseRevokeResult(httpStatusCode int, httpStatus string, body []byte) (certificateRevokeResponse, error) {
@@ -420,13 +446,9 @@ func parseRevokeResult(httpStatusCode int, httpStatus string, body []byte) (cert
 	}
 }
 
-func parseRevokeData(b []byte) (certificateRevokeResponse, error) {
-	var data certificateRevokeResponse
-	err := json.Unmarshal(b, &data)
-	if err != nil {
-		return data, err
-	}
-	return data, nil
+func parseRevokeData(b []byte) (data certificateRevokeResponse, err error) {
+	err = json.Unmarshal(b, &data)
+	return
 }
 
 func parseRenewResult(httpStatusCode int, httpStatus string, body []byte) (resp certificateRenewResponse, err error) {
@@ -437,10 +459,9 @@ func parseRenewResult(httpStatusCode int, httpStatus string, body []byte) (resp 
 	return resp, nil
 }
 
-func parseRenewData(b []byte) (certificateRenewResponse, error) {
-	var data certificateRenewResponse
-	err := json.Unmarshal(b, &data)
-	return data, err
+func parseRenewData(b []byte) (data certificateRenewResponse, err error) {
+	err = json.Unmarshal(b, &data)
+	return
 }
 
 func newPEMCollectionFromResponse(base64Response string, chainOrder certificate.ChainOption) (*certificate.PEMCollection, error) {

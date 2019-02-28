@@ -226,7 +226,7 @@
   version = "v1.0.0"
 
 [[projects]]
-  digest = "1:924ed51cc8b23bd9aaa12801b5d97883061054cf3a40ff4de95cb1c0d4bc701a"
+  digest = "1:950c8323b7f72df35663c1183f382ad8794994b4960974b333919f478dbe2f69"
   name = "github.com/hashicorp/vault"
   packages = [
     "api",
@@ -266,7 +266,6 @@
     "logical/framework",
     "logical/plugin",
     "logical/plugin/pb",
-    "logical/testing",
     "physical",
     "physical/inmem",
     "plugins",
@@ -659,7 +658,6 @@
     "github.com/Venafi/vcert/pkg/endpoint",
     "github.com/Venafi/vcert/test",
     "github.com/hashicorp/vault/api",
-    "github.com/hashicorp/vault/helper/certutil",
     "github.com/hashicorp/vault/helper/consts",
     "github.com/hashicorp/vault/helper/errutil",
     "github.com/hashicorp/vault/helper/parseutil",
@@ -668,7 +666,6 @@
     "github.com/hashicorp/vault/logical",
     "github.com/hashicorp/vault/logical/framework",
     "github.com/hashicorp/vault/logical/plugin",
-    "github.com/hashicorp/vault/logical/testing",
     "github.com/hashicorp/vault/vault",
     "github.com/onsi/ginkgo",
     "github.com/onsi/ginkgo/reporters",

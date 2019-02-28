@@ -17,11 +17,15 @@
 package cloud
 
 import (
+	"bytes"
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"github.com/Venafi/vcert/pkg/certificate"
 	"github.com/Venafi/vcert/pkg/endpoint"
+	"io"
+	"io/ioutil"
+	"log"
 	"net/http"
 	"regexp"
 	"strings"
