@@ -32,7 +32,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:366c525f26fbb813df4e45db247bb214de218df898aa5ba34f79ffadf471daf6"
+  digest = "1:7d147de55d36fca60ab8b6e494a501d0fdb5b82fdd0ceb33f11fceb838ecf843"
   name = "github.com/Venafi/vcert"
   packages = [
     ".",
@@ -44,7 +44,7 @@
     "test",
   ]
   pruneopts = "UT"
-  revision = "5876077a9b455bc1a089bf6830ee1340b2833b79"
+  revision = "6aaf17b1a28bbba2c6142c93b9e843123d98ba51"
 
 [[projects]]
   branch = "master"
