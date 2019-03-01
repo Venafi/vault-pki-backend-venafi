@@ -119,15 +119,15 @@ var _ = Describe("Vault PKI Venafi backend e2e tests	", func() {
 						parsedCertificate, parseErr := x509.ParseCertificate(pemBlock.Bytes)
 						Expect(parseErr).To(BeZero())
 
-						By("Should have requested CN")
 						haveCN := parsedCertificate.Subject.CommonName
+						By("Should have requested CN "+cn+" equal to "+haveCN)
 						Expect(haveCN).To(Equal(cn))
 
 						//Skip DNS check for cloud since int not implemented in Condor.
-						if endpoint.id != cloud {
-							By("Should have requested SANs and CN in DNSNames")
+						if endpoint.id == tpp {
 							wantDNSNames := []string{cn, dns1, dns2}
 							haveDNSNames := parsedCertificate.DNSNames
+							By("Should have requested SANs and CN in DNSNames "+strings.Join(wantDNSNames, " ")+" same as "+strings.Join(haveDNSNames," "))
 							Expect(pki.SameStringSlice(haveDNSNames, wantDNSNames)).To(BeTrue())
 						}
 
