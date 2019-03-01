@@ -72,10 +72,6 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 		return logical.ErrorResponse(err.Error()), nil
 	}
 
-	var pk privateKey
-
-	pk.keyType = role.KeyType
-
 	if len(commonName) == 0 && len(altNames) == 0 {
 		return logical.ErrorResponse("no domains specified on certificate"), nil
 	}
@@ -233,11 +229,6 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 	return logResp, nil
 }
 
-type privateKey struct {
-	keyBits  int
-	keyCurve string
-	keyType  string
-}
 
 type VenafiCert struct {
 	Certificate      string `json:"certificate"`
