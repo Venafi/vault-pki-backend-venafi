@@ -10,6 +10,7 @@ import (
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
 	"log"
+	"net"
 	"strings"
 	"time"
 )
@@ -28,7 +29,7 @@ func pathVenafiCertEnroll(b *backend) *framework.Path {
 			},
 			"alt_names": {
 				Type:        framework.TypeCommaStringSlice,
-				Description: "Alternative names for created certificate",
+				Description: "Alternative names for created certificate. Email and IP addresses can be specified too",
 			},
 		},
 		Callbacks: map[logical.Operation]framework.OperationFunc{
@@ -89,12 +90,16 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 		Subject: pkix.Name{
 			CommonName: commonName,
 		},
-		DNSNames: altNames,
-		//TODO: add email, ip address parsing or split this options in certificate request
-		//EmailAddresses: []string{"e1@venafi.example.com", "e2@venafi.example.com"},
-		//IPAddresses:    []net.IP{net.IPv4(127, 0, 0, 1), net.IPv4(127, 0, 0, 2)},
 		CsrOrigin: certificate.LocalGeneratedCSR,
 		//TODO: add key password support
+	}
+
+	for _,v := range altNames {
+		if strings.Contains(v, "@") {
+			certReq.EmailAddresses = append(certReq.DNSNames, v)
+		} else if net.ParseIP(v) != nil {
+			certReq.IPAddresses = append([]net.IP{}, net.ParseIP(v))
+		}
 	}
 
 	if role.KeyType == "rsa" {

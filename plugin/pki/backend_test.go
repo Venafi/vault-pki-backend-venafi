@@ -62,6 +62,7 @@ func checkStandartCert(t *testing.T, data testData) {
 		if !SameStringSlice(haveDNSNames, wantDNSNames) {
 			t.Fatalf("Certificate Subject Alternative Names %s doesn't match to requested %s", haveDNSNames, wantDNSNames)
 		}
+		//TODO: in policies branch Cloud endpoint should start to populate O,C,L.. fields too
 		wantOrg := os.Getenv("CERT_O")
 		haveOrg := parsedCertificate.Subject.Organization[0]
 		log.Println("want and have", wantOrg, haveOrg)
@@ -199,8 +200,8 @@ func TestPKI_TPP_RestrictedEnroll(t *testing.T) {
 	domain := "vfidev.com"
 	data.cn = rand + "." + domain
 	data.dns_ns = "alt-" + data.cn
-	data.dns_ip = "vfidev.com"
-	data.dns_email = "vfidev.com"
+	data.dns_ip = "192.168.1.1"
+	data.dns_email = "venafi@example.com"
 
 	coreConfig := &vault.CoreConfig{
 		LogicalBackends: map[string]logical.Factory{
