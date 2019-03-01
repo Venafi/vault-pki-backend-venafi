@@ -77,7 +77,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 		commonName = altNames[0]
 	}
 	if !sliceContains(altNames, commonName) {
-		log.Printf("Adding CN %s to SAN because it wasn't included.", commonName)
+		log.Printf("Adding CN %s to SAN %s because it wasn't included.", commonName, altNames)
 		altNames = append(altNames, commonName)
 	}
 	certReq := &certificate.Request{
@@ -90,9 +90,11 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 
 	for _,v := range altNames {
 		if strings.Contains(v, "@") {
-			certReq.EmailAddresses = append(certReq.DNSNames, v)
+			certReq.EmailAddresses = append(certReq.EmailAddresses, v)
 		} else if net.ParseIP(v) != nil {
 			certReq.IPAddresses = append([]net.IP{}, net.ParseIP(v))
+		} else {
+			certReq.DNSNames = append(certReq.DNSNames, v)
 		}
 	}
 
