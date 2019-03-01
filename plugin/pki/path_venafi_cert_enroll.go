@@ -64,8 +64,6 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 		commonName = altNames[0]
 	}
 
-	log.Println("Signing certificate " + commonName)
-	log.Printf("ALTNAMES is is %T %p %s", altNames, &altNames, altNames)
 	log.Println("Running venafi client:")
 	cl, err := b.ClientVenafi(ctx, req.Storage, data, req, roleName)
 	if err != nil {
