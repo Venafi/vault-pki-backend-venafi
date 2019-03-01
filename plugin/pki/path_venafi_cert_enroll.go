@@ -7,7 +7,6 @@ import (
 	"encoding/pem"
 	"fmt"
 	"github.com/Venafi/vcert/pkg/certificate"
-	"github.com/Venafi/vcert/pkg/endpoint"
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
 	"log"
@@ -76,6 +75,16 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 
 	pk.keyType = role.KeyType
 
+	if len(commonName) == 0 && len(altNames) == 0 {
+		return logical.ErrorResponse("no domains specified on certificate"), nil
+	}
+	if len(commonName) == 0 && len(altNames) > 0 {
+		commonName = altNames[0]
+	}
+	if !sliceContains(altNames, commonName) {
+		log.Printf("Adding CN %s to SAN because it wasn't included.", commonName)
+		altNames = append(altNames, commonName)
+	}
 	certReq := &certificate.Request{
 		Subject: pkix.Name{
 			CommonName: commonName,
@@ -86,11 +95,6 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 		//IPAddresses:    []net.IP{net.IPv4(127, 0, 0, 1), net.IPv4(127, 0, 0, 2)},
 		CsrOrigin: certificate.LocalGeneratedCSR,
 		//TODO: add key password support
-	}
-
-	if cl.GetType() == endpoint.ConnectorTypeTPP && role.ServiceGenerated {
-		log.Println("Using service generated certificate for Venafi Platform")
-		certReq.CsrOrigin = certificate.ServiceGeneratedCSR
 	}
 
 	if role.KeyType == "rsa" {

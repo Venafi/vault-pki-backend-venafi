@@ -55,11 +55,18 @@ func checkStandartCert(t *testing.T, data testData) {
 		t.Fatalf("Certificate common name expected to be %s but actualy it is %s", parsedCertificate.Subject.CommonName, data.cn)
 	}
 
-	if data.provider != "cloud" {
+	//TODO: cloud now have SAN support too. Have to implement it
+	if data.provider == "tpp" {
 		wantDNSNames := []string{data.cn, data.dns_ns, data.dns_ip, data.dns_email}
 		haveDNSNames := parsedCertificate.DNSNames
 		if !SameStringSlice(haveDNSNames, wantDNSNames) {
 			t.Fatalf("Certificate Subject Alternative Names %s doesn't match to requested %s", haveDNSNames, wantDNSNames)
+		}
+		wantOrg := os.Getenv("CERT_O")
+		haveOrg := parsedCertificate.Subject.Organization[0]
+		log.Println("want and have", wantOrg, haveOrg)
+		if wantOrg != haveOrg {
+			t.Fatalf("Certificate Organization %s doesn't match to requested %s", haveOrg, wantOrg)
 		}
 	}
 
