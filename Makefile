@@ -291,5 +291,5 @@ config: fake_config_write cloud_config_write tpp_config_write
 collect_artifacts:
 	rm -rf artifcats
 	mkdir -p artifcats
-	cp -v $(DIST_DIR)/*.zip artifcats
+	cp -rv $(DIST_DIR)/*.zip artifcats
 	cd artifcats; sha1sum * > hashsums.sha1
