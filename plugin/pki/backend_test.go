@@ -55,11 +55,22 @@ func checkStandartCert(t *testing.T, data testData) {
 		t.Fatalf("Certificate common name expected to be %s but actualy it is %s", parsedCertificate.Subject.CommonName, data.cn)
 	}
 
-	if data.provider != "cloud" {
-		wantDNSNames := []string{data.cn, data.dns_ns, data.dns_ip, data.dns_email}
+	//TODO: cloud now have SAN support too. Have to implement it
+	if data.provider == "tpp" {
+		wantDNSNames := []string{data.cn, data.dns_ns}
 		haveDNSNames := parsedCertificate.DNSNames
 		if !SameStringSlice(haveDNSNames, wantDNSNames) {
 			t.Fatalf("Certificate Subject Alternative Names %s doesn't match to requested %s", haveDNSNames, wantDNSNames)
+		}
+		//TODO: check IP and email too
+		//wantEmail := []string{data.dns_email}
+		//wantIP := []string{data.dns_email}
+		//TODO: in policies branch Cloud endpoint should start to populate O,C,L.. fields too
+		wantOrg := os.Getenv("CERT_O")
+		haveOrg := parsedCertificate.Subject.Organization[0]
+		log.Println("want and have", wantOrg, haveOrg)
+		if wantOrg != haveOrg {
+			t.Fatalf("Certificate Organization %s doesn't match to requested %s", haveOrg, wantOrg)
 		}
 	}
 
@@ -135,6 +146,7 @@ func TestPKI_TPP_BaseEnroll(t *testing.T) {
 	data.dns_ns = "alt-" + data.cn
 	data.dns_ip = "192.168.1.1"
 	data.dns_email = "venafi@example.com"
+	data.provider = "tpp"
 
 	coreConfig := &vault.CoreConfig{
 		LogicalBackends: map[string]logical.Factory{
@@ -167,6 +179,66 @@ func TestPKI_TPP_BaseEnroll(t *testing.T) {
 		"tpp_password":      os.Getenv("TPPPASSWORD"),
 		"zone":              os.Getenv("TPPZONE"),
 		"trust_bundle_file": os.Getenv("TRUST_BUNDLE"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resp, err := client.Logical().Write("pki/issue/example", map[string]interface{}{
+		"common_name": data.cn,
+		"alt_names":   fmt.Sprintf("%s,%s,%s", data.dns_ns, data.dns_ip, data.dns_email),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	data.cert = resp.Data["certificate"].(string)
+	data.private_key = resp.Data["private_key"].(string)
+
+	checkStandartCert(t, data)
+}
+
+func TestPKI_TPP_RestrictedEnroll(t *testing.T) {
+	data := testData{}
+	rand := randSeq(9)
+	domain := "vfidev.com"
+	data.cn = rand + "." + domain
+	data.dns_ns = "alt-" + data.cn
+	data.dns_ip = "192.168.1.1"
+	data.dns_email = "venafi@example.com"
+
+	coreConfig := &vault.CoreConfig{
+		LogicalBackends: map[string]logical.Factory{
+			"pki": Factory,
+		},
+	}
+	cluster := vault.NewTestCluster(t, coreConfig, &vault.TestClusterOptions{
+		HandlerFunc: vaulthttp.Handler,
+	})
+	cluster.Start()
+	defer cluster.Cleanup()
+
+	client := cluster.Cores[0].Client
+	var err error
+	err = client.Sys().Mount("pki", &api.MountInput{
+		Type: "pki",
+		Config: api.MountConfigInput{
+			DefaultLeaseTTL: "16h",
+			MaxLeaseTTL:     "32h",
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = client.Logical().Write("pki/roles/example", map[string]interface{}{
+		"generate_lease":    true,
+		"tpp_url":           os.Getenv("TPPURL"),
+		"tpp_user":          os.Getenv("TPPUSER"),
+		"tpp_password":      os.Getenv("TPPPASSWORD"),
+		"zone":              os.Getenv("TPPZONE_RESTRICTED"),
+		"trust_bundle_file": os.Getenv("TRUST_BUNDLE"),
+		//"service_generated_cert": true,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -244,4 +316,61 @@ func TestPKI_Cloud_BaseEnroll(t *testing.T) {
 	checkStandartCert(t, data)
 }
 
-//TODO: add tests of fetching certificates by common name and serial
+//TODO: have to add support of populating field in Cloud vcert ednpoint
+func DoNotRun_Cloud_RestrictedEnroll(t *testing.T) {
+	data := testData{}
+	rand := randSeq(9)
+	domain := "vfidev.com"
+	data.cn = rand + "." + domain
+	data.provider = "cloud"
+
+	coreConfig := &vault.CoreConfig{
+		LogicalBackends: map[string]logical.Factory{
+			"pki": Factory,
+		},
+	}
+	cluster := vault.NewTestCluster(t, coreConfig, &vault.TestClusterOptions{
+		HandlerFunc: vaulthttp.Handler,
+	})
+	cluster.Start()
+	defer cluster.Cleanup()
+
+	client := cluster.Cores[0].Client
+	var err error
+	err = client.Sys().Mount("pki", &api.MountInput{
+		Type: "pki",
+		Config: api.MountConfigInput{
+			DefaultLeaseTTL: "16h",
+			MaxLeaseTTL:     "32h",
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = client.Logical().Write("pki/roles/example", map[string]interface{}{
+		"generate_lease": true,
+		"cloud_url":      os.Getenv("CLOUDURL"),
+		"zone":           os.Getenv("CLOUDZONE_RESTRICTED"),
+		"apikey":         os.Getenv("CLOUDAPIKEY"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resp, err := client.Logical().Write("pki/issue/example", map[string]interface{}{
+		"common_name": data.cn,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp.Data["certificate"] == "" {
+		t.Fatalf("expected a cert to be generated")
+	}
+
+	data.cert = resp.Data["certificate"].(string)
+	data.private_key = resp.Data["private_key"].(string)
+
+	checkStandartCert(t, data)
+}

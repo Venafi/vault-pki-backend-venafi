@@ -289,11 +289,12 @@ show_config: fake_config_read cloud_config_read tpp_config_read
 config: fake_config_write cloud_config_write tpp_config_write
 
 collect_artifacts:
+	rm -rf artifcats
 	mkdir -p artifcats
-	mv (PLUGIN_DIR)/linux/$(PLUGIN_NAME) artifcats/$(PLUGIN_NAME)-$(VERSION)_linux
-	mv (PLUGIN_DIR)/linux86/$(PLUGIN_NAME) artifcats/$(PLUGIN_NAME)-$(VERSION)_linux86
-	mv (PLUGIN_DIR)/darwin/$(PLUGIN_NAME) artifcats/$(PLUGIN_NAME)-$(VERSION)_darwin
-	mv (PLUGIN_DIR)/darwin86/$(PLUGIN_NAME) artifcats/$(PLUGIN_NAME)-$(VERSION)_darwin86
-	mv (PLUGIN_DIR)/windows/$(PLUGIN_NAME).exe artifcats/$(PLUGIN_NAME)-$(VERSION)_windows.exe
-	mv (PLUGIN_DIR)/windows86/$(PLUGIN_NAME).ext artifcats/$(PLUGIN_NAME)-$(VERSION)_windows86.exe
+	mv $(PLUGIN_DIR)/linux/$(PLUGIN_NAME) artifcats/$(PLUGIN_NAME)-$(VERSION)_linux
+	mv $(PLUGIN_DIR)/linux86/$(PLUGIN_NAME) artifcats/$(PLUGIN_NAME)-$(VERSION)_linux86
+	mv $(PLUGIN_DIR)/darwin/$(PLUGIN_NAME) artifcats/$(PLUGIN_NAME)-$(VERSION)_darwin
+	mv $(PLUGIN_DIR)/darwin86/$(PLUGIN_NAME) artifcats/$(PLUGIN_NAME)-$(VERSION)_darwin86
+	mv $(PLUGIN_DIR)/windows/$(PLUGIN_NAME).exe artifcats/$(PLUGIN_NAME)-$(VERSION)_windows.exe
+	mv $(PLUGIN_DIR)/windows86/$(PLUGIN_NAME).exe artifcats/$(PLUGIN_NAME)-$(VERSION)_windows86.exe
 	cd artifcats; sha1sum * > hashsums.sha1

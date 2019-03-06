@@ -15,8 +15,9 @@ import (
 func init() {
 	fmt.Println("Initilazing Vault with consul backend")
 	commandWithArgs("docker-compose", "down", "--remove-orphans")
+	commandWithArgs("docker", "images")
 	commandWithArgs("docker-compose", "up", "-d")
-	time.Sleep(10)
+	time.Sleep(20)
 
 	init := run(fmt.Sprintf("docker exec %s vault operator init -key-shares=1 -key-threshold=1", vaultContainerName))
 
