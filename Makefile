@@ -289,6 +289,7 @@ show_config: fake_config_read cloud_config_read tpp_config_read
 config: fake_config_write cloud_config_write tpp_config_write
 
 collect_artifacts:
+	rm -rf artifcats
 	mkdir -p artifcats
 	mv $(PLUGIN_DIR)/linux/$(PLUGIN_NAME) artifcats/$(PLUGIN_NAME)-$(VERSION)_linux
 	mv $(PLUGIN_DIR)/linux86/$(PLUGIN_NAME) artifcats/$(PLUGIN_NAME)-$(VERSION)_linux86
