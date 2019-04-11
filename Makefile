@@ -10,6 +10,7 @@ PLUGIN_NAME := venafi-pki-backend
 PLUGIN_DIR := bin
 PLUGIN_PATH := $(PLUGIN_DIR)/$(PLUGIN_NAME)
 DIST_DIR := bin/dist
+GO_BUILD := go build -mod vendor -ldflags '-s -w -extldflags "-static"' -a
 ifdef BUILD_NUMBER
 	VERSION=`git describe --abbrev=0 --tags`+$(BUILD_NUMBER)
 else
@@ -66,12 +67,12 @@ unset:
 
 #Build
 build:
-	env CGO_ENABLED=0 GOOS=linux   GOARCH=amd64 go build -ldflags '-s -w -extldflags "-static"' -a -o $(PLUGIN_DIR)/linux/$(PLUGIN_NAME) || exit 1
-	env CGO_ENABLED=0 GOOS=linux   GOARCH=386   go build -ldflags '-s -w -extldflags "-static"' -a -o $(PLUGIN_DIR)/linux86/$(PLUGIN_NAME) || exit 1
-	env CGO_ENABLED=0 GOOS=darwin  GOARCH=amd64 go build -ldflags '-s -w -extldflags "-static"' -a -o $(PLUGIN_DIR)/darwin/$(PLUGIN_NAME) || exit 1
-	env CGO_ENABLED=0 GOOS=darwin  GOARCH=386   go build -ldflags '-s -w -extldflags "-static"' -a -o $(PLUGIN_DIR)/darwin86/$(PLUGIN_NAME) || exit 1
-	env CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags '-s -w -extldflags "-static"' -a -o $(PLUGIN_DIR)/windows/$(PLUGIN_NAME).exe || exit 1
-	env CGO_ENABLED=0 GOOS=windows GOARCH=386   go build -ldflags '-s -w -extldflags "-static"' -a -o $(PLUGIN_DIR)/windows86/$(PLUGIN_NAME).exe || exit 1
+	env CGO_ENABLED=0 GOOS=linux   GOARCH=amd64 $(GO_BUILD) -o $(PLUGIN_DIR)/linux/$(PLUGIN_NAME) || exit 1
+	env CGO_ENABLED=0 GOOS=linux   GOARCH=386   $(GO_BUILD) -o $(PLUGIN_DIR)/linux86/$(PLUGIN_NAME) || exit 1
+	env CGO_ENABLED=0 GOOS=darwin  GOARCH=amd64 $(GO_BUILD) -o $(PLUGIN_DIR)/darwin/$(PLUGIN_NAME) || exit 1
+	env CGO_ENABLED=0 GOOS=darwin  GOARCH=386   $(GO_BUILD) -o $(PLUGIN_DIR)/darwin86/$(PLUGIN_NAME) || exit 1
+	env CGO_ENABLED=0 GOOS=windows GOARCH=amd64 $(GO_BUILD) -o $(PLUGIN_DIR)/windows/$(PLUGIN_NAME).exe || exit 1
+	env CGO_ENABLED=0 GOOS=windows GOARCH=386   $(GO_BUILD) -o $(PLUGIN_DIR)/windows86/$(PLUGIN_NAME).exe || exit 1
 	chmod +x $(PLUGIN_DIR)/*
 
 #quickly build linux for testing
