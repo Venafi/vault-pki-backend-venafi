@@ -98,6 +98,7 @@ test: test_go test_e2e
 
 test_go:
 	go test -v \
+		-mod vendor \
 	    -race \
 		$$(go list ./... | \
 			grep -v '/vendor/' | \
