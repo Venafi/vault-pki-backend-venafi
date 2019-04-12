@@ -10,7 +10,7 @@ PLUGIN_NAME := venafi-pki-backend
 PLUGIN_DIR := bin
 PLUGIN_PATH := $(PLUGIN_DIR)/$(PLUGIN_NAME)
 DIST_DIR := bin/dist
-GO_BUILD := go build -mod vendor -ldflags '-s -w -extldflags "-static"' -a
+GO_BUILD := go build -ldflags '-s -w -extldflags "-static"' -a
 ifdef BUILD_NUMBER
 	VERSION=`git describe --abbrev=0 --tags`+$(BUILD_NUMBER)
 else
