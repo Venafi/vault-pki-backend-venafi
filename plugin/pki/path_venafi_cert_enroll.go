@@ -31,6 +31,10 @@ func pathVenafiCertEnroll(b *backend) *framework.Path {
 				Type:        framework.TypeCommaStringSlice,
 				Description: "Alternative names for created certificate. Email and IP addresses can be specified too",
 			},
+			"csr": {
+				Type:        framework.TypeCommaStringSlice,
+				Description: "PEM-formated CSR to be signed by Venafi",
+			},
 		},
 		Callbacks: map[logical.Operation]framework.OperationFunc{
 			logical.UpdateOperation: b.pathVenafiCertObtain,
@@ -57,11 +61,17 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 
 	commonName := data.Get("common_name").(string)
 	altNames := data.Get("alt_names").([]string)
-	if len(commonName) == 0 && len(altNames) == 0 {
-		return logical.ErrorResponse("no domains specified on certificate"), nil
-	}
-	if len(commonName) == 0 && len(altNames) > 0 {
-		commonName = altNames[0]
+	if len(data.Get("csr").(string)) == 0 {
+		if len(commonName) == 0 && len(altNames) == 0 {
+			return logical.ErrorResponse("no domains specified on certificate"), nil
+		}
+		if len(commonName) == 0 && len(altNames) > 0 {
+			commonName = altNames[0]
+		}
+		if !sliceContains(altNames, commonName) {
+			log.Printf("Adding CN %s to SAN %s because it wasn't included.", commonName, altNames)
+			altNames = append(altNames, commonName)
+		}
 	}
 
 	log.Println("Running venafi client:")
@@ -70,16 +80,6 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 		return logical.ErrorResponse(err.Error()), nil
 	}
 
-	if len(commonName) == 0 && len(altNames) == 0 {
-		return logical.ErrorResponse("no domains specified on certificate"), nil
-	}
-	if len(commonName) == 0 && len(altNames) > 0 {
-		commonName = altNames[0]
-	}
-	if !sliceContains(altNames, commonName) {
-		log.Printf("Adding CN %s to SAN %s because it wasn't included.", commonName, altNames)
-		altNames = append(altNames, commonName)
-	}
 	certReq := &certificate.Request{
 		Subject: pkix.Name{
 			CommonName: commonName,
