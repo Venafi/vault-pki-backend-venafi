@@ -116,6 +116,15 @@ It is not common for the Venafi Platform's REST API (WebSDK) to be secured using
     vault write venafi-pki/issue/tpp-backend common_name="test.example.com" alt_names="test-1.example.com,test-2.example.com"
     ```
 
+### Running under Windows
+ If you want to run plugin on Windows the following environment variables must specified to restrict the port that will be assigned to be from within a specific range. If not values are provided plugin will exit with error. For more information please see https://github.com/hashicorp/go-plugin/pull/111
+
+  * `PLUGIN_MIN_PORT`: Specifies the minimum port value that will be assigned to
+ * the listener.
+
+  * `PLUGIN_MAX_PORT`: Specifies the maximum port value that will be assigned to
+ * the listener.
+ 
 ## Demonstrating End-to-End
 
 > Note: Here we'll use a Makefile to encapsulate several command sequences in a single step. For specific details on those commands and their parameters, please review the contents of the [Makefile](Makefile) itself.
