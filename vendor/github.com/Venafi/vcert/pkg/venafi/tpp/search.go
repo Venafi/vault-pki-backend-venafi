@@ -19,6 +19,7 @@ package tpp
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"strings"
 )
@@ -52,12 +53,33 @@ func (c *Connector) searchCertificates(req *SearchRequest) (*CertificateSearchRe
 
 	var err error
 
-	url := fmt.Sprintf("%s?%s", urlResourceCertificateSearch, strings.Join(*req, "&"))
-	statusCode, _, body, err := c.request("GET", urlResource(url), nil)
+	url, _ := c.getURL(urlResourceCertificateSearch)
+
+	url = fmt.Sprintf("%s?%s", url, strings.Join(*req, "&"))
+
+	request, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
 	}
-	searchResult, err := ParseCertificateSearchResponse(statusCode, body)
+	request.Header.Add("x-venafi-api-key", c.apiKey)
+	request.Header.Add("cache-control", "no-cache")
+	request.Header.Add("accept", "application/json")
+
+	resp, err := http.DefaultClient.Do(request)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	if c.verbose {
+		fmt.Printf("REQ: %s\n", url)
+		fmt.Printf("RES: %s\n", body)
+	}
+
+	searchResult, err := ParseCertificateSearchResponse(resp.StatusCode, body)
 	if err != nil {
 		return nil, err
 	}
