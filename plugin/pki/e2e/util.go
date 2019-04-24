@@ -68,6 +68,5 @@ func commandWithArgs(run string, extraArgs ...string) {
 	err := cmd.Run()
 	if err != nil {
 		panic(err)
-		return
 	}
 }
