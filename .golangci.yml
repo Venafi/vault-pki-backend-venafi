@@ -1,0 +1,10 @@
+run:
+  tests: false
+  modules-download-mode: readonly
+
+linters:
+  disable:
+    - deadcode
+    - varcheck
+    - unused
+  enable:

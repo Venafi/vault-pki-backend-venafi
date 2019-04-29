@@ -294,3 +294,6 @@ collect_artifacts:
 	mkdir -p artifcats
 	cp -rv $(DIST_DIR)/*.zip artifcats
 	cd artifcats; sha1sum * > hashsums.sha1
+
+linter:
+	golangci-lint run
