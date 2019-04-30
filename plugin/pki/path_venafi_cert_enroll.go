@@ -31,21 +31,75 @@ func pathVenafiCertEnroll(b *backend) *framework.Path {
 				Type:        framework.TypeCommaStringSlice,
 				Description: "Alternative names for created certificate. Email and IP addresses can be specified too",
 			},
-			"csr": {
-				Type:        framework.TypeCommaStringSlice,
-				Description: "PEM-formated CSR to be signed by Venafi",
-			},
 		},
 		Callbacks: map[logical.Operation]framework.OperationFunc{
-			logical.UpdateOperation: b.pathVenafiCertObtain,
+			logical.UpdateOperation: b.pathVenafiIssue,
 		},
 
-		HelpSynopsis:    pathConfigRootHelpSyn,
-		HelpDescription: pathConfigRootHelpDesc,
+		HelpSynopsis:    pathVenafiCertEnrollHelp,
+		HelpDescription: pathVenafiCertEnrollDesc,
 	}
 }
 
-func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request, data *framework.FieldData) (
+func pathVenafiCertSign(b *backend) *framework.Path {
+	return &framework.Path{
+		Pattern: "sign/" + framework.GenericNameRegex("role"),
+		Fields: map[string]*framework.FieldSchema{
+			"csr": {
+				Type:        framework.TypeString,
+				Description: `The desired role with configuration for this request`,
+			},
+			"role": {
+				Type:        framework.TypeString,
+				Description: `The desired role with configuration for this request`,
+			},
+		},
+		Callbacks: map[logical.Operation]framework.OperationFunc{
+			logical.UpdateOperation: b.pathVenafiSign,
+		},
+
+		HelpSynopsis:    pathVenafiCertSignHelp,
+		HelpDescription: pathVenafiCertSignDesc,
+	}
+}
+
+func (b *backend) pathVenafiIssue(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+	roleName := data.Get("role").(string)
+
+	// Get the role
+	role, err := b.getRole(ctx, req.Storage, roleName)
+	if err != nil {
+		return nil, err
+	}
+	if role == nil {
+		return logical.ErrorResponse(fmt.Sprintf("unknown role: %s", roleName)), nil
+	}
+
+	if role.KeyType == "any" {
+		return logical.ErrorResponse("role key type \"any\" not allowed for issuing certificates, only signing"), nil
+	}
+
+	return b.pathVenafiCertObtain(ctx, req, data, role, false)
+}
+
+// pathSign issues a certificate from a submitted CSR, subject to role
+// restrictions
+func (b *backend) pathVenafiSign(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+	roleName := data.Get("role").(string)
+
+	// Get the role
+	role, err := b.getRole(ctx, req.Storage, roleName)
+	if err != nil {
+		return nil, err
+	}
+	if role == nil {
+		return logical.ErrorResponse(fmt.Sprintf("unknown role: %s", roleName)), nil
+	}
+
+	return b.pathVenafiCertObtain(ctx, req, data, role, true)
+}
+
+func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request, data *framework.FieldData, role *roleEntry, signCSR bool) (
 	*logical.Response, error) {
 
 	log.Printf("Getting the role\n")
@@ -59,9 +113,23 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 		return nil, fmt.Errorf("Unknown role +%v", role)
 	}
 
-	commonName := data.Get("common_name").(string)
-	altNames := data.Get("alt_names").([]string)
-	if len(data.Get("csr").(string)) == 0 {
+	log.Println("Creating Venafi client:")
+	cl, err := b.ClientVenafi(ctx, req.Storage, data, req, roleName)
+	if err != nil {
+		return logical.ErrorResponse(err.Error()), nil
+	}
+
+	var commonName string
+	var certReq *certificate.Request
+	if !signCSR {
+		commonName = data.Get("common_name").(string)
+		altNames := data.Get("alt_names").([]string)
+		if len(commonName) == 0 && len(altNames) == 0 {
+			return logical.ErrorResponse("no domains specified on certificate"), nil
+		}
+		if len(commonName) == 0 && len(altNames) > 0 {
+			commonName = altNames[0]
+		}
 		if len(commonName) == 0 && len(altNames) == 0 {
 			return logical.ErrorResponse("no domains specified on certificate"), nil
 		}
@@ -72,31 +140,27 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 			log.Printf("Adding CN %s to SAN %s because it wasn't included.", commonName, altNames)
 			altNames = append(altNames, commonName)
 		}
-	}
-
-	log.Println("Running venafi client:")
-	cl, err := b.ClientVenafi(ctx, req.Storage, data, req, roleName)
-	if err != nil {
-		return logical.ErrorResponse(err.Error()), nil
-	}
-
-	certReq := &certificate.Request{
-		Subject: pkix.Name{
-			CommonName: commonName,
-		},
-		CsrOrigin: certificate.LocalGeneratedCSR,
-		//TODO: add key password support
-	}
-
-	for _,v := range altNames {
-		if strings.Contains(v, "@") {
-			certReq.EmailAddresses = append(certReq.EmailAddresses, v)
-		} else if net.ParseIP(v) != nil {
-			certReq.IPAddresses = append([]net.IP{}, net.ParseIP(v))
-		} else {
-			certReq.DNSNames = append(certReq.DNSNames, v)
+		certReq = &certificate.Request{
+			Subject: pkix.Name{
+				CommonName: commonName,
+			},
+			CsrOrigin: certificate.LocalGeneratedCSR,
+			//TODO: add key password support
 		}
+		for _, v := range altNames {
+			if strings.Contains(v, "@") {
+				certReq.EmailAddresses = append(certReq.EmailAddresses, v)
+			} else if net.ParseIP(v) != nil {
+				certReq.IPAddresses = append([]net.IP{}, net.ParseIP(v))
+			} else {
+				certReq.DNSNames = append(certReq.DNSNames, v)
+			}
+		}
+	} else {
+		log.Println("Signing user provided CSR")
 	}
+
+
 
 	if role.KeyType == "rsa" {
 		certReq.KeyLength = role.KeyBits
@@ -118,7 +182,6 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 	} else {
 		return logical.ErrorResponse(fmt.Sprintf("can't determine key algorithm for %s", role.KeyType)), nil
 	}
-
 
 	if role.ChainOption == "first" {
 		certReq.ChainOption = certificate.ChainOptionRootFirst
@@ -144,7 +207,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 	pickupReq := &certificate.Request{
 		PickupID: requestID,
 		//TODO: make timeout configurable
-		Timeout:  180 * time.Second,
+		Timeout: 180 * time.Second,
 	}
 	pcc, err := cl.RetrieveCertificate(pickupReq)
 	if err != nil {
@@ -154,7 +217,6 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 	pemBlock, _ := pem.Decode([]byte(pcc.Certificate))
 	parsedCertificate, err := x509.ParseCertificate(pemBlock.Bytes)
 	serialNumber := getHexFormatted(parsedCertificate.SerialNumber.Bytes(), ":")
-
 
 	var entry *logical.StorageEntry
 	chain := strings.Join(append([]string{pcc.Certificate}, pcc.Chain...), "\n")
@@ -229,7 +291,6 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 	return logResp, nil
 }
 
-
 type VenafiCert struct {
 	Certificate      string `json:"certificate"`
 	CertificateChain string `json:"certificate_chain"`
@@ -243,4 +304,20 @@ Configure the Venafi TPP credentials that are used to manage certificates,
 
 const pathConfigRootHelpDesc = `
 Configure TPP first
+`
+
+const pathVenafiCertEnrollHelp = `
+Enroll Venafi certificate
+`
+
+const pathVenafiCertEnrollDesc = `
+Enroll Venafi certificate
+`
+
+const pathVenafiCertSignHelp = `
+Sign Venafi certificate
+`
+
+const pathVenafiCertSignDesc = `
+Sign Venafi certificate
 `
