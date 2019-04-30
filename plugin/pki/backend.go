@@ -3,7 +3,6 @@ package pki
 import (
 	"context"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/hashicorp/vault/logical"
@@ -58,9 +57,8 @@ func Backend(conf *logical.BackendConfig) *backend {
 type backend struct {
 	*framework.Backend
 
-	storage           logical.Storage
-	crlLifetime       time.Duration
-	revokeStorageLock sync.RWMutex
+	storage     logical.Storage
+	crlLifetime time.Duration
 }
 
 const backendHelp = `

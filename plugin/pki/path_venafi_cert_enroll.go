@@ -235,11 +235,17 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 
 	pemBlock, _ := pem.Decode([]byte(pcc.Certificate))
 	parsedCertificate, err := x509.ParseCertificate(pemBlock.Bytes)
+	if err != nil {
+		return nil, err
+	}
 	serialNumber := getHexFormatted(parsedCertificate.SerialNumber.Bytes(), ":")
 
 	var entry *logical.StorageEntry
 	chain := strings.Join(append([]string{pcc.Certificate}, pcc.Chain...), "\n")
-	pcc.AddPrivateKey(certReq.PrivateKey, []byte(""))
+	err = pcc.AddPrivateKey(certReq.PrivateKey, []byte(""))
+	if err != nil {
+		return nil, err
+	}
 	if role.StorePrivateKey {
 		entry, err = logical.StorageEntryJSON("", VenafiCert{
 			Certificate:      pcc.Certificate,
@@ -254,7 +260,9 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 			SerialNumber:     serialNumber,
 		})
 	}
-
+	if err != nil {
+		return nil, err
+	}
 	if role.StoreByCN {
 
 		//Writing certificate to the storage with CN
@@ -289,7 +297,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 
 	var logResp *logical.Response
 	switch {
-	case role.GenerateLease == false:
+	case !role.GenerateLease:
 		// If lease generation is disabled do not populate `Secret` field in
 		// the response
 		logResp = &logical.Response{
@@ -301,7 +309,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 			map[string]interface{}{
 				"serial_number": serialNumber,
 			})
-		TTL := parsedCertificate.NotAfter.Sub(time.Now())
+		TTL := time.Until(parsedCertificate.NotAfter)
 		log.Println("Seting up secret lease duration to: ", TTL)
 		logResp.Secret.TTL = TTL
 	}
