@@ -163,7 +163,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 			return logical.ErrorResponse(fmt.Sprintf("\"csr\" is empty")), nil
 		}
 		pemBytes := []byte(csrString)
-		pemBlock, pemBytes := pem.Decode(pemBytes)
+		pemBlock, _ := pem.Decode(pemBytes)
 		if pemBlock == nil {
 			return logical.ErrorResponse(fmt.Sprintf("csr contains no data")), nil
 		}
@@ -174,32 +174,32 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 		commonName = csr.Subject.CommonName
 		certReq = &certificate.Request{
 			CsrOrigin: certificate.UserProvidedCSR,
-			CSR: pemBytes,
+			CSR:       pemBytes,
 		}
 
 	}
 
+	if !signCSR {
+		if role.KeyType == "rsa" {
+			certReq.KeyLength = role.KeyBits
+		} else if role.KeyType == "ec" {
+			certReq.KeyType = certificate.KeyTypeECDSA
+			switch {
+			case role.KeyCurve == "P224":
+				certReq.KeyCurve = certificate.EllipticCurveP224
+			case role.KeyCurve == "P256":
+				certReq.KeyCurve = certificate.EllipticCurveP256
+			case role.KeyCurve == "P384":
+				certReq.KeyCurve = certificate.EllipticCurveP384
+			case role.KeyCurve == "P521":
+				certReq.KeyCurve = certificate.EllipticCurveP521
+			default:
+				return logical.ErrorResponse(fmt.Sprintf("can't use key curve %s", role.KeyCurve)), nil
+			}
 
-
-	if role.KeyType == "rsa" {
-		certReq.KeyLength = role.KeyBits
-	} else if role.KeyType == "ec" {
-		certReq.KeyType = certificate.KeyTypeECDSA
-		switch {
-		case role.KeyCurve == "P224":
-			certReq.KeyCurve = certificate.EllipticCurveP224
-		case role.KeyCurve == "P256":
-			certReq.KeyCurve = certificate.EllipticCurveP256
-		case role.KeyCurve == "P384":
-			certReq.KeyCurve = certificate.EllipticCurveP384
-		case role.KeyCurve == "P521":
-			certReq.KeyCurve = certificate.EllipticCurveP521
-		default:
-			return logical.ErrorResponse(fmt.Sprintf("can't use key curve %s", role.KeyCurve)), nil
+		} else {
+			return logical.ErrorResponse(fmt.Sprintf("can't determine key algorithm for %s", role.KeyType)), nil
 		}
-
-	} else {
-		return logical.ErrorResponse(fmt.Sprintf("can't determine key algorithm for %s", role.KeyType)), nil
 	}
 
 	if role.ChainOption == "first" {
@@ -242,11 +242,15 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 
 	var entry *logical.StorageEntry
 	chain := strings.Join(append([]string{pcc.Certificate}, pcc.Chain...), "\n")
-	err = pcc.AddPrivateKey(certReq.PrivateKey, []byte(""))
-	if err != nil {
-		return nil, err
+
+	if !signCSR {
+		err = pcc.AddPrivateKey(certReq.PrivateKey, []byte(""))
+		if err != nil {
+			return nil, err
+		}
 	}
-	if role.StorePrivateKey {
+
+	if role.StorePrivateKey && !signCSR {
 		entry, err = logical.StorageEntryJSON("", VenafiCert{
 			Certificate:      pcc.Certificate,
 			CertificateChain: chain,
@@ -287,13 +291,24 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 		}
 	}
 
-	respData := map[string]interface{}{
-		"common_name":       commonName,
-		"serial_number":     serialNumber,
-		"certificate_chain": chain,
-		"certificate":       pcc.Certificate,
-		"private_key":       pcc.PrivateKey,
+	var respData map[string]interface{}
+	if !signCSR {
+		respData = map[string]interface{}{
+			"common_name":       commonName,
+			"serial_number":     serialNumber,
+			"certificate_chain": chain,
+			"certificate":       pcc.Certificate,
+			"private_key":       pcc.PrivateKey,
+		}
+	} else {
+		respData = map[string]interface{}{
+			"common_name":       commonName,
+			"serial_number":     serialNumber,
+			"certificate_chain": chain,
+			"certificate":       pcc.Certificate,
+		}
 	}
+
 
 	var logResp *logical.Response
 	switch {

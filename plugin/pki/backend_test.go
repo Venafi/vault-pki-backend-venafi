@@ -33,20 +33,33 @@ type testData struct {
 	dns_ip      string
 	dns_email   string
 	provider    string
+	signCSR 	bool
+	csrPK		[]byte
 }
 
 func checkStandartCert(t *testing.T, data testData) {
-
+	var err error
 	log.Println("Testing certificate:", data.cert)
 	certPEMBlock, _ := pem.Decode([]byte(data.cert))
 	if certPEMBlock == nil {
 		t.Fatalf("Certificate data is nil in the pem block")
 	}
 
-	log.Println("Testing private key:", data.private_key)
-	keyPEMBlock, _ := pem.Decode([]byte(data.private_key))
-	if keyPEMBlock == nil {
-		t.Fatalf("Private key data is nil in thew private key")
+	if !data.signCSR {
+		log.Println("Testing private key:", data.private_key)
+		keyPEMBlock, _ := pem.Decode([]byte(data.private_key))
+		if keyPEMBlock == nil {
+			t.Fatalf("Private key data is nil in thew private key")
+		}
+		_, err = tls.X509KeyPair([]byte(data.cert), []byte(data.private_key))
+		if err != nil {
+			t.Fatalf("Error parsing certificate key pair: %s", err)
+		}
+	} else {
+		_, err = tls.X509KeyPair([]byte(data.cert), []byte(data.csrPK))
+		if err != nil {
+			t.Fatalf("Error parsing certificate key pair: %s", err)
+		}
 	}
 
 	parsedCertificate, err := x509.ParseCertificate(certPEMBlock.Bytes)
@@ -75,11 +88,6 @@ func checkStandartCert(t *testing.T, data testData) {
 		if wantOrg != haveOrg {
 			t.Fatalf("Certificate Organization %s doesn't match to requested %s", haveOrg, wantOrg)
 		}
-	}
-
-	_, err = tls.X509KeyPair([]byte(data.cert), []byte(data.private_key))
-	if err != nil {
-		t.Fatalf("Error parsing certificate key pair: %s", err)
 	}
 }
 
@@ -325,6 +333,7 @@ func TestPKI_Cloud_CSRSign(t *testing.T) {
 	domain := "venafi.example.com"
 	data.cn = rand + "." + domain
 	data.dns_ns = "alt-" + data.cn
+	data.signCSR = true
 	data.provider = "cloud"
 
 	var err error
@@ -338,6 +347,12 @@ func TestPKI_Cloud_CSRSign(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	data.csrPK = pem.EncodeToMemory(
+		&pem.Block{
+			Type: "RSA PRIVATE KEY",
+			Bytes: x509.MarshalPKCS1PrivateKey(priv),
+		},
+	)
 
 	csr, err := x509.CreateCertificateRequest(r.Reader, &certificateRequest, priv)
 	if err != nil {
@@ -393,7 +408,6 @@ func TestPKI_Cloud_CSRSign(t *testing.T) {
 	}
 
 	data.cert = resp.Data["certificate"].(string)
-	data.private_key = resp.Data["private_key"].(string)
 
 	checkStandartCert(t, data)
 }
