@@ -105,14 +105,6 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 	log.Printf("Getting the role\n")
 	roleName := data.Get("role").(string)
 
-	role, err := b.getRole(ctx, req.Storage, roleName)
-	if err != nil {
-		return nil, err
-	}
-	if role == nil {
-		return nil, fmt.Errorf("Unknown role +%v", role)
-	}
-
 	log.Println("Creating Venafi client:")
 	cl, err := b.ClientVenafi(ctx, req.Storage, data, req, roleName)
 	if err != nil {
