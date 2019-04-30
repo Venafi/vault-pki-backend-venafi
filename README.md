@@ -116,7 +116,7 @@ It is not common for the Venafi Platform's REST API (WebSDK) to be secured using
     vault write venafi-pki/issue/tpp-backend common_name="test.example.com" alt_names="test-1.example.com,test-2.example.com"
     ```
 
-11. Sign CSR
+11. Sign CSR  
     **Generate CSR**
     ```
     cat <<EOF> csr.conf
