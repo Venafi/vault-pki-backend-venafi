@@ -47,7 +47,7 @@ func pathVenafiCertSign(b *backend) *framework.Path {
 		Fields: map[string]*framework.FieldSchema{
 			"csr": {
 				Type:        framework.TypeString,
-				Description: `The desired role with configuration for this request`,
+				Description: `PEM-format CSR to be signed.`,
 			},
 			"role": {
 				Type:        framework.TypeString,
@@ -158,6 +158,25 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 		}
 	} else {
 		log.Println("Signing user provided CSR")
+		csrString := data.Get("csr").(string)
+		if csrString == "" {
+			return logical.ErrorResponse(fmt.Sprintf("\"csr\" is empty")), nil
+		}
+		pemBytes := []byte(csrString)
+		pemBlock, pemBytes := pem.Decode(pemBytes)
+		if pemBlock == nil {
+			return logical.ErrorResponse(fmt.Sprintf("csr contains no data")), nil
+		}
+		csr, err := x509.ParseCertificateRequest(pemBlock.Bytes)
+		if err != nil {
+			return logical.ErrorResponse(fmt.Sprintf("can't parse provided CSR %s", err)), nil
+		}
+		commonName = csr.Subject.CommonName
+		certReq = &certificate.Request{
+			CSR: pemBytes,
+			CsrOrigin: certificate.UserProvidedCSR,
+		}
+
 	}
 
 
