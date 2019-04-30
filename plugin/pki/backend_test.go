@@ -13,6 +13,7 @@ import (
 	"github.com/hashicorp/vault/vault"
 	"log"
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -342,7 +343,10 @@ func TestPKI_Cloud_CSRSign(t *testing.T) {
 	if err != nil {
 		csr = nil
 	}
-	pemCSR := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE REQUEST", Bytes: csr})
+	pemCSR := strings.TrimSpace(string(pem.EncodeToMemory(&pem.Block{
+		Type:  "CERTIFICATE REQUEST",
+		Bytes: csr,
+	})))
 
 	coreConfig := &vault.CoreConfig{
 		LogicalBackends: map[string]logical.Factory{
