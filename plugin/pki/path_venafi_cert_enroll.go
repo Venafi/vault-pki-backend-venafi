@@ -173,8 +173,8 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 		}
 		commonName = csr.Subject.CommonName
 		certReq = &certificate.Request{
-			CSR: pemBytes,
 			CsrOrigin: certificate.UserProvidedCSR,
+			CSR: pemBytes,
 		}
 
 	}
