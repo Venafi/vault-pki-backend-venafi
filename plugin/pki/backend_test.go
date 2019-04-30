@@ -269,6 +269,94 @@ func TestPKI_TPP_RestrictedEnroll(t *testing.T) {
 	checkStandartCert(t, data)
 }
 
+func TestPKI_TPP_CSRSign(t *testing.T) {
+	data := testData{}
+	rand := randSeq(9)
+	domain := "vfidev.com"
+	data.cn = rand + "." + domain
+	data.dns_ns = "alt-" + data.cn
+	data.signCSR = true
+	data.provider = "tpp"
+
+	var err error
+	//Generating CSR for test
+	certificateRequest := x509.CertificateRequest{}
+	certificateRequest.Subject.CommonName = data.cn
+	certificateRequest.DNSNames = append(certificateRequest.DNSNames, data.dns_ns)
+
+	//Generating pk for test
+	priv, err := rsa.GenerateKey(r.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data.csrPK = pem.EncodeToMemory(
+		&pem.Block{
+			Type: "RSA PRIVATE KEY",
+			Bytes: x509.MarshalPKCS1PrivateKey(priv),
+		},
+	)
+
+	csr, err := x509.CreateCertificateRequest(r.Reader, &certificateRequest, priv)
+	if err != nil {
+		csr = nil
+	}
+	pemCSR := strings.TrimSpace(string(pem.EncodeToMemory(&pem.Block{
+		Type:  "CERTIFICATE REQUEST",
+		Bytes: csr,
+	})))
+
+	coreConfig := &vault.CoreConfig{
+		LogicalBackends: map[string]logical.Factory{
+			"pki": Factory,
+		},
+	}
+	cluster := vault.NewTestCluster(t, coreConfig, &vault.TestClusterOptions{
+		HandlerFunc: vaulthttp.Handler,
+	})
+	cluster.Start()
+	defer cluster.Cleanup()
+
+	client := cluster.Cores[0].Client
+	err = client.Sys().Mount("pki", &api.MountInput{
+		Type: "pki",
+		Config: api.MountConfigInput{
+			DefaultLeaseTTL: "16h",
+			MaxLeaseTTL:     "32h",
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = client.Logical().Write("pki/roles/example", map[string]interface{}{
+		"generate_lease":    true,
+		"tpp_url":           os.Getenv("TPPURL"),
+		"tpp_user":          os.Getenv("TPPUSER"),
+		"tpp_password":      os.Getenv("TPPPASSWORD"),
+		"zone":              os.Getenv("TPPZONE_RESTRICTED"),
+		"trust_bundle_file": os.Getenv("TRUST_BUNDLE"),
+		//"service_generated_cert": true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resp, err := client.Logical().Write("pki/sign/example", map[string]interface{}{
+		"csr": pemCSR,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp.Data["certificate"] == "" {
+		t.Fatalf("expected a cert to be generated")
+	}
+
+	data.cert = resp.Data["certificate"].(string)
+
+	checkStandartCert(t, data)
+}
+
 func TestPKI_Cloud_BaseEnroll(t *testing.T) {
 	data := testData{}
 	rand := randSeq(9)
