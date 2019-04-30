@@ -128,11 +128,6 @@ It is not common for the Venafi Platform's REST API (WebSDK) to be secured using
     distinguished_name = dn
     
     [ dn ]
-    C=US
-    ST=Utah
-    L=Salt Lake
-    O=Venafi Inc.
-    OU=Integration
     CN = test-csr-32313131.vfidev.com
     
     [ req_ext ]
