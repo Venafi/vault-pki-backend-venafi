@@ -301,7 +301,6 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 		}
 	}
 
-
 	var logResp *logical.Response
 	switch {
 	case !role.GenerateLease:
@@ -321,7 +320,9 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 		logResp.Secret.TTL = TTL
 	}
 
-	logResp.AddWarning("Read access to this endpoint should be controlled via ACLs as it will return the connection private key as it is.")
+	if !signCSR {
+		logResp.AddWarning("Read access to this endpoint should be controlled via ACLs as it will return the connection private key as it is.")
+	}
 	return logResp, nil
 }
 
