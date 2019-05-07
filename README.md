@@ -45,7 +45,7 @@ It is not common for the Venafi Platform's REST API (WebSDK) to be secured using
     ```
     wget https://github.com/Venafi/vault-pki-backend-venafi/releases/download/v0.3-11.5-alpha.161/venafi-pki-backend_0.3-11.5.161_linux.zip
     unzip venafi-pki-backend_0.3-11.5.161_linux.zip
-    mv vault-pki-backend-venafi /etc/vault/vault_plugins
+    mv venafi-pki-backend /etc/vault/vault_plugins
     ```
 
 3. Configure the plugin directory for your Vault by specifying it in the startup configuration file:
