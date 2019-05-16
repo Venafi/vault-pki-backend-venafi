@@ -65,17 +65,17 @@ It is not common for the Venafi Platform's REST API (WebSDK) to be secured using
 
 6. Get the SHA-256 checksum of `vault-pki-backend-venafi` plugin binary:
     ```
-    SHA256=$(shasum -a 256 /etc/vault/vault_plugins/vault-pki-backend-venafi | cut -d' ' -f1)
+    SHA256=$(shasum -a 256 /etc/vault/vault_plugins/venafi-pki-backend| cut -d' ' -f1)
     ```
 
 7. Add the `vault-pki-backend-venafi` plugin to the Vault system catalog:
     ```
-    vault write sys/plugins/catalog/secret/vault-pki-backend-venafi sha_256="${SHA256}" command="vault-pki-backend-venafi"
+    vault write sys/plugins/catalog/secret/venafi-pki-backend sha_256="${SHA256}" command="venafi-pki-backend"
     ```
 
-8. Enable the secrets backend for the `vault-pki-backend-venafi` plugin:
+8. Enable the secrets backend for the `venafi-pki-backend` plugin:
     ```
-    vault secrets enable -path=venafi-pki -plugin-name=vault-pki-backend-venafi plugin
+    vault secrets enable -path=venafi-pki -plugin-name=venafi-pki-backend plugin
     ```
 
 9. Create a [PKI role](https://www.vaultproject.io/docs/secrets/pki/index.html) for the `venafi-pki` backend:
