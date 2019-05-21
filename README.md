@@ -116,6 +116,41 @@ It is not common for the Venafi Platform's REST API (WebSDK) to be secured using
     vault write venafi-pki/issue/tpp-backend common_name="test.example.com" alt_names="test-1.example.com,test-2.example.com"
     ```
 
+11. Sign CSR  
+    **Generate CSR**
+    ```
+    cat <<EOF> csr.conf
+    [req]
+    default_bits = 4096
+    prompt = no
+    default_md = sha256
+    req_extensions = req_ext
+    distinguished_name = dn
+    
+    [ dn ]
+    CN = test-csr-32313131.vfidev.com
+    
+    [ req_ext ]
+    subjectAltName = @alt_names
+    
+    [ alt_names ]
+    DNS.1 = alt1-test-csr-32313131.vfidev.com
+    DNS.2 = alt2-test-csr-32313131.vfidev.com
+
+    EOF
+    openssl req -new -config csr.conf -keyout myserver.key -out myserver.csr -passin pass:somepassword -passout pass:anotherpassword
+    ```
+
+    **Venafi Cloud**:
+    ```
+    vault write venafi-pki/sign/cloud-backend csr=@myserver.csr
+    ```
+    
+    **Venafi Platform**:
+    ```
+    vault write venafi-pki/sign/tpp-backend csr=@myserver.csr
+    ```
+
 ### Running under Windows
  If you want to run plugin on Windows the following environment variables must specified to restrict the port that will be assigned to be from within a specific range. If not values are provided plugin will exit with error. For more information please see https://github.com/hashicorp/go-plugin/pull/111
 

@@ -1,6 +1,8 @@
 package pki
 
 import (
+	r "crypto/rand"
+	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
@@ -11,6 +13,7 @@ import (
 	"github.com/hashicorp/vault/vault"
 	"log"
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -30,20 +33,33 @@ type testData struct {
 	dns_ip      string
 	dns_email   string
 	provider    string
+	signCSR 	bool
+	csrPK		[]byte
 }
 
 func checkStandartCert(t *testing.T, data testData) {
-
+	var err error
 	log.Println("Testing certificate:", data.cert)
 	certPEMBlock, _ := pem.Decode([]byte(data.cert))
 	if certPEMBlock == nil {
 		t.Fatalf("Certificate data is nil in the pem block")
 	}
 
-	log.Println("Testing private key:", data.private_key)
-	keyPEMBlock, _ := pem.Decode([]byte(data.private_key))
-	if keyPEMBlock == nil {
-		t.Fatalf("Private key data is nil in thew private key")
+	if !data.signCSR {
+		log.Println("Testing private key:", data.private_key)
+		keyPEMBlock, _ := pem.Decode([]byte(data.private_key))
+		if keyPEMBlock == nil {
+			t.Fatalf("Private key data is nil in thew private key")
+		}
+		_, err = tls.X509KeyPair([]byte(data.cert), []byte(data.private_key))
+		if err != nil {
+			t.Fatalf("Error parsing certificate key pair: %s", err)
+		}
+	} else {
+		_, err = tls.X509KeyPair([]byte(data.cert), []byte(data.csrPK))
+		if err != nil {
+			t.Fatalf("Error parsing certificate key pair: %s", err)
+		}
 	}
 
 	parsedCertificate, err := x509.ParseCertificate(certPEMBlock.Bytes)
@@ -67,16 +83,18 @@ func checkStandartCert(t *testing.T, data testData) {
 		//wantIP := []string{data.dns_email}
 		//TODO: in policies branch Cloud endpoint should start to populate O,C,L.. fields too
 		wantOrg := os.Getenv("CERT_O")
-		haveOrg := parsedCertificate.Subject.Organization[0]
-		log.Println("want and have", wantOrg, haveOrg)
-		if wantOrg != haveOrg {
-			t.Fatalf("Certificate Organization %s doesn't match to requested %s", haveOrg, wantOrg)
+		if wantOrg != "" {
+			var haveOrg string
+			if len(parsedCertificate.Subject.Organization) > 0 {
+				haveOrg = parsedCertificate.Subject.Organization[0]
+			} else {
+				t.Fatalf("Organization in certificate is empty.")
+			}
+			log.Println("want and have", wantOrg, haveOrg)
+			if wantOrg != haveOrg {
+				t.Fatalf("Certificate Organization %s doesn't match to requested %s", haveOrg, wantOrg)
+			}
 		}
-	}
-
-	_, err = tls.X509KeyPair([]byte(data.cert), []byte(data.private_key))
-	if err != nil {
-		t.Fatalf("Error parsing certificate key pair: %s", err)
 	}
 }
 
@@ -258,6 +276,98 @@ func TestPKI_TPP_RestrictedEnroll(t *testing.T) {
 	checkStandartCert(t, data)
 }
 
+func TestPKI_TPP_CSRSign(t *testing.T) {
+	data := testData{}
+	rand := randSeq(9)
+	domain := "vfidev.com"
+	data.cn = rand + "." + domain
+	data.dns_ns = "alt-" + data.cn
+	data.signCSR = true
+	data.provider = "tpp"
+
+	var err error
+	//Generating CSR for test
+	certificateRequest := x509.CertificateRequest{}
+	certificateRequest.Subject.CommonName = data.cn
+	certificateRequest.DNSNames = append(certificateRequest.DNSNames, data.dns_ns)
+	org := os.Getenv("CERT_O")
+	if org != "" {
+		certificateRequest.Subject.Organization = append(certificateRequest.Subject.Organization, org)
+	}
+
+	//Generating pk for test
+	priv, err := rsa.GenerateKey(r.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data.csrPK = pem.EncodeToMemory(
+		&pem.Block{
+			Type: "RSA PRIVATE KEY",
+			Bytes: x509.MarshalPKCS1PrivateKey(priv),
+		},
+	)
+
+	csr, err := x509.CreateCertificateRequest(r.Reader, &certificateRequest, priv)
+	if err != nil {
+		csr = nil
+	}
+	pemCSR := strings.TrimSpace(string(pem.EncodeToMemory(&pem.Block{
+		Type:  "CERTIFICATE REQUEST",
+		Bytes: csr,
+	})))
+
+	coreConfig := &vault.CoreConfig{
+		LogicalBackends: map[string]logical.Factory{
+			"pki": Factory,
+		},
+	}
+	cluster := vault.NewTestCluster(t, coreConfig, &vault.TestClusterOptions{
+		HandlerFunc: vaulthttp.Handler,
+	})
+	cluster.Start()
+	defer cluster.Cleanup()
+
+	client := cluster.Cores[0].Client
+	err = client.Sys().Mount("pki", &api.MountInput{
+		Type: "pki",
+		Config: api.MountConfigInput{
+			DefaultLeaseTTL: "16h",
+			MaxLeaseTTL:     "32h",
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = client.Logical().Write("pki/roles/example", map[string]interface{}{
+		"generate_lease":    true,
+		"tpp_url":           os.Getenv("TPPURL"),
+		"tpp_user":          os.Getenv("TPPUSER"),
+		"tpp_password":      os.Getenv("TPPPASSWORD"),
+		"zone":              os.Getenv("TPPZONE"),
+		"trust_bundle_file": os.Getenv("TRUST_BUNDLE"),
+		//"service_generated_cert": true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resp, err := client.Logical().Write("pki/sign/example", map[string]interface{}{
+		"csr": pemCSR,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp.Data["certificate"] == "" {
+		t.Fatalf("expected a cert to be generated")
+	}
+
+	data.cert = resp.Data["certificate"].(string)
+
+	checkStandartCert(t, data)
+}
+
 func TestPKI_Cloud_BaseEnroll(t *testing.T) {
 	data := testData{}
 	rand := randSeq(9)
@@ -312,6 +422,91 @@ func TestPKI_Cloud_BaseEnroll(t *testing.T) {
 
 	data.cert = resp.Data["certificate"].(string)
 	data.private_key = resp.Data["private_key"].(string)
+
+	checkStandartCert(t, data)
+}
+
+func TestPKI_Cloud_CSRSign(t *testing.T) {
+	data := testData{}
+	rand := randSeq(9)
+	domain := "venafi.example.com"
+	data.cn = rand + "." + domain
+	data.dns_ns = "alt-" + data.cn
+	data.signCSR = true
+	data.provider = "cloud"
+
+	var err error
+	//Generating CSR for test
+	certificateRequest := x509.CertificateRequest{}
+	certificateRequest.Subject.CommonName = data.cn
+	certificateRequest.DNSNames = append(certificateRequest.DNSNames, data.dns_ns)
+
+	//Generating pk for test
+	priv, err := rsa.GenerateKey(r.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data.csrPK = pem.EncodeToMemory(
+		&pem.Block{
+			Type: "RSA PRIVATE KEY",
+			Bytes: x509.MarshalPKCS1PrivateKey(priv),
+		},
+	)
+
+	csr, err := x509.CreateCertificateRequest(r.Reader, &certificateRequest, priv)
+	if err != nil {
+		csr = nil
+	}
+	pemCSR := strings.TrimSpace(string(pem.EncodeToMemory(&pem.Block{
+		Type:  "CERTIFICATE REQUEST",
+		Bytes: csr,
+	})))
+
+	coreConfig := &vault.CoreConfig{
+		LogicalBackends: map[string]logical.Factory{
+			"pki": Factory,
+		},
+	}
+	cluster := vault.NewTestCluster(t, coreConfig, &vault.TestClusterOptions{
+		HandlerFunc: vaulthttp.Handler,
+	})
+	cluster.Start()
+	defer cluster.Cleanup()
+
+	client := cluster.Cores[0].Client
+	err = client.Sys().Mount("pki", &api.MountInput{
+		Type: "pki",
+		Config: api.MountConfigInput{
+			DefaultLeaseTTL: "16h",
+			MaxLeaseTTL:     "32h",
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = client.Logical().Write("pki/roles/example", map[string]interface{}{
+		"generate_lease": true,
+		"cloud_url":      os.Getenv("CLOUDURL"),
+		"zone":           os.Getenv("CLOUDZONE"),
+		"apikey":         os.Getenv("CLOUDAPIKEY"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resp, err := client.Logical().Write("pki/sign/example", map[string]interface{}{
+		"csr": pemCSR,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp.Data["certificate"] == "" {
+		t.Fatalf("expected a cert to be generated")
+	}
+
+	data.cert = resp.Data["certificate"].(string)
 
 	checkStandartCert(t, data)
 }
