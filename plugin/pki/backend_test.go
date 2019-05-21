@@ -83,10 +83,17 @@ func checkStandartCert(t *testing.T, data testData) {
 		//wantIP := []string{data.dns_email}
 		//TODO: in policies branch Cloud endpoint should start to populate O,C,L.. fields too
 		wantOrg := os.Getenv("CERT_O")
-		haveOrg := parsedCertificate.Subject.Organization[0]
-		log.Println("want and have", wantOrg, haveOrg)
-		if wantOrg != haveOrg {
-			t.Fatalf("Certificate Organization %s doesn't match to requested %s", haveOrg, wantOrg)
+		if wantOrg != "" {
+			var haveOrg string
+			if len(parsedCertificate.Subject.Organization) > 0 {
+				haveOrg = parsedCertificate.Subject.Organization[0]
+			} else {
+				t.Fatalf("Organization in certificate is empty.")
+			}
+			log.Println("want and have", wantOrg, haveOrg)
+			if wantOrg != haveOrg {
+				t.Fatalf("Certificate Organization %s doesn't match to requested %s", haveOrg, wantOrg)
+			}
 		}
 	}
 }
@@ -283,6 +290,10 @@ func TestPKI_TPP_CSRSign(t *testing.T) {
 	certificateRequest := x509.CertificateRequest{}
 	certificateRequest.Subject.CommonName = data.cn
 	certificateRequest.DNSNames = append(certificateRequest.DNSNames, data.dns_ns)
+	org := os.Getenv("CERT_O")
+	if org != "" {
+		certificateRequest.Subject.Organization = append(certificateRequest.Subject.Organization, org)
+	}
 
 	//Generating pk for test
 	priv, err := rsa.GenerateKey(r.Reader, 2048)
@@ -333,7 +344,7 @@ func TestPKI_TPP_CSRSign(t *testing.T) {
 		"tpp_url":           os.Getenv("TPPURL"),
 		"tpp_user":          os.Getenv("TPPUSER"),
 		"tpp_password":      os.Getenv("TPPPASSWORD"),
-		"zone":              os.Getenv("TPPZONE_RESTRICTED"),
+		"zone":              os.Getenv("TPPZONE"),
 		"trust_bundle_file": os.Getenv("TRUST_BUNDLE"),
 		//"service_generated_cert": true,
 	})
