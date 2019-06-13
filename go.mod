@@ -12,10 +12,9 @@ require (
 	github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 // indirect
 	github.com/SAP/go-hdb v0.14.1 // indirect
 	github.com/SermoDigital/jose v0.0.0-20161205224733-f6df55f235c2 // indirect
-	github.com/Venafi/vcert v0.0.0-20181029235941-5068538d4d65
+	github.com/Venafi/vcert v0.0.0-20190613103158-62139eb19b25
 	github.com/aliyun/alibaba-cloud-sdk-go v0.0.0-20190410073721-9d7b4bde1c8f // indirect
 	github.com/araddon/gou v0.0.0-20190110011759-c797efecbb61 // indirect
-	github.com/armon/go-metrics v0.0.0-20180917152333-f0300d1749da // indirect
 	github.com/armon/go-radix v1.0.0 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20180720115003-f9ffefc3facf // indirect
 	github.com/aws/aws-sdk-go v1.19.11 // indirect
@@ -55,14 +54,12 @@ require (
 	github.com/gotestyourself/gotestyourself v2.2.0+incompatible // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.0.0 // indirect
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0 // indirect
+	github.com/hashicorp/consul/api v1.1.0 // indirect
 	github.com/hashicorp/go-gcp-common v0.5.0 // indirect
 	github.com/hashicorp/go-hclog v0.0.0-20181001195459-61d530d6c27f // indirect
-	github.com/hashicorp/go-immutable-radix v1.0.0 // indirect
 	github.com/hashicorp/go-memdb v0.0.0-20181108192425-032f93b25bec // indirect
-	github.com/hashicorp/go-multierror v1.0.0 // indirect
 	github.com/hashicorp/go-plugin v1.0.1-0.20190509212451-a1756f37cec6 // indirect
 	github.com/hashicorp/go-retryablehttp v0.5.0 // indirect
-	github.com/hashicorp/go-sockaddr v1.0.0 // indirect
 	github.com/hashicorp/go-version v1.0.0 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/hashicorp/nomad/api v0.0.0-20190409161337-79132127b927 // indirect
@@ -100,14 +97,12 @@ require (
 	github.com/pascaldekloe/goe v0.1.0 // indirect
 	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
 	github.com/pborman/uuid v1.2.0 // indirect
-	github.com/pkg/errors v0.8.1 // indirect
 	github.com/pquerna/cachecontrol v0.0.0-20180517163645-1555304b9b35 // indirect
 	github.com/pquerna/otp v1.1.0 // indirect
 	github.com/rendon/testcli v0.0.0-20161027181003-6283090d169f
 	github.com/ryanuber/go-glob v0.0.0-20160226084822-572520ed46db // indirect
 	github.com/samuel/go-zookeeper v0.0.0-20180130194729-c4fab1ac1bec // indirect
 	github.com/satori/go.uuid v1.2.0 // indirect
-	github.com/smartystreets/goconvey v0.0.0-20190330032615-68dc04aab96a // indirect
 	github.com/soheilhy/cmux v0.1.4 // indirect
 	github.com/streadway/amqp v0.0.0-20190404075320-75d898a42a94 // indirect
 	github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5 // indirect

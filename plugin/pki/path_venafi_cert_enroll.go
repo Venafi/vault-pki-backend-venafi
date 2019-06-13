@@ -166,9 +166,8 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 		commonName = csr.Subject.CommonName
 		certReq = &certificate.Request{
 			CsrOrigin: certificate.UserProvidedCSR,
-			CSR:       pemBytes,
 		}
-
+		err = certReq.SetCSR(pemBytes)
 	}
 
 	if !signCSR {
@@ -210,7 +209,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 
 	log.Printf("Running enroll request")
 
-	requestID, err := cl.RequestCertificate(certReq, "")
+	requestID, err := cl.RequestCertificate(certReq)
 	if err != nil {
 		return logical.ErrorResponse(err.Error()), nil
 	}

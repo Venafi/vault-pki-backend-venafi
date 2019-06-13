@@ -47,10 +47,12 @@ func TestPki_VcertIsWorking(t *testing.T) {
 	if err != nil {
 		t.Fatalf("bad: err: %v resp: %#v", err, nil)
 	}
-	req.CSR = csr
-	req.CSR = pem.EncodeToMemory(certificate.GetCertificateRequestPEMBlock(req.CSR))
+	err = req.SetCSR(csr)
+	if err != nil {
+		t.Fatalf("bad: err: %v \n", err)
+	}
 
-	pickupId, err := client.RequestCertificate(req, "")
+	pickupId, err := client.RequestCertificate(req)
 	if err != nil {
 		t.Fatalf("bad: err: %v resp: %#v", err, nil)
 	}
