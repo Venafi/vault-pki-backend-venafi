@@ -154,11 +154,16 @@ It is not common for the Venafi Platform's REST API (WebSDK) to be secured using
 ### Running under Windows
  If you want to run plugin on Windows the following environment variables must specified to restrict the port that will be assigned to be from within a specific range. If not values are provided plugin will exit with error. For more information please see https://github.com/hashicorp/go-plugin/pull/111
 
-  * `PLUGIN_MIN_PORT`: Specifies the minimum port value that will be assigned to
- * the listener.
+  * `PLUGIN_MIN_PORT`: Specifies the minimum port value that will be assigned to the listener.
 
-  * `PLUGIN_MAX_PORT`: Specifies the maximum port value that will be assigned to
- * the listener.
+  * `PLUGIN_MAX_PORT`: Specifies the maximum port value that will be assigned to the listener.
+  
+  Example:
+  ```
+  setx PLUGIN_MIN_PORT 55500
+  setx PLUGIN_MAX_PORT 55600
+  ```
+ 
  
 ## Demonstrating End-to-End
 
@@ -177,7 +182,7 @@ It is not common for the Venafi Platform's REST API (WebSDK) to be secured using
 
     The syntax for the Venafi Platform policy folder can be tricky. If the policy folder name contains spaces then it must be wrapped in double quotes like this:
     ```
-    export TPPZONE="My Policy"
+    export TPPZONE="My Policy" * 
     ```
 
     And if the policy folder is not at the root of the policy tree (nested folder) you need to escape the backslash delimiters twice (four backslashes in total):
