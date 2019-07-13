@@ -12,7 +12,7 @@ require (
 	github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 // indirect
 	github.com/SAP/go-hdb v0.14.1 // indirect
 	github.com/SermoDigital/jose v0.0.0-20161205224733-f6df55f235c2 // indirect
-	github.com/Venafi/vcert v0.0.0-20190613103158-62139eb19b25
+	github.com/Venafi/vcert v4.1.0+incompatible
 	github.com/aliyun/alibaba-cloud-sdk-go v0.0.0-20190410073721-9d7b4bde1c8f // indirect
 	github.com/araddon/gou v0.0.0-20190110011759-c797efecbb61 // indirect
 	github.com/armon/go-radix v1.0.0 // indirect
