@@ -1,4 +1,4 @@
-# Venafi PKI plugin backend for HashiCorp Vault
+# Venafi PKI Secrets Engine for HashiCorp Vault
 
 <img src="https://www.venafi.com/sites/default/files/content/body/Light_background_logo.png" width="330px" height="69px"/>  
 
