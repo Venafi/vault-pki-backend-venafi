@@ -83,8 +83,8 @@ It is not common for the Venafi Platform's REST API (WebSDK) to be secured using
     **Venafi Cloud**:
     ```
     vault write venafi-pki/roles/cloud-backend \
-        apikey="AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEE" \
-        zone="Vault Certificates" \
+        apikey="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" \
+        zone="zzzzzzzz-zzzz-zzzz-zzzz-zzzzzzzzzzzz" \
         generate_lease=true store_by_cn=true store_pkey=true store_by_serial=true ttl=1h max_ttl=1h \
         allowed_domains=example.com \
         allow_subdomains=true
@@ -192,8 +192,8 @@ It is not common for the Venafi Platform's REST API (WebSDK) to be secured using
 
     Venafi Cloud variables:
     ```
-    export CLOUDAPIKEY=<API key for Venafi Cloud, e.g. "142231b7-cvb0-412e-886b-6aeght0bc93d">
-    export CLOUDZONE=<Zone that governs all certificates that are requested, e.g. "Default">
+    export CLOUDAPIKEY=<API key for Venafi Cloud>
+    export CLOUDZONE=<Zone that governs all certificates that are requested, refer to Venafi Cloud UI to get Zone ID>
     export CLOUDURL=<only set when instructed to use a non-production instance of Venafi Cloud>
     ```
 
