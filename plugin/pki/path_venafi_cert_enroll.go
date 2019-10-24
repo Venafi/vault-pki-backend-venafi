@@ -176,8 +176,6 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 		} else if role.KeyType == "ec" {
 			certReq.KeyType = certificate.KeyTypeECDSA
 			switch {
-			case role.KeyCurve == "P224":
-				certReq.KeyCurve = certificate.EllipticCurveP224
 			case role.KeyCurve == "P256":
 				certReq.KeyCurve = certificate.EllipticCurveP256
 			case role.KeyCurve == "P384":

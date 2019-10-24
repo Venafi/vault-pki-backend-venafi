@@ -112,7 +112,7 @@ the key_type. Default: 2048`,
 			"key_curve": {
 				Type:        framework.TypeString,
 				Default:     "P256",
-				Description: `Key curve for EC key type. Valid values are: "P224","P256","P384","P521"`,
+				Description: `Key curve for EC key type. Valid values are: "P256","P384","P521"`,
 			},
 			"ttl": {
 				Type: framework.TypeDurationSecond,
