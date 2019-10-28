@@ -75,6 +75,8 @@ It is not common for the Venafi Platform's REST API (WebSDK) to be secured using
     vault write sys/plugins/catalog/secret/venafi-pki-backend sha_256="${SHA256}" command="venafi-pki-backend"
     ```
 
+    **NOTE**: If you get an error that says "can not execute files outside of configured plugin directory", it's because you didnt set you plugin_directory correctly with a non-symlinked directory. Go back to step 3 and read the note again. Also make sure this change is reflected when calling for the SHA-256 checksum.
+
 8. Enable the secrets backend for the `venafi-pki-backend` plugin:
     ```
     vault secrets enable -path=venafi-pki -plugin-name=venafi-pki-backend plugin
