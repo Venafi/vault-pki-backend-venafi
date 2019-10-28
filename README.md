@@ -53,6 +53,8 @@ It is not common for the Venafi Platform's REST API (WebSDK) to be secured using
     echo 'plugin_directory = "/etc/vault/vault_plugins"' > vault-config.hcl
     ```
 
+    **NOTE**: Vault does not allow you to specify a plugin directory that is a symlink. You will get an error. This is important if you're running through this on a Macbook because /etc is default symlinked to /private/etc. To prevent the error from occuring change the plugin_directory to "/private/etc/vault/vault_plugins" or to any non-symlinked directory. If you do make this change, keep this in mind as you walkthrough the instructions below.
+
 4. Start your Vault (note: if you don't have working configuration you can start it in dev mode):
     ```
     vault server -log-level=debug -dev -config=vault-config.hcl
@@ -89,6 +91,8 @@ It is not common for the Venafi Platform's REST API (WebSDK) to be secured using
         allowed_domains=example.com \
         allow_subdomains=true
     ```
+
+    > Note: You will need to add the parameter `cloud_url` within the Venafi Cloud configuration above if you want to use the non-prod instance of Venafi Cloud. By default, the `cloud_url` param defaults to ui.venafi.cloud/
     
     **Venafi Platform**:
     ```
