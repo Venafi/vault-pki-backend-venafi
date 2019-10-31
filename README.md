@@ -53,7 +53,7 @@ It is not common for the Venafi Platform's REST API (WebSDK) to be secured using
     echo 'plugin_directory = "/etc/vault/vault_plugins"' > vault-config.hcl
     ```
 
-    **NOTE**: Vault does not allow you to specify a plugin directory that is a symlink. You will get an error. This is important if you're running through this on a Macbook because /etc is default symlinked to /private/etc. To prevent the error from occuring, change the plugin_directory to "/private/etc/vault/vault_plugins" or to any non-symlinked directory. If you do make this change, keep this in mind as you walkthrough the instructions below.
+    **NOTE**: Vault does not allow the plugin directory to be a symlink and will respond with an error[:bookmark:](https://groups.google.com/forum/#!topic/vault-tool/IVYLA3aH72M). This is important if you're running through this on a Macbook because /etc is default symlinked to /private/etc. To prevent the error from occuring, change the `plugin_directory` to a non-symlinked directory (e.g. "/private/etc/vault/vault_plugins"). If you make this change, keep it in mind as you go through the remaining steps.
 
 4. Start your Vault (note: if you don't have working configuration you can start it in dev mode):
     ```
@@ -75,7 +75,7 @@ It is not common for the Venafi Platform's REST API (WebSDK) to be secured using
     vault write sys/plugins/catalog/secret/venafi-pki-backend sha_256="${SHA256}" command="venafi-pki-backend"
     ```
 
-    **NOTE**: If you get an error that says "can not execute files outside of configured plugin directory", it's because you didnt set the plugin directory correctly with a non-symlinked directory. Go back to step 3 and read the note again. Also make sure this change is reflected when calling for the SHA-256 checksum.
+    **NOTE**: If you get an error that says "can not execute files outside of configured plugin directory", it's probably because you didn't set the plugin directory correctly with a non-symlinked directory. Go back to step 3 and read the note again. Also make sure this change is reflected when calling for the SHA-256 checksum.
 
 8. Enable the secrets backend for the `venafi-pki-backend` plugin:
     ```
@@ -94,7 +94,7 @@ It is not common for the Venafi Platform's REST API (WebSDK) to be secured using
         allow_subdomains=true
     ```
 
-    > Note: You will need to add the parameter `cloud_url` within the Venafi Cloud configuration above if you want to use the non-prod instance of Venafi Cloud. By default, the `cloud_url` param defaults to ui.venafi.cloud/
+    > Note: In special situations where you need to use a non-production Venafi Cloud instance, you will need to additionally specify the URL for that environment using the `cloud_url` parameter.  When not specified `cloud_url` defaults to _api.venafi.cloud_.
     
     **Venafi Platform**:
     ```
