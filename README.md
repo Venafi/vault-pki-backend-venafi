@@ -53,6 +53,8 @@ It is not common for the Venafi Platform's REST API (WebSDK) to be secured using
     echo 'plugin_directory = "/etc/vault/vault_plugins"' > vault-config.hcl
     ```
 
+    **NOTE**: Vault does not allow the plugin directory to be a symlink and will respond with an error[:bookmark:](https://groups.google.com/forum/#!topic/vault-tool/IVYLA3aH72M). This is important if you're running through this on a Macbook because /etc is default symlinked to /private/etc. To prevent the error from occuring, change the `plugin_directory` to a non-symlinked directory (e.g. "/private/etc/vault/vault_plugins"). If you make this change, keep it in mind as you go through the remaining steps.
+
 4. Start your Vault (note: if you don't have working configuration you can start it in dev mode):
     ```
     vault server -log-level=debug -dev -config=vault-config.hcl
@@ -73,6 +75,8 @@ It is not common for the Venafi Platform's REST API (WebSDK) to be secured using
     vault write sys/plugins/catalog/secret/venafi-pki-backend sha_256="${SHA256}" command="venafi-pki-backend"
     ```
 
+    **NOTE**: If you get an error that says "can not execute files outside of configured plugin directory", it's probably because you didn't set the plugin directory correctly with a non-symlinked directory. Go back to step 3 and read the note again. Also make sure this change is reflected when calling for the SHA-256 checksum.
+
 8. Enable the secrets backend for the `venafi-pki-backend` plugin:
     ```
     vault secrets enable -path=venafi-pki -plugin-name=venafi-pki-backend plugin
@@ -89,6 +93,8 @@ It is not common for the Venafi Platform's REST API (WebSDK) to be secured using
         allowed_domains=example.com \
         allow_subdomains=true
     ```
+
+    > Note: In special situations where you need to use a non-production Venafi Cloud instance, you will need to additionally specify the URL for that environment using the `cloud_url` parameter.  When not specified `cloud_url` defaults to _api.venafi.cloud_.
     
     **Venafi Platform**:
     ```
@@ -150,6 +156,9 @@ It is not common for the Venafi Platform's REST API (WebSDK) to be secured using
     ```
     vault write venafi-pki/sign/tpp-backend csr=@myserver.csr
     ```
+
+    **NOTE**: If you get an error on this step it's most likely caused by a misconfigured CA or a malformed CN value. Feel free to edit the generated CSR when needed.
+
 
 ### Running under Windows
  If you want to run plugin on Windows the following environment variables must specified to restrict the port that will be assigned to be from within a specific range. If not values are provided plugin will exit with error. For more information please see https://github.com/hashicorp/go-plugin/pull/111
