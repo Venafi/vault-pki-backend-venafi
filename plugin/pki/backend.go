@@ -49,15 +49,12 @@ func Backend(conf *logical.BackendConfig) *backend {
 	}
 
 	b.crlLifetime = time.Hour * 72
-	b.storage = conf.StorageView
 
 	return &b
 }
 
 type backend struct {
 	*framework.Backend
-
-	storage     logical.Storage
 	crlLifetime time.Duration
 }
 
