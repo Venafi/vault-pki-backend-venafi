@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/Venafi/vcert/pkg/certificate"
-	"github.com/hashicorp/vault/helper/consts"
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
 )
@@ -103,13 +102,6 @@ func (b *backend) pathVenafiSign(ctx context.Context, req *logical.Request, data
 
 func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request, data *framework.FieldData, role *roleEntry, signCSR bool) (
 	*logical.Response, error) {
-
-	// When utilizing performance standbys in Vault Enterprise, this forces the call to be redirected to the primary since
-	// a storage call is made after the API calls to issue the certificate.  This prevents the certificate from being
-	// issued twice in this scenario.
-	if (role.StoreByCN || role.StoreBySerial) && b.System().ReplicationState().HasState(consts.ReplicationPerformanceStandby) {
-		return nil, logical.ErrReadOnly
-	}
 
 	log.Printf("Getting the role\n")
 	roleName := data.Get("role").(string)
