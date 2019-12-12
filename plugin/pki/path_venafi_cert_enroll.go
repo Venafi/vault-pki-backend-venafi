@@ -227,7 +227,10 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 	if err != nil {
 		return nil, err
 	}
-	serialNumber := getHexFormatted(parsedCertificate.SerialNumber.Bytes(), ":")
+	serialNumber, err := getHexFormatted(parsedCertificate.SerialNumber.Bytes(), ":")
+	if err != nil {
+		return nil, err
+	}
 
 	var entry *logical.StorageEntry
 	chain := strings.Join(append([]string{pcc.Certificate}, pcc.Chain...), "\n")
