@@ -6,7 +6,6 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"
-	"log"
 	"net"
 	"strings"
 	"time"
@@ -103,10 +102,10 @@ func (b *backend) pathVenafiSign(ctx context.Context, req *logical.Request, data
 func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request, data *framework.FieldData, role *roleEntry, signCSR bool) (
 	*logical.Response, error) {
 
-	log.Printf("Getting the role\n")
+	b.Logger().Debug("Getting the role\n")
 	roleName := data.Get("role").(string)
 
-	log.Println("Creating Venafi client:")
+	b.Logger().Debug("Creating Venafi client:")
 	cl, err := b.ClientVenafi(ctx, req.Storage, data, req, roleName)
 	if err != nil {
 		return logical.ErrorResponse(err.Error()), nil
@@ -130,7 +129,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 			commonName = altNames[0]
 		}
 		if !sliceContains(altNames, commonName) {
-			log.Printf("Adding CN %s to SAN %s because it wasn't included.", commonName, altNames)
+			b.Logger().Debug("Adding CN %s to SAN %s because it wasn't included.", commonName, altNames)
 			altNames = append(altNames, commonName)
 		}
 		certReq = &certificate.Request{
@@ -150,7 +149,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 			}
 		}
 	} else {
-		log.Println("Signing user provided CSR")
+		b.Logger().Debug("Signing user provided CSR")
 		csrString := data.Get("csr").(string)
 		if csrString == "" {
 			return logical.ErrorResponse(fmt.Sprintf("\"csr\" is empty")), nil
@@ -200,13 +199,13 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 		return logical.ErrorResponse(fmt.Sprintf("Invalid chain option %s", role.ChainOption)), nil
 	}
 
-	log.Println("Making certificate request")
+	b.Logger().Debug("Making certificate request")
 	err = cl.GenerateRequest(nil, certReq)
 	if err != nil {
 		return logical.ErrorResponse(err.Error()), nil
 	}
 
-	log.Printf("Running enroll request")
+	b.Logger().Debug("Running enroll request")
 
 	requestID, err := cl.RequestCertificate(certReq)
 	if err != nil {
@@ -260,11 +259,11 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 	if role.StoreByCN {
 
 		//Writing certificate to the storage with CN
-		log.Println("Putting certificate to the certs/" + commonName)
+		b.Logger().Debug("Putting certificate to the certs/" + commonName)
 		entry.Key = "certs/" + commonName
 
 		if err := req.Storage.Put(ctx, entry); err != nil {
-			log.Println("Error putting entry to storage")
+			b.Logger().Error("Error putting entry to storage: " + err.Error())
 			return nil, err
 		}
 	}
@@ -272,11 +271,11 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 	if role.StoreBySerial {
 
 		//Writing certificate to the storage with Serial Number
-		log.Println("Putting certificate to the certs/", normalizeSerial(serialNumber))
+		b.Logger().Debug("Putting certificate to the certs/", normalizeSerial(serialNumber))
 		entry.Key = "certs/" + normalizeSerial(serialNumber)
 
 		if err := req.Storage.Put(ctx, entry); err != nil {
-			log.Println("Error putting entry to storage")
+			b.Logger().Error("Error putting entry to storage: " + err.Error())
 			return nil, err
 		}
 	}
@@ -314,7 +313,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 				"serial_number": serialNumber,
 			})
 		TTL := time.Until(parsedCertificate.NotAfter)
-		log.Println("Seting up secret lease duration to: ", TTL)
+		b.Logger().Debug("Setting up secret lease duration to: ", TTL)
 		logResp.Secret.TTL = TTL
 	}
 

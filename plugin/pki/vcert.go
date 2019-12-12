@@ -8,12 +8,11 @@ import (
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
 	"io/ioutil"
-	"log"
 )
 
 func (b *backend) ClientVenafi(ctx context.Context, s logical.Storage, data *framework.FieldData, req *logical.Request, roleName string) (
 	endpoint.Connector, error) {
-	log.Printf("Using role: %s", roleName)
+	b.Logger().Debug("Using role: %s", roleName)
 	if roleName == "" {
 		return nil, fmt.Errorf("Missing role name")
 	}
@@ -28,15 +27,15 @@ func (b *backend) ClientVenafi(ctx context.Context, s logical.Storage, data *fra
 
 	var cfg *vcert.Config
 	if role.Fakemode {
-		log.Println("Using fakemode to issue certificate")
+		b.Logger().Debug("Using fakemode to issue certificate")
 		cfg = &vcert.Config{
 			ConnectorType: endpoint.ConnectorTypeFake,
 			LogVerbose:    true,
 		}
 	} else if role.TPPURL != "" && role.TPPUser != "" && role.TPPPassword != "" {
-		log.Printf("Using Platform with url %s to issue certificate\n", role.TPPURL)
+		b.Logger().Debug("Using Platform with url %s to issue certificate\n", role.TPPURL)
 		if role.TrustBundleFile != "" {
-			log.Printf("Trying to read trust bundle from file %s\n", role.TrustBundleFile)
+			b.Logger().Debug("Trying to read trust bundle from file %s\n", role.TrustBundleFile)
 			trustBundle, err := ioutil.ReadFile(role.TrustBundleFile)
 			if err != nil {
 				return nil, err
@@ -67,7 +66,7 @@ func (b *backend) ClientVenafi(ctx context.Context, s logical.Storage, data *fra
 		}
 
 	} else if role.Apikey != "" {
-		log.Println("Using Cloud to issue certificate")
+		b.Logger().Debug("Using Cloud to issue certificate")
 		cfg = &vcert.Config{
 			ConnectorType: endpoint.ConnectorTypeCloud,
 			BaseUrl:       role.CloudURL,
