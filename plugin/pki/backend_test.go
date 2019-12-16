@@ -33,8 +33,8 @@ type testData struct {
 	dns_ip      string
 	dns_email   string
 	provider    string
-	signCSR 	bool
-	csrPK		[]byte
+	signCSR     bool
+	csrPK       []byte
 }
 
 func checkStandartCert(t *testing.T, data testData) {
@@ -73,14 +73,16 @@ func checkStandartCert(t *testing.T, data testData) {
 
 	//TODO: cloud now have SAN support too. Have to implement it
 	if data.provider == "tpp" {
-		wantDNSNames := []string{data.cn, data.dns_ns}
+		wantDNSNames := []string{data.cn, data.dns_ns, data.dns_ip}
 		haveDNSNames := parsedCertificate.DNSNames
 		if !SameStringSlice(haveDNSNames, wantDNSNames) {
 			t.Fatalf("Certificate Subject Alternative Names %s doesn't match to requested %s", haveDNSNames, wantDNSNames)
 		}
-		//TODO: check IP and email too
+		if len(parsedCertificate.IPAddresses) != 1 || parsedCertificate.IPAddresses[0].String() != data.dns_ip {
+			t.Fatalf("Certificate IPs %v doesn`t match requested %v", parsedCertificate.IPAddresses, data.dns_ip)
+		}
+		//TODO: check email too
 		//wantEmail := []string{data.dns_email}
-		//wantIP := []string{data.dns_email}
 		//TODO: in policies branch Cloud endpoint should start to populate O,C,L.. fields too
 		wantOrg := os.Getenv("CERT_O")
 		if wantOrg != "" {
@@ -302,7 +304,7 @@ func TestPKI_TPP_CSRSign(t *testing.T) {
 	}
 	data.csrPK = pem.EncodeToMemory(
 		&pem.Block{
-			Type: "RSA PRIVATE KEY",
+			Type:  "RSA PRIVATE KEY",
 			Bytes: x509.MarshalPKCS1PrivateKey(priv),
 		},
 	)
@@ -448,7 +450,7 @@ func TestPKI_Cloud_CSRSign(t *testing.T) {
 	}
 	data.csrPK = pem.EncodeToMemory(
 		&pem.Block{
-			Type: "RSA PRIVATE KEY",
+			Type:  "RSA PRIVATE KEY",
 			Bytes: x509.MarshalPKCS1PrivateKey(priv),
 		},
 	)
