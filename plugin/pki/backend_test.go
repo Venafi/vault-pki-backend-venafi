@@ -12,6 +12,7 @@ import (
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/vault"
 	"log"
+	"net"
 	"os"
 	"strings"
 	"testing"
@@ -266,7 +267,8 @@ func TestPKI_TPP_RestrictedEnroll(t *testing.T) {
 
 	resp, err := client.Logical().Write("pki/issue/example", map[string]interface{}{
 		"common_name": data.cn,
-		"alt_names":   fmt.Sprintf("%s,%s,%s", data.dns_ns, data.dns_ip, data.dns_email),
+		"alt_names":   fmt.Sprintf("%s,%s", data.dns_ns, data.dns_email),
+		"ip_sans":     []string{data.dns_ip},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -284,6 +286,7 @@ func TestPKI_TPP_CSRSign(t *testing.T) {
 	domain := "vfidev.com"
 	data.cn = rand + "." + domain
 	data.dns_ns = "alt-" + data.cn
+	data.dns_ip = "127.0.0.1"
 	data.signCSR = true
 	data.provider = "tpp"
 
@@ -291,7 +294,8 @@ func TestPKI_TPP_CSRSign(t *testing.T) {
 	//Generating CSR for test
 	certificateRequest := x509.CertificateRequest{}
 	certificateRequest.Subject.CommonName = data.cn
-	certificateRequest.DNSNames = append(certificateRequest.DNSNames, data.dns_ns)
+	certificateRequest.DNSNames = append(certificateRequest.DNSNames, data.dns_ns, data.dns_ip)
+	certificateRequest.IPAddresses = []net.IP{net.ParseIP(data.dns_ip)}
 	org := os.Getenv("CERT_O")
 	if org != "" {
 		certificateRequest.Subject.Organization = append(certificateRequest.Subject.Organization, org)
