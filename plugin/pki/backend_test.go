@@ -32,6 +32,7 @@ type testData struct {
 	cn          string
 	dns_ns      string
 	dns_ip      string
+	only_ip     string
 	dns_email   string
 	provider    string
 	signCSR     bool
@@ -76,11 +77,19 @@ func checkStandartCert(t *testing.T, data testData) {
 	if data.provider == "tpp" {
 		wantDNSNames := []string{data.cn, data.dns_ns, data.dns_ip}
 		haveDNSNames := parsedCertificate.DNSNames
+		ips := make([]net.IP, 0, 2)
+		if data.dns_ip != "" {
+			ips = append(ips, net.ParseIP(data.dns_ip))
+		}
+		if data.only_ip != "" {
+			ips = append(ips, net.ParseIP(data.only_ip))
+		}
 		if !SameStringSlice(haveDNSNames, wantDNSNames) {
 			t.Fatalf("Certificate Subject Alternative Names %s doesn't match to requested %s", haveDNSNames, wantDNSNames)
 		}
-		if len(parsedCertificate.IPAddresses) != 1 || parsedCertificate.IPAddresses[0].String() != data.dns_ip {
-			t.Fatalf("Certificate IPs %v doesn`t match requested %v", parsedCertificate.IPAddresses, data.dns_ip)
+
+		if !SameIpSlice(ips, parsedCertificate.IPAddresses) {
+			t.Fatalf("Certificate IPs %v doesn`t match requested %v", parsedCertificate.IPAddresses, ips)
 		}
 		//TODO: check email too
 		//wantEmail := []string{data.dns_email}
@@ -108,6 +117,7 @@ func TestPKI_Fake_BaseEnroll(t *testing.T) {
 	data.cn = rand + "." + domain
 	data.dns_ns = "alt-" + data.cn
 	data.dns_ip = "192.168.1.1"
+	data.only_ip = "127.0.0.1"
 	data.dns_email = "venafi@example.com"
 
 	coreConfig := &vault.CoreConfig{
@@ -144,6 +154,7 @@ func TestPKI_Fake_BaseEnroll(t *testing.T) {
 	resp, err := client.Logical().Write("pki/issue/example", map[string]interface{}{
 		"common_name": data.cn,
 		"alt_names":   fmt.Sprintf("%s,%s,%s", data.dns_ns, data.dns_ip, data.dns_email),
+		"ip_sans":     []string{data.only_ip},
 	})
 	if err != nil {
 		t.Fatalf("Error issuing certificate: %s", err)

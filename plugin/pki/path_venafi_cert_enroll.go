@@ -129,7 +129,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 	if !signCSR {
 		commonName = data.Get("common_name").(string)
 		altNames := data.Get("alt_names").([]string)
-		ipSANs := data.Get("alt_names").([]string)
+		ipSANs := data.Get("ip_sans").([]string)
 		if len(commonName) == 0 && len(altNames) == 0 {
 			return logical.ErrorResponse("no domains specified on certificate"), nil
 		}
