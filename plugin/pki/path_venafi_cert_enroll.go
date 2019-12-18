@@ -33,6 +33,10 @@ func pathVenafiCertEnroll(b *backend) *framework.Path {
 				Type:        framework.TypeCommaStringSlice,
 				Description: "Alternative names for created certificate. Email and IP addresses can be specified too",
 			},
+			"ip_sans": {
+				Type:        framework.TypeCommaStringSlice,
+				Description: "The requested IP SANs, if any, in a comma-delimited list",
+			},
 		},
 		Callbacks: map[logical.Operation]framework.OperationFunc{
 			logical.UpdateOperation: b.pathVenafiIssue,
@@ -125,12 +129,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 	if !signCSR {
 		commonName = data.Get("common_name").(string)
 		altNames := data.Get("alt_names").([]string)
-		if len(commonName) == 0 && len(altNames) == 0 {
-			return logical.ErrorResponse("no domains specified on certificate"), nil
-		}
-		if len(commonName) == 0 && len(altNames) > 0 {
-			commonName = altNames[0]
-		}
+		ipSANs := data.Get("ip_sans").([]string)
 		if len(commonName) == 0 && len(altNames) == 0 {
 			return logical.ErrorResponse("no domains specified on certificate"), nil
 		}
@@ -148,15 +147,30 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 			CsrOrigin: certificate.LocalGeneratedCSR,
 			//TODO: add key password support
 		}
+		ipSet := make(map[string]struct{})
+		nameSet := make(map[string]struct{})
 		for _, v := range altNames {
 			if strings.Contains(v, "@") {
 				certReq.EmailAddresses = append(certReq.EmailAddresses, v)
 			} else if net.ParseIP(v) != nil {
-				certReq.IPAddresses = append([]net.IP{}, net.ParseIP(v))
+				ipSet[v] = struct{}{}
+				nameSet[v] = struct{}{}
 			} else {
-				certReq.DNSNames = append(certReq.DNSNames, v)
+				nameSet[v] = struct{}{}
 			}
 		}
+		for _, v := range ipSANs {
+			if net.ParseIP(v) != nil {
+				ipSet[v] = struct{}{}
+			}
+		}
+		for k, _ := range ipSet {
+			certReq.IPAddresses = append(certReq.IPAddresses, net.ParseIP(k))
+		}
+		for k, _ := range nameSet {
+			certReq.DNSNames = append(certReq.DNSNames, k)
+		}
+
 	} else {
 		log.Println("Signing user provided CSR")
 		csrString := data.Get("csr").(string)

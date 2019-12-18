@@ -12,6 +12,7 @@ import (
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/vault"
 	"log"
+	"net"
 	"os"
 	"strings"
 	"testing"
@@ -31,10 +32,11 @@ type testData struct {
 	cn          string
 	dns_ns      string
 	dns_ip      string
+	only_ip     string
 	dns_email   string
 	provider    string
-	signCSR 	bool
-	csrPK		[]byte
+	signCSR     bool
+	csrPK       []byte
 }
 
 func checkStandartCert(t *testing.T, data testData) {
@@ -73,14 +75,24 @@ func checkStandartCert(t *testing.T, data testData) {
 
 	//TODO: cloud now have SAN support too. Have to implement it
 	if data.provider == "tpp" {
-		wantDNSNames := []string{data.cn, data.dns_ns}
+		wantDNSNames := []string{data.cn, data.dns_ns, data.dns_ip}
 		haveDNSNames := parsedCertificate.DNSNames
+		ips := make([]net.IP, 0, 2)
+		if data.dns_ip != "" {
+			ips = append(ips, net.ParseIP(data.dns_ip))
+		}
+		if data.only_ip != "" {
+			ips = append(ips, net.ParseIP(data.only_ip))
+		}
 		if !SameStringSlice(haveDNSNames, wantDNSNames) {
 			t.Fatalf("Certificate Subject Alternative Names %s doesn't match to requested %s", haveDNSNames, wantDNSNames)
 		}
-		//TODO: check IP and email too
+
+		if !SameIpSlice(ips, parsedCertificate.IPAddresses) {
+			t.Fatalf("Certificate IPs %v doesn`t match requested %v", parsedCertificate.IPAddresses, ips)
+		}
+		//TODO: check email too
 		//wantEmail := []string{data.dns_email}
-		//wantIP := []string{data.dns_email}
 		//TODO: in policies branch Cloud endpoint should start to populate O,C,L.. fields too
 		wantOrg := os.Getenv("CERT_O")
 		if wantOrg != "" {
@@ -105,6 +117,7 @@ func TestPKI_Fake_BaseEnroll(t *testing.T) {
 	data.cn = rand + "." + domain
 	data.dns_ns = "alt-" + data.cn
 	data.dns_ip = "192.168.1.1"
+	data.only_ip = "127.0.0.1"
 	data.dns_email = "venafi@example.com"
 
 	coreConfig := &vault.CoreConfig{
@@ -141,6 +154,7 @@ func TestPKI_Fake_BaseEnroll(t *testing.T) {
 	resp, err := client.Logical().Write("pki/issue/example", map[string]interface{}{
 		"common_name": data.cn,
 		"alt_names":   fmt.Sprintf("%s,%s,%s", data.dns_ns, data.dns_ip, data.dns_email),
+		"ip_sans":     []string{data.only_ip},
 	})
 	if err != nil {
 		t.Fatalf("Error issuing certificate: %s", err)
@@ -264,7 +278,8 @@ func TestPKI_TPP_RestrictedEnroll(t *testing.T) {
 
 	resp, err := client.Logical().Write("pki/issue/example", map[string]interface{}{
 		"common_name": data.cn,
-		"alt_names":   fmt.Sprintf("%s,%s,%s", data.dns_ns, data.dns_ip, data.dns_email),
+		"alt_names":   fmt.Sprintf("%s,%s", data.dns_ns, data.dns_email),
+		"ip_sans":     []string{data.dns_ip},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -282,6 +297,7 @@ func TestPKI_TPP_CSRSign(t *testing.T) {
 	domain := "vfidev.com"
 	data.cn = rand + "." + domain
 	data.dns_ns = "alt-" + data.cn
+	data.dns_ip = "127.0.0.1"
 	data.signCSR = true
 	data.provider = "tpp"
 
@@ -289,7 +305,8 @@ func TestPKI_TPP_CSRSign(t *testing.T) {
 	//Generating CSR for test
 	certificateRequest := x509.CertificateRequest{}
 	certificateRequest.Subject.CommonName = data.cn
-	certificateRequest.DNSNames = append(certificateRequest.DNSNames, data.dns_ns)
+	certificateRequest.DNSNames = append(certificateRequest.DNSNames, data.dns_ns, data.dns_ip)
+	certificateRequest.IPAddresses = []net.IP{net.ParseIP(data.dns_ip)}
 	org := os.Getenv("CERT_O")
 	if org != "" {
 		certificateRequest.Subject.Organization = append(certificateRequest.Subject.Organization, org)
@@ -302,7 +319,7 @@ func TestPKI_TPP_CSRSign(t *testing.T) {
 	}
 	data.csrPK = pem.EncodeToMemory(
 		&pem.Block{
-			Type: "RSA PRIVATE KEY",
+			Type:  "RSA PRIVATE KEY",
 			Bytes: x509.MarshalPKCS1PrivateKey(priv),
 		},
 	)
@@ -448,7 +465,7 @@ func TestPKI_Cloud_CSRSign(t *testing.T) {
 	}
 	data.csrPK = pem.EncodeToMemory(
 		&pem.Block{
-			Type: "RSA PRIVATE KEY",
+			Type:  "RSA PRIVATE KEY",
 			Bytes: x509.MarshalPKCS1PrivateKey(priv),
 		},
 	)
