@@ -91,7 +91,7 @@ It is not common for the Venafi Platform's REST API (WebSDK) to be secured using
     vault write venafi-pki/roles/cloud-backend \
         apikey="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" \
         zone="zzzzzzzz-zzzz-zzzz-zzzz-zzzzzzzzzzzz" \
-        generate_lease=true store_by_cn=true store_pkey=true store_by_serial=true ttl=1h max_ttl=1h \
+        generate_lease=true store_by_serial=true store_pkey=true ttl=1h max_ttl=1h \
         allowed_domains=example.com \
         allow_subdomains=true
     ```
@@ -106,11 +106,11 @@ It is not common for the Venafi Platform's REST API (WebSDK) to be secured using
         tpp_password="password" \
         zone="DevOps\\Vault Backend" \
         trust_bundle_file="/opt/venafi/bundle.pem" \
-        generate_lease=true store_by_cn=true store_pkey=true store_by_serial=true ttl=1h max_ttl=1h \
+        generate_lease=true store_by_serial=true store_pkey=true ttl=1h max_ttl=1h \
         allowed_domains=example.com \
         allow_subdomains=true
     ```
-    > Note: Role options can be viewed using `vault path-help vault-pki-backend-venafi/roles/<ROLE_NAME>`
+    > Note: Role options can be viewed using `vault path-help vault-pki-backend-venafi/roles/<ROLE_NAME>`. Do not use both `store_by_serial=true` and `store_by_cn=true` when configuring your role as doing so may prevent the certificate from being stored in Vault.
 
 10. Enroll a certificate:
 
@@ -320,7 +320,6 @@ vault write venafi-pki/roles/custom-tpp \
     tpp_password=password \
     zone=testpolicy\\vault \
     generate_lease=true \
-    store_by_cn="true" \
     store_by_serial="true" \
     store_pkey="true" \
     trust_bundle_file="/opt/venafi/bundle.pem"
