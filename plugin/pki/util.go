@@ -10,7 +10,9 @@ import (
 	"fmt"
 	"github.com/hashicorp/vault/logical"
 	"math/rand"
+	"net"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"testing"
@@ -128,25 +130,40 @@ func GetContext() *RunContext {
 	return &c
 }
 
+func SameIpSlice(x, y []net.IP) bool {
+	if len(x) != len(y) {
+		return false
+	}
+	x1 := make([]string, len(x))
+	y1 := make([]string, len(y))
+	for i := range x {
+		x1[i] = x[i].String()
+		y1[i] = y[i].String()
+	}
+	sort.Strings(x1)
+	sort.Strings(y1)
+	for i := range x1 {
+		if x1[i] != y1[i] {
+			return false
+		}
+	}
+	return true
+}
+
 func SameStringSlice(x, y []string) bool {
 	if len(x) != len(y) {
 		return false
 	}
-	// create a map of string -> int
-	diff := make(map[string]int, len(x))
-	for _, _x := range x {
-		// 0 value for int is 0, so just increment a counter for the string
-		diff[_x]++
-	}
-	for _, _y := range y {
-		// If the string _y is not in diff bail out early
-		if _, ok := diff[_y]; !ok {
+	x1 := make([]string, len(x))
+	y1 := make([]string, len(y))
+	copy(x1, x)
+	copy(y1, y)
+	sort.Strings(x1)
+	sort.Strings(y1)
+	for i := range x1 {
+		if x1[i] != y1[i] {
 			return false
 		}
-		diff[_y] -= 1
-		if diff[_y] == 0 {
-			delete(diff, _y)
-		}
 	}
-	return len(diff) == 0
+	return true
 }
