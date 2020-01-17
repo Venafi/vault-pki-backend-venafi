@@ -7,6 +7,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/vault/api"
 	vaulthttp "github.com/hashicorp/vault/http"
 	"github.com/hashicorp/vault/logical"
@@ -124,6 +125,7 @@ func TestPKI_Fake_BaseEnroll(t *testing.T) {
 		LogicalBackends: map[string]logical.Factory{
 			"pki": Factory,
 		},
+		Logger: hclog.NewNullLogger(),
 	}
 	cluster := vault.NewTestCluster(t, coreConfig, &vault.TestClusterOptions{
 		HandlerFunc: vaulthttp.Handler,
