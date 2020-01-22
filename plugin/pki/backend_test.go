@@ -186,6 +186,7 @@ func TestPKI_TPP_BaseEnroll(t *testing.T) {
 		LogicalBackends: map[string]logical.Factory{
 			"pki": Factory,
 		},
+		Logger: hclog.NewNullLogger(),
 	}
 	cluster := vault.NewTestCluster(t, coreConfig, &vault.TestClusterOptions{
 		HandlerFunc: vaulthttp.Handler,
@@ -245,6 +246,7 @@ func TestPKI_TPP_RestrictedEnroll(t *testing.T) {
 		LogicalBackends: map[string]logical.Factory{
 			"pki": Factory,
 		},
+		Logger: hclog.NewNullLogger(),
 	}
 	cluster := vault.NewTestCluster(t, coreConfig, &vault.TestClusterOptions{
 		HandlerFunc: vaulthttp.Handler,
@@ -339,6 +341,7 @@ func TestPKI_TPP_CSRSign(t *testing.T) {
 		LogicalBackends: map[string]logical.Factory{
 			"pki": Factory,
 		},
+		Logger: hclog.NewNullLogger(),
 	}
 	cluster := vault.NewTestCluster(t, coreConfig, &vault.TestClusterOptions{
 		HandlerFunc: vaulthttp.Handler,
@@ -398,6 +401,7 @@ func TestPKI_Cloud_BaseEnroll(t *testing.T) {
 		LogicalBackends: map[string]logical.Factory{
 			"pki": Factory,
 		},
+		Logger: hclog.NewNullLogger(),
 	}
 	cluster := vault.NewTestCluster(t, coreConfig, &vault.TestClusterOptions{
 		HandlerFunc: vaulthttp.Handler,
@@ -485,6 +489,7 @@ func TestPKI_Cloud_CSRSign(t *testing.T) {
 		LogicalBackends: map[string]logical.Factory{
 			"pki": Factory,
 		},
+		Logger: hclog.NewNullLogger(),
 	}
 	cluster := vault.NewTestCluster(t, coreConfig, &vault.TestClusterOptions{
 		HandlerFunc: vaulthttp.Handler,
@@ -542,6 +547,7 @@ func DoNotRun_Cloud_RestrictedEnroll(t *testing.T) {
 		LogicalBackends: map[string]logical.Factory{
 			"pki": Factory,
 		},
+		Logger: hclog.NewNullLogger(),
 	}
 	cluster := vault.NewTestCluster(t, coreConfig, &vault.TestClusterOptions{
 		HandlerFunc: vaulthttp.Handler,
