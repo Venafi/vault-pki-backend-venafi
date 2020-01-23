@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
-	"log"
 )
 
 func pathVenafiCertRead(b *backend) *framework.Path {
@@ -28,7 +27,7 @@ func pathVenafiCertRead(b *backend) *framework.Path {
 }
 
 func (b *backend) pathVenafiCertRead(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
-	log.Printf("Trying to read certificate")
+	b.Logger().Debug("Trying to read certificate")
 	certUID := data.Get("certificate_uid").(string)
 	if len(certUID) == 0 {
 		return logical.ErrorResponse("no common name specified on certificate"), nil
@@ -39,15 +38,15 @@ func (b *backend) pathVenafiCertRead(ctx context.Context, req *logical.Request, 
 		return nil, fmt.Errorf("failed to read Venafi certificate")
 	}
 	var cert VenafiCert
-	log.Println("Getting venafi certificate")
-	log.Println("certificate:", cert.Certificate)
+	b.Logger().Debug("Getting venafi certificate")
+	b.Logger().Debug("certificate:", cert.Certificate)
 	e := entry.DecodeJSON(&cert)
-	log.Println("e:", e)
+	b.Logger().Debug("e:", e)
 	if err := entry.DecodeJSON(&cert); err != nil {
-		log.Printf("error reading venafi configuration: %s", err)
+		b.Logger().Error("error reading venafi configuration: %s", err)
 		return nil, err
 	}
-	log.Println("chain is:", cert.Certificate)
+	b.Logger().Debug("chain is:", cert.Certificate)
 
 	respData := map[string]interface{}{
 		"certificate_uid":   certUID,

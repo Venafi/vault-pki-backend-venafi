@@ -2,11 +2,9 @@ package pki
 
 import (
 	"context"
-	"strings"
-	"time"
-
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
+	"strings"
 )
 
 // Factory creates a new backend implementing the logical.Backend interface
@@ -47,18 +45,11 @@ func Backend(conf *logical.BackendConfig) *backend {
 
 		BackendType: logical.TypeLogical,
 	}
-
-	b.crlLifetime = time.Hour * 72
-	b.storage = conf.StorageView
-
 	return &b
 }
 
 type backend struct {
 	*framework.Backend
-
-	storage     logical.Storage
-	crlLifetime time.Duration
 }
 
 const backendHelp = `

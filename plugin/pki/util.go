@@ -29,15 +29,19 @@ func sliceContains(slice []string, item string) bool {
 	return ok
 }
 
-func getHexFormatted(buf []byte, sep string) string {
+func getHexFormatted(buf []byte, sep string) (string, error) {
 	var ret bytes.Buffer
 	for _, cur := range buf {
 		if ret.Len() > 0 {
-			fmt.Fprintf(&ret, sep)
+			if _, err := fmt.Fprintf(&ret, sep); err != nil {
+				return "", err
+			}
 		}
-		fmt.Fprintf(&ret, "%02x", cur)
+		if _, err := fmt.Fprintf(&ret, "%02x", cur); err != nil {
+			return "", err
+		}
 	}
-	return ret.String()
+	return ret.String(), nil
 }
 
 func normalizeSerial(serial string) string {
