@@ -594,3 +594,5 @@ func DoNotRun_Cloud_RestrictedEnroll(t *testing.T) {
 
 	checkStandartCert(t, data)
 }
+
+//TODO: add tests for cert read and list
