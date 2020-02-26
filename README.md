@@ -20,7 +20,7 @@ The following content assumes certificates will be enrolled by a Microsoft Activ
 
 * The CRL distribution point and Authority Information Access (AIA) URIs configured for certificates issued by the Microsoft ADCS must start with an HTTP URI (non-default configuration). If an LDAP URI appears first in the X509v3 extensions, NGINX ingress controllers will fail because they aren't able to retrieve CRL and OCSP information. Example:
 
-    ```
+    ```text
     X509v3 extensions:
     X509v3 Subject Alternative Name: DNS:test-cert-manager1.venqa.venafi.com
     X509v3 Subject Key Identifier: 61:5B:4D:40:F2:CF:87:D5:75:5E:58:55:EF:E8:9E:02:9D:E1:81:8E
@@ -43,7 +43,7 @@ It is not common for the Venafi Platform's REST API (WebSDK) to be secured using
 
 1. Download the current `vault-pki-backend-venafi` release package for your operating system. Unzip the plugin to the `/etc/vault/vault_plugins` directory (or another directory):
 
-    ```bash
+    ```text
     wget https://github.com/Venafi/vault-pki-backend-venafi/releases/latest/download/venafi-pki-backend_0.5.2+586_linux.zip
     unzip venafi-pki-backend_0.5.2+586_linux.zip
     mv venafi-pki-backend /etc/vault/vault_plugins
@@ -53,7 +53,7 @@ It is not common for the Venafi Platform's REST API (WebSDK) to be secured using
 
 1. In the startup configuration file, configure the plugin directory for your Vault:
 
-    ```bash
+    ```text
     echo 'plugin_directory = "/etc/vault/vault_plugins"' > vault-config.hcl
     ```
 
@@ -61,25 +61,25 @@ It is not common for the Venafi Platform's REST API (WebSDK) to be secured using
 
 1. Start your Vault. If you don't have a working configuration you can start it in dev mode:
 
-    ```bash
+    ```text
     vault server -log-level=debug -dev -config=vault-config.hcl
     ```
 
 1. Export the `VAULT_ADDR environment` variable so that the Vault client will interact with the local Vault:
 
-    ```bash
+    ```text
     export VAULT_ADDR=http://127.0.0.1:8200
     ```
 
 1. Get the SHA-256 checksum of the `vault-pki-backend-venafi` plugin binary:
 
-    ```bash
+    ```text
     SHA256=$(shasum -a 256 /etc/vault/vault_plugins/venafi-pki-backend| cut -d' ' -f1)
     ```
 
 1. Add the `vault-pki-backend-venafi` plugin to the Vault system catalog:
 
-    ```bash
+    ```text
     vault write sys/plugins/catalog/secret/venafi-pki-backend sha_256="${SHA256}" command="venafi-pki-backend"
     ```
 
@@ -87,7 +87,7 @@ It is not common for the Venafi Platform's REST API (WebSDK) to be secured using
 
 1. Enable the secrets backend for the `venafi-pki-backend` plugin:
 
-    ```bash
+    ```text
     vault secrets enable -path=venafi-pki -plugin-name=venafi-pki-backend plugin
     ```
 
@@ -95,7 +95,7 @@ It is not common for the Venafi Platform's REST API (WebSDK) to be secured using
 
     **Venafi Cloud**:
 
-    ```bash
+    ```text
     vault write venafi-pki/roles/cloud-backend \
     apikey="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" \
     zone="zzzzzzzz-zzzz-zzzz-zzzz-zzzzzzzzzzzz" \
@@ -108,7 +108,7 @@ It is not common for the Venafi Platform's REST API (WebSDK) to be secured using
 
     **Venafi Platform**:
 
-    ```bash
+    ```text
     vault write venafi-pki/roles/tpp-backend \
     tpp_url="https://tpp.venafi.example:443/vedsdk" \
     tpp_user="local:admin" \
@@ -126,19 +126,19 @@ It is not common for the Venafi Platform's REST API (WebSDK) to be secured using
 
     **Venafi Cloud**:
 
-    ```bash
+    ```text
     vault write venafi-pki/issue/cloud-backend common_name="test.example.com" alt_names="test-1.example.com,test-2.example.com"
     ```
 
     **Venafi Platform**:
 
-    ```bash
+    ```text
     vault write venafi-pki/issue/tpp-backend common_name="test.example.com" alt_names="test-1.example.com,test-2.example.com"
     ```
 
 1. Generate and sign the CSR:  
 
-    ```bash
+    ```text
     cat <<EOF> csr.conf
     [req]
     default_bits = 4096
@@ -163,13 +163,13 @@ It is not common for the Venafi Platform's REST API (WebSDK) to be secured using
 
     **Venafi Cloud**:
 
-    ```bash
+    ```text
     vault write venafi-pki/sign/cloud-backend csr=@myserver.csr
     ```
 
     **Venafi Platform**:
 
-    ```bash
+    ```text
     vault write venafi-pki/sign/tpp-backend csr=@myserver.csr
     ```
 
@@ -197,7 +197,7 @@ Here, we'll use a Makefile to encapsulate several command sequences in a single 
 
     **Venafi Platform Variables**
 
-    ```
+    ```text
     export TPPUSER=<WebSDK User for Venafi Platform, e.g. "admin">
     export TPPPASSWORD=<Password for WebSDK User, e.g. "password">
     export TPPURL=<URL of Venafi Platform WebSDK, e.g. "https://venafi.example.com/vedsdk">
@@ -207,19 +207,19 @@ Here, we'll use a Makefile to encapsulate several command sequences in a single 
 
     The syntax for the Venafi Platform policy folder can be tricky. If the policy folder name contains spaces, it must be wrapped in double quotes like this:
 
-    ```bash
+    ```text
     export TPPZONE="My Policy" *
     ```
 
     Also, if the policy folder is not at the root of the policy tree (nested folder), you need to escape the backslash delimiters twice (four backslashes in total):
 
-    ```bash
+    ```text
     export TPPZONE="Parent Folder\\\\Child Folder"
     ```
 
     **Venafi Cloud Variables**
 
-    ```
+    ```text
     export CLOUDAPIKEY=<API key for Venafi Cloud>
     export CLOUDZONE=<Zone that governs all certificates that are requested, refer to Venafi Cloud UI to get Zone ID>
     export CLOUDURL=<only set when instructed to use a non-production instance of Venafi Cloud>
@@ -232,7 +232,7 @@ Here, we'll use a Makefile to encapsulate several command sequences in a single 
 
 1. Export the root token to the VAULT_TOKEN variable (see example in the output).
 
-    ```bash
+    ```text
     export VAULT_TOKEN="enter-root-token-here"
     ```
 
@@ -242,7 +242,7 @@ Here, we'll use a Makefile to encapsulate several command sequences in a single 
 
 1. Run the following commands to check Venafi Platform:
 
-    ```bash
+    ```text
     make consul_template_tpp -e
     echo|openssl s_client -connect localhost:3443
     ```
@@ -251,7 +251,7 @@ Here, we'll use a Makefile to encapsulate several command sequences in a single 
 
 1. Run the following commands to check Venafi Cloud.
 
-    ```bash
+    ```text
     make consul_template_cloud -e
     echo|openssl s_client -connect localhost:2443
     ```
@@ -260,7 +260,7 @@ Here, we'll use a Makefile to encapsulate several command sequences in a single 
 
 1. You also can verify how the Vault is working without using a HashiCorp Consul Template. Run the following commands for Fake, Platform and Cloud endpoints, respectively:
 
-    ```bash
+    ```text
     make fake -e
     make tpp -e
     make cloud -e
@@ -268,7 +268,7 @@ Here, we'll use a Makefile to encapsulate several command sequences in a single 
 
 1. Cleanup:
 
-    ```bash
+    ```text
     docker-compose down
     docker ps|grep vault-demo-nginx|awk '{print $1}'|xargs docker rm -f
     ```
@@ -288,32 +288,32 @@ To mount the plugin automatically run `make prod` as described in the previous s
 
 1. Start Docker Compose using the configuration:
 
-    ```bash
+    ```text
     docker-compose up -d
     ```
 
 1. Check that all services started using the following commands:
 
-    ```bash
+    ```text
     docker-compose ps
     docker-compose logs
     ```
 
 1. Log into the running Vault container:
 
-    ```bash
+    ```text
     docker exec -it $(docker-compose ps |grep Up|grep vault_1|awk '{print $1}') sh
     ```
 
 1. Set the `VAULT_ADDR` variable:
 
-    ```bash
+    ```text
     export VAULT_ADDR='http://127.0.0.1:8200'
     ```
 
 1. Initialize the Vault:
 
-    ```bash
+    ```text
     vault operator init -key-shares=1 -key-threshold=1
     ```
 
@@ -321,32 +321,32 @@ To mount the plugin automatically run `make prod` as described in the previous s
 
 1. Enter the unseal key. You'll see it as "Unseal Key 1":
 
-    ```bash
+    ```text
     vault operator unseal UNSEAL_KEY_HERE
     ```
 
 1. Authenticate with the root token, you will see it as "Initial Root Token":
 
-    ```bash
+    ```text
     vault auth
     ```
 
 1. After successful authentication, get the SHA-256 checksum of plugin binary and store it in a variable:
 
-    ```bash
+    ```text
     SHA256=`sha256sum "/vault_plugin/venafi-pki-backend" | cut -d' ' -f1`
     echo $SHA256
     ```
 
 1. "Write" the plugin into the Vault:
 
-    ```bash
+    ```text
     vault write sys/plugins/catalog/venafi-pki-backend sha_256="$SHA256" command="venafi-pki-backend"
     ```
 
 1. Enable the Venafi secret backend:
 
-    ```bash
+    ```text
     vault secrets enable -path=venafi-pki -plugin-name=venafi-pki-backend plugin
     ```
 
@@ -356,7 +356,7 @@ Get the certificate and private key from Trust Protection Platform, and then pas
 
 1. Set up custom TPP role:
 
-    ```bash
+    ```text
     vault write venafi-pki/roles/custom-tpp \
     tpp_url=https://tpp.venafi.example/vedsdk \
     tpp_user=admin \
@@ -370,37 +370,37 @@ Get the certificate and private key from Trust Protection Platform, and then pas
 
 1. To set up proper parameters, please read the path-help for the role configuration:
 
-    ```bash
+    ```text
     vault path-help venafi-pki/roles/tpp
     ```
 
 1. Request the certificate:
 
-    ```bash
+    ```text
     vault write venafi-pki/issue/custom-tpp common_name="tpp-cert1.venqa.venafi.com" alt_names="tpp-cert1-alt1.venqa.venafi.com,tpp-cert1-alt2.venqa.venafi.com"
     ```
 
 1. List requested certificates:
 
-    ```bash
+    ```text
     vault list venafi-pki/certs
     ```
 
 1. Store certificate to the PEM file:
 
-    ```bash
+    ```text
     vault read -field=certificate venafi-pki/cert/tpp-cert1.venqa.venafi.com > tls.crt
     ```
 
 1. Store private key to the PEM file:
 
-    ```bash
+    ```text
     vault read -field=private_key venafi-pki/cert/tpp-cert1.venqa.venafi.com > tls.key
     ```
 
 1. Run docker container with Node application:
 
-    ```bash
+    ```text
     docker run --rm -it --name hello-node-ssl -p 443:443 \
     -v $(pwd)/tls.crt:/etc/certdata/tls.crt:ro \
     -v $(pwd)/tls.key:/etc/certdata/tls.key:ro \
@@ -417,7 +417,7 @@ To get the certificate and private key from HashiCorp Consul-template Engine, yo
 
 1. Create config file consul-template.hcl:
 
-    ```bash
+    ```text
     cat << EOF > consul-template.hcl
 
     //Configuration of consul backend
@@ -470,7 +470,7 @@ To get the certificate and private key from HashiCorp Consul-template Engine, yo
 
 1. Create the template for the certificate file, tls.crt.ctmpl:
 
-    ```bash
+    ```text
     cat << EOF > tls.crt.ctmpl
     {{ with secret "venafi-pki/issue/custom-tpp" "common_name=tpp-cert1-consul-template.venqa.venafi.com " }}
     {{ .Data.certificate }}{{ end }}
@@ -479,7 +479,7 @@ To get the certificate and private key from HashiCorp Consul-template Engine, yo
 
 1. Create the template for the key file, tls.key.ctmpl:
 
-    ```bash
+    ```text
     cat << EOF > tls.key.ctmpl
     {{ with secret "venafi-pki/issue/custom-tpp" "common_name=tpp-cert1-consul-template.venqa.venafi.com " }}
     {{ .Data.private_key }}{{ end }}
@@ -488,7 +488,7 @@ To get the certificate and private key from HashiCorp Consul-template Engine, yo
 
 1. Create the launch script app.sh:
 
-    ```bash
+    ```text
     cat << 'EOF' > app.sh
     #!/bin/bash
     cont=hello-node-ssl
@@ -505,13 +505,13 @@ To get the certificate and private key from HashiCorp Consul-template Engine, yo
 
 1. Export the vault token variable:
 
-    ```bash
+    ```text
     export VAULT_TOKEN=YOUR_VAULT_TOKEN_SHOULD_BE_HERE
     ```
 
 1. Run consul template command:
 
-    ```bash
+    ```text
     consul-template -once -config=consul-template.hcl -vault-token=$(VAULT_TOKEN)
     ```
 
@@ -519,7 +519,7 @@ To get the certificate and private key from HashiCorp Consul-template Engine, yo
 
 1. Delete the container with the running application:
 
-    ```bash
+    ```text
     docker rm -f hello-node-ssl
     ```
 
@@ -533,7 +533,7 @@ To get the certificate and private key from HashiCorp Consul-template Engine, yo
 
 1. Open the new window in the same directory and run:
 
-    ```bash
+    ```text
     unset VAULT_TOKEN
     export VAULT_ADDR='http://127.0.0.1:8200'
     ```
@@ -546,7 +546,7 @@ To get the certificate and private key from HashiCorp Consul-template Engine, yo
 
 1. To use the configuration with a temporary CA generating the certificate, run `make fake`. Then verify the output. You should see something like this:
 
-    ```bash
+    ```text
    vault read -field=Chain venafi-pki/certs/fake|openssl x509 -text -inform pem -noout -certopt no_header,no_version,no_serial,no_signame,no_pubkey,no_sigdump,no_aux
             Issuer: C=US, ST=Utah, L=Salt Lake City, O=Venafi, OU=NOT FOR PRODUCTION, CN=VCert Test Mode CA
             Validity
