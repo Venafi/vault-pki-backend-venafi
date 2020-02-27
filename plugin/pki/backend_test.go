@@ -75,40 +75,42 @@ func checkStandartCert(t *testing.T, data testData) {
 	}
 
 	//TODO: cloud now have SAN support too. Have to implement it
-	if data.provider == "tpp" {
-		wantDNSNames := []string{data.cn, data.dns_ns, data.dns_ip}
-		haveDNSNames := parsedCertificate.DNSNames
-		ips := make([]net.IP, 0, 2)
-		if data.dns_ip != "" {
-			ips = append(ips, net.ParseIP(data.dns_ip))
-		}
-		if data.only_ip != "" {
-			ips = append(ips, net.ParseIP(data.only_ip))
-		}
-		if !SameStringSlice(haveDNSNames, wantDNSNames) {
-			t.Fatalf("Certificate Subject Alternative Names %s doesn't match to requested %s", haveDNSNames, wantDNSNames)
-		}
 
-		if !SameIpSlice(ips, parsedCertificate.IPAddresses) {
-			t.Fatalf("Certificate IPs %v doesn`t match requested %v", parsedCertificate.IPAddresses, ips)
+	wantDNSNames := []string{data.cn, data.dns_ns, data.dns_ip}
+
+	ips := make([]net.IP, 0, 2)
+	if data.dns_ip != "" {
+		ips = append(ips, net.ParseIP(data.dns_ip))
+	}
+	if data.only_ip != "" {
+		ips = append(ips, net.ParseIP(data.only_ip))
+	}
+	if !SameStringSlice(parsedCertificate.DNSNames, wantDNSNames) {
+		t.Fatalf("Certificate Subject Alternative Names %v doesn't match to requested %v", parsedCertificate.DNSNames, wantDNSNames)
+	}
+
+	if !SameIpSlice(ips, parsedCertificate.IPAddresses) {
+		t.Fatalf("Certificate IPs %v doesn`t match requested %v", parsedCertificate.IPAddresses, ips)
+	}
+	wantEmail := []string{data.dns_email}
+	if !SameStringSlice(parsedCertificate.EmailAddresses, wantEmail) {
+		t.Fatalf("Certificate emails %v doesn't match requested %v", parsedCertificate.EmailAddresses, wantEmail)
+	}
+	//TODO: in policies branch Cloud endpoint should start to populate O,C,L.. fields too
+	wantOrg := os.Getenv("CERT_O")
+	if wantOrg != "" {
+		var haveOrg string
+		if len(parsedCertificate.Subject.Organization) > 0 {
+			haveOrg = parsedCertificate.Subject.Organization[0]
+		} else {
+			t.Fatalf("Organization in certificate is empty.")
 		}
-		//TODO: check email too
-		//wantEmail := []string{data.dns_email}
-		//TODO: in policies branch Cloud endpoint should start to populate O,C,L.. fields too
-		wantOrg := os.Getenv("CERT_O")
-		if wantOrg != "" {
-			var haveOrg string
-			if len(parsedCertificate.Subject.Organization) > 0 {
-				haveOrg = parsedCertificate.Subject.Organization[0]
-			} else {
-				t.Fatalf("Organization in certificate is empty.")
-			}
-			log.Println("want and have", wantOrg, haveOrg)
-			if wantOrg != haveOrg {
-				t.Fatalf("Certificate Organization %s doesn't match to requested %s", haveOrg, wantOrg)
-			}
+		log.Println("want and have", wantOrg, haveOrg)
+		if wantOrg != haveOrg {
+			t.Fatalf("Certificate Organization %s doesn't match to requested %s", haveOrg, wantOrg)
 		}
 	}
+
 }
 
 func TestPKI_Fake_BaseEnroll(t *testing.T) {
@@ -536,7 +538,7 @@ func TestPKI_Cloud_CSRSign(t *testing.T) {
 }
 
 //TODO: have to add support of populating field in Cloud vcert ednpoint
-func DoNotRun_Cloud_RestrictedEnroll(t *testing.T) {
+func Test_Cloud_RestrictedEnroll(t *testing.T) {
 	data := testData{}
 	rand := randSeq(9)
 	domain := "vfidev.com"
@@ -594,3 +596,5 @@ func DoNotRun_Cloud_RestrictedEnroll(t *testing.T) {
 
 	checkStandartCert(t, data)
 }
+
+//todo: make test for key_password

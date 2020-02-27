@@ -91,10 +91,9 @@ Example:
 				Description: `Set it to true to store certificates privates key in certificate fields`,
 			},
 			"chain_option": {
-				Type: framework.TypeString,
-				Description: `Specify ordering certificates in chain. Root can be "first" or
-            "last"`,
-				Default: "last",
+				Type:        framework.TypeString,
+				Description: `Specify ordering certificates in chain. Root can be "first" or "last"`,
+				Default:     "last",
 			},
 			"key_type": {
 				Type:    framework.TypeString,

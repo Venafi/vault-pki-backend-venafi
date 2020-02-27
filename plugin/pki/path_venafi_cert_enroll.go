@@ -36,6 +36,10 @@ func pathVenafiCertEnroll(b *backend) *framework.Path {
 				Type:        framework.TypeCommaStringSlice,
 				Description: "The requested IP SANs, if any, in a comma-delimited list",
 			},
+			"key_password": {
+				Type:        framework.TypeString,
+				Description: "Password for encrypting private key",
+			},
 		},
 		Callbacks: map[logical.Operation]framework.OperationFunc{
 			logical.UpdateOperation: b.pathVenafiIssue,
@@ -143,8 +147,8 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 			Subject: pkix.Name{
 				CommonName: commonName,
 			},
-			CsrOrigin: certificate.LocalGeneratedCSR,
-			//TODO: add key password support
+			CsrOrigin:   certificate.LocalGeneratedCSR,
+			KeyPassword: data.Get("key_password").(string),
 		}
 		ipSet := make(map[string]struct{})
 		nameSet := make(map[string]struct{})
