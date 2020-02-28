@@ -20,6 +20,8 @@ type testEnv struct {
 	Storage                       logical.Storage
 }
 
+type venafiConfigString string
+
 type testData struct {
 	cert        string
 	private_key string
@@ -30,12 +32,10 @@ type testData struct {
 	dns_ip      string
 	only_ip     string
 	dns_email   string
-	provider    string
+	provider    venafiConfigString
 	signCSR     bool
 	csrPK       []byte
 }
-
-type venafiConfigString string
 
 const (
 	venafiConfigTPP venafiConfigString = "TPP"
@@ -134,6 +134,7 @@ func (e *testEnv) IssueCertificate(t *testing.T, data testData, config venafiCon
 
 	data.cert = resp.Data["certificate"].(string)
 	data.private_key = resp.Data["private_key"].(string)
+	data.provider = config
 
 	checkStandartCert(t, data)
 }
@@ -163,7 +164,6 @@ func (e *testEnv) TPPIssueCertificate(t *testing.T) {
 	data.dns_ns = "alt-" + data.cn
 	data.dns_ip = "192.168.1.1"
 	data.dns_email = "venafi@example.com"
-	data.provider = "tpp"
 
 	var config venafiConfigString = venafiConfigTPP
 	e.IssueCertificate(t, data, config)
@@ -176,7 +176,6 @@ func (e *testEnv)CloudIssueCertificate(t *testing.T) {
 	rand := randSeq(9)
 	domain := "venafi.example.com"
 	data.cn = rand + "." + domain
-	data.provider = "cloud"
 
 	var config venafiConfigString = venafiConfigCloud
 	e.IssueCertificate(t, data, config)
@@ -217,7 +216,7 @@ func checkStandartCert(t *testing.T, data testData) {
 	}
 
 	//TODO: cloud now have SAN support too. Have to implement it
-	if data.provider == "tpp" {
+	if data.provider == venafiConfigTPP {
 		wantDNSNames := []string{data.cn, data.dns_ns, data.dns_ip}
 		haveDNSNames := parsedCertificate.DNSNames
 		ips := make([]net.IP, 0, 2)
