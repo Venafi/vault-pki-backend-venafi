@@ -37,67 +37,6 @@ func TestIntegration(t *testing.T) {
 
 }
 
-func TestPKI_TPP_BaseEnroll(t *testing.T) {
-	data := testData{}
-	rand := randSeq(9)
-	domain := "venafi.example.com"
-	data.cn = rand + "." + domain
-	data.dns_ns = "alt-" + data.cn
-	data.dns_ip = "192.168.1.1"
-	data.dns_email = "venafi@example.com"
-	data.provider = "tpp"
-
-	coreConfig := &vault.CoreConfig{
-		LogicalBackends: map[string]logical.Factory{
-			"pki": Factory,
-		},
-		Logger: hclog.NewNullLogger(),
-	}
-	cluster := vault.NewTestCluster(t, coreConfig, &vault.TestClusterOptions{
-		HandlerFunc: vaulthttp.Handler,
-	})
-	cluster.Start()
-	defer cluster.Cleanup()
-
-	client := cluster.Cores[0].Client
-	var err error
-	err = client.Sys().Mount("pki", &api.MountInput{
-		Type: "pki",
-		Config: api.MountConfigInput{
-			DefaultLeaseTTL: "16h",
-			MaxLeaseTTL:     "32h",
-		},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	_, err = client.Logical().Write("pki/roles/example", map[string]interface{}{
-		"generate_lease":    true,
-		"tpp_url":           os.Getenv("TPPURL"),
-		"tpp_user":          os.Getenv("TPPUSER"),
-		"tpp_password":      os.Getenv("TPPPASSWORD"),
-		"zone":              os.Getenv("TPPZONE"),
-		"trust_bundle_file": os.Getenv("TRUST_BUNDLE"),
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	resp, err := client.Logical().Write("pki/issue/example", map[string]interface{}{
-		"common_name": data.cn,
-		"alt_names":   fmt.Sprintf("%s,%s,%s", data.dns_ns, data.dns_ip, data.dns_email),
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	data.cert = resp.Data["certificate"].(string)
-	data.private_key = resp.Data["private_key"].(string)
-
-	checkStandartCert(t, data)
-}
-
 func TestPKI_TPP_RestrictedEnroll(t *testing.T) {
 	data := testData{}
 	rand := randSeq(9)
@@ -251,65 +190,6 @@ func TestPKI_TPP_CSRSign(t *testing.T) {
 	}
 
 	data.cert = resp.Data["certificate"].(string)
-
-	checkStandartCert(t, data)
-}
-
-func TestPKI_Cloud_BaseEnroll(t *testing.T) {
-	data := testData{}
-	rand := randSeq(9)
-	domain := "venafi.example.com"
-	data.cn = rand + "." + domain
-	data.provider = "cloud"
-
-	coreConfig := &vault.CoreConfig{
-		LogicalBackends: map[string]logical.Factory{
-			"pki": Factory,
-		},
-		Logger: hclog.NewNullLogger(),
-	}
-	cluster := vault.NewTestCluster(t, coreConfig, &vault.TestClusterOptions{
-		HandlerFunc: vaulthttp.Handler,
-	})
-	cluster.Start()
-	defer cluster.Cleanup()
-
-	client := cluster.Cores[0].Client
-	var err error
-	err = client.Sys().Mount("pki", &api.MountInput{
-		Type: "pki",
-		Config: api.MountConfigInput{
-			DefaultLeaseTTL: "16h",
-			MaxLeaseTTL:     "32h",
-		},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	_, err = client.Logical().Write("pki/roles/example", map[string]interface{}{
-		"generate_lease": true,
-		"cloud_url":      os.Getenv("CLOUDURL"),
-		"zone":           os.Getenv("CLOUDZONE"),
-		"apikey":         os.Getenv("CLOUDAPIKEY"),
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	resp, err := client.Logical().Write("pki/issue/example", map[string]interface{}{
-		"common_name": data.cn,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if resp.Data["certificate"] == "" {
-		t.Fatalf("expected a cert to be generated")
-	}
-
-	data.cert = resp.Data["certificate"].(string)
-	data.private_key = resp.Data["private_key"].(string)
 
 	checkStandartCert(t, data)
 }
