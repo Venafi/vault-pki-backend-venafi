@@ -6,11 +6,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
-	"github.com/hashicorp/go-hclog"
-	"github.com/hashicorp/vault/api"
-	vaulthttp "github.com/hashicorp/vault/http"
 	"github.com/hashicorp/vault/logical"
-	"github.com/hashicorp/vault/vault"
 	"log"
 	"net"
 	"os"
@@ -24,7 +20,7 @@ type testEnv struct {
 	Context context.Context
 	Storage logical.Storage
 
-	TestData testData
+	//TestData testData
 }
 
 type testData struct {
@@ -44,6 +40,7 @@ type testData struct {
 
 
 func(e *testEnv) Fake_BaseEnroll(t *testing.T) {
+	//data := e.TestData
 	data := testData{}
 	rand := randSeq(9)
 	domain := "venafi.example.com"
@@ -53,43 +50,34 @@ func(e *testEnv) Fake_BaseEnroll(t *testing.T) {
 	data.only_ip = "127.0.0.1"
 	data.dns_email = "venafi@example.com"
 
-	coreConfig := &vault.CoreConfig{
-		LogicalBackends: map[string]logical.Factory{
-			"pki": Factory,
-		},
-		Logger: hclog.NewNullLogger(),
-	}
-	cluster := vault.NewTestCluster(t, coreConfig, &vault.TestClusterOptions{
-		HandlerFunc: vaulthttp.Handler,
-	})
-	cluster.Start()
-	defer cluster.Cleanup()
-
-	client := cluster.Cores[0].Client
 	var err error
-	err = client.Sys().Mount("pki", &api.MountInput{
-		Type: "pki",
-		Config: api.MountConfigInput{
-			DefaultLeaseTTL: "16h",
-			MaxLeaseTTL:     "32h",
+	const fakeRoleName = "fake-role"
+
+	resp, err := e.Backend.HandleRequest(context.Background(), &logical.Request{
+		Operation: logical.UpdateOperation,
+		Path: "roles/"+fakeRoleName,
+		Storage: e.Storage,
+		Data: map[string]interface{}{
+			"generate_lease": true,
+			"fakemode":       true,
 		},
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = client.Logical().Write("pki/roles/example", map[string]interface{}{
-		"generate_lease": true,
-		"fakemode":       true,
-	})
+
 	if err != nil {
 		t.Fatalf("Error configuring role: %s", err)
 	}
 
-	resp, err := client.Logical().Write("pki/issue/example", map[string]interface{}{
-		"common_name": data.cn,
-		"alt_names":   fmt.Sprintf("%s,%s,%s", data.dns_ns, data.dns_ip, data.dns_email),
-		"ip_sans":     []string{data.only_ip},
+	resp, err = e.Backend.HandleRequest(context.Background(), &logical.Request{
+		Operation: logical.UpdateOperation,
+		Path: "issue/"+fakeRoleName,
+		Storage: e.Storage,
+		Data: map[string]interface{}{
+			"common_name": data.cn,
+			"alt_names":   fmt.Sprintf("%s,%s,%s", data.dns_ns, data.dns_ip, data.dns_email),
+			"ip_sans":     []string{data.only_ip},
+		},
 	})
+
 	if err != nil {
 		t.Fatalf("Error issuing certificate: %s", err)
 	}
