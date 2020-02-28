@@ -29,6 +29,7 @@ github.com/SermoDigital/jose v0.0.0-20161205224733-f6df55f235c2 h1:vaAJk17N8B8Jf
 github.com/SermoDigital/jose v0.0.0-20161205224733-f6df55f235c2/go.mod h1:ARgCUhI1MHQH+ONky/PAtmVHQrP5JlGY0F3poXOp/fA=
 github.com/Shopify/sarama v1.19.0/go.mod h1:FVkBWblsNy7DGZRfXLU0O9RCGt5g3g3yEuWXgklEdEo=
 github.com/Shopify/toxiproxy v2.1.4+incompatible/go.mod h1:OXgGpZ6Cli1/URJOF1DMxUHB2q5Ap20/P/eIdh4G0pI=
+github.com/Venafi/vcert v0.0.0-20200114131347-7b2b2b4af84d h1:6S18Ig7yDdSiFxHo3jk16ExIgH1gfqF0xmQRrWARozY=
 github.com/Venafi/vcert v0.0.0-20200114131347-7b2b2b4af84d/go.mod h1:5T4bFPhcgGXbdz8nVVRuE2gXSRDlZVL+9T5CwZZ3Yk4=
 github.com/Venafi/vcert v4.1.0+incompatible h1:rvYqefvYqvHDhui1oK6zP53ShNuWzns0huGZ9ZgnkpI=
 github.com/Venafi/vcert v4.1.0+incompatible/go.mod h1:3sXw16DKVded/kLVDma2veqEUQC7O37h98ims7cIvN4=

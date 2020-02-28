@@ -27,6 +27,6 @@ func pathVenafiCertRevoke(b *backend) *framework.Path {
 
 func (b *backend) venafiCertRevoke(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
 	//TODO: Add revoke function here
-
+	//TODO: Add stub with no implemented yet error
 	return nil, nil
 }
