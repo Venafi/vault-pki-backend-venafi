@@ -15,12 +15,9 @@ import (
 )
 
 type testEnv struct {
-
-	Backend logical.Backend
-	Context context.Context
-	Storage logical.Storage
-
-	//TestData testData
+	Backend                       logical.Backend
+	Context                       context.Context
+	Storage                       logical.Storage
 }
 
 type testData struct {
@@ -38,9 +35,111 @@ type testData struct {
 	csrPK       []byte
 }
 
+type venafiConfigString string
 
-func(e *testEnv) Fake_BaseEnroll(t *testing.T) {
-	//data := e.TestData
+const (
+	venafiConfigTPP venafiConfigString = "TPP"
+	venafiConfigTPPRestricted = "TPPRestricted"
+	venafiConfigCloud = "Cloud"
+	venafiConfigCloudRestricted = "CloudRestricted"
+	venafiConfigFake = "Fake"
+)
+
+var venafiTestTPPConfig = map[string]interface{}{
+	"tpp_url":           os.Getenv("TPPURL"),
+	"tpp_user":          os.Getenv("TPPUSER"),
+	"tpp_password":      os.Getenv("TPPPASSWORD"),
+	"zone":              os.Getenv("TPPZONE"),
+	"trust_bundle_file": os.Getenv("TRUST_BUNDLE"),
+}
+
+var venafiTestTPPConfigRestricted = map[string]interface{}{
+	"tpp_url":           os.Getenv("TPPURL"),
+	"tpp_user":          os.Getenv("TPPUSER"),
+	"tpp_password":      os.Getenv("TPPPASSWORD"),
+	"zone":              os.Getenv("TPPRESTRICTEDZONE"),
+	"trust_bundle_file": os.Getenv("TRUST_BUNDLE"),
+}
+
+var venafiTestCloudConfig = map[string]interface{}{
+	"cloud_url": os.Getenv("CLOUDURL"),
+	"apikey":    os.Getenv("CLOUDAPIKEY"),
+	"zone":      os.Getenv("CLOUDZONE"),
+}
+
+var venafiTestCloudConfigRestricted = map[string]interface{}{
+	"cloud_url": os.Getenv("CLOUDURL"),
+	"apikey":    os.Getenv("CLOUDAPIKEY"),
+	"zone":      os.Getenv("CLOUDRESTRICTEDZONE"),
+}
+
+var venafiTestFakeConfig = map[string]interface{}{
+	"generate_lease": true,
+	"fakemode":       true,
+}
+
+func (e *testEnv) IssueCertificate(t *testing.T, data testData, config venafiConfigString) {
+
+	var roleData map[string]interface{}
+    var roleName string
+
+	switch config {
+	case venafiConfigFake:
+		roleData = venafiTestFakeConfig
+		roleName = "fake-role"
+	case venafiConfigTPP:
+		roleData = venafiTestTPPConfig
+		roleName = "tpp-role"
+	case venafiConfigCloud:
+		roleData = venafiTestCloudConfig
+		roleName = "cloud-role"
+	}
+
+	resp, err := e.Backend.HandleRequest(context.Background(), &logical.Request{
+		Operation: logical.UpdateOperation,
+		Path:      "roles/" + roleName,
+		Storage:   e.Storage,
+		Data: roleData,
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp != nil && resp.IsError() {
+		t.Fatalf("failed to create role, %#v", resp)
+	}
+
+	resp, err = e.Backend.HandleRequest(context.Background(), &logical.Request{
+		Operation: logical.UpdateOperation,
+		Path:      "issue/" + roleName,
+		Storage:   e.Storage,
+		Data: map[string]interface{}{
+			"common_name": data.cn,
+			"alt_names":   fmt.Sprintf("%s,%s,%s", data.dns_ns, data.dns_ip, data.dns_email),
+		},
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp != nil && resp.IsError() {
+		t.Fatalf("failed to issue certificate, %#v", resp.Data["error"])
+	}
+
+	if resp == nil {
+		t.Fatalf("should be on output on issue certificate, but response is nil: %#v", resp)
+	}
+
+	data.cert = resp.Data["certificate"].(string)
+	data.private_key = resp.Data["private_key"].(string)
+
+	checkStandartCert(t, data)
+}
+
+func (e *testEnv) FakeIssueCertificate(t *testing.T) {
+
 	data := testData{}
 	rand := randSeq(9)
 	domain := "venafi.example.com"
@@ -50,49 +149,38 @@ func(e *testEnv) Fake_BaseEnroll(t *testing.T) {
 	data.only_ip = "127.0.0.1"
 	data.dns_email = "venafi@example.com"
 
-	var err error
-	const fakeRoleName = "fake-role"
+	var config venafiConfigString = venafiConfigFake
+	e.IssueCertificate(t, data, config)
 
-	resp, err := e.Backend.HandleRequest(context.Background(), &logical.Request{
-		Operation: logical.UpdateOperation,
-		Path: "roles/"+fakeRoleName,
-		Storage: e.Storage,
-		Data: map[string]interface{}{
-			"generate_lease": true,
-			"fakemode":       true,
-		},
-	})
-
-	if err != nil {
-		t.Fatalf("Error configuring role: %s", err)
-	}
-
-	resp, err = e.Backend.HandleRequest(context.Background(), &logical.Request{
-		Operation: logical.UpdateOperation,
-		Path: "issue/"+fakeRoleName,
-		Storage: e.Storage,
-		Data: map[string]interface{}{
-			"common_name": data.cn,
-			"alt_names":   fmt.Sprintf("%s,%s,%s", data.dns_ns, data.dns_ip, data.dns_email),
-			"ip_sans":     []string{data.only_ip},
-		},
-	})
-
-	if err != nil {
-		t.Fatalf("Error issuing certificate: %s", err)
-	}
-
-	if resp.Data["certificate"] == "" {
-		t.Fatalf("Expected a cert to be generated")
-	}
-
-	data.cert = resp.Data["certificate"].(string)
-	data.private_key = resp.Data["private_key"].(string)
-
-	checkStandartCert(t, data)
 }
 
+func (e *testEnv) TPPIssueCertificate(t *testing.T) {
 
+	data := testData{}
+	rand := randSeq(9)
+	domain := "venafi.example.com"
+	data.cn = rand + "." + domain
+	data.dns_ns = "alt-" + data.cn
+	data.dns_ip = "192.168.1.1"
+	data.dns_email = "venafi@example.com"
+	data.provider = "tpp"
+
+	var config venafiConfigString = venafiConfigTPP
+	e.IssueCertificate(t, data, config)
+
+}
+
+func (e *testEnv)CloudIssueCertificate(t *testing.T) {
+
+	data := testData{}
+	rand := randSeq(9)
+	domain := "venafi.example.com"
+	data.cn = rand + "." + domain
+	data.provider = "cloud"
+
+	var config venafiConfigString = venafiConfigCloud
+	e.IssueCertificate(t, data, config)
+}
 
 func checkStandartCert(t *testing.T, data testData) {
 	var err error
@@ -181,8 +269,8 @@ func newIntegrationTestEnv(t *testing.T) (*testEnv, error) {
 		return nil, err
 	}
 	return &testEnv{
-		Backend:   b,
-		Context:   ctx,
-		Storage:   &logical.InmemStorage{},
+		Backend: b,
+		Context: ctx,
+		Storage: &logical.InmemStorage{},
 	}, nil
 }

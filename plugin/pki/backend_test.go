@@ -30,10 +30,10 @@ func TestIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	//rand := randSeq(9)
-	//domain := "venafi.example.com"
-	//integrationTestEnv.TestData.cn = rand + "." + domain
-	t.Run("fake base enroll", integrationTestEnv.Fake_BaseEnroll)
+
+	t.Run("fake base enroll", integrationTestEnv.FakeIssueCertificate)
+	t.Run("TPP base enroll", integrationTestEnv.TPPIssueCertificate)
+	t.Run("Cloud base enroll", integrationTestEnv.CloudIssueCertificate)
 
 }
 
