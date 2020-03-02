@@ -1,15 +1,21 @@
 package pki
 
 import (
+	r "crypto/rand"
 	"context"
+	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"github.com/hashicorp/go-hclog"
+	"github.com/hashicorp/vault/api"
 	"github.com/hashicorp/vault/logical"
+	"github.com/hashicorp/vault/vault"
 	"log"
 	"net"
 	"os"
+	"strings"
 	"testing"
 	"time"
 )
@@ -78,29 +84,11 @@ var venafiTestFakeConfig = map[string]interface{}{
 	"fakemode":       true,
 }
 
-func (e *testEnv) IssueCertificate(t *testing.T, data testData, config venafiConfigString) {
+func (e *testEnv) IssueCertificate(t *testing.T, data testData, configString venafiConfigString) {
 
-	var roleData map[string]interface{}
-	var roleName string
-
-	switch config {
-	case venafiConfigFake:
-		roleData = venafiTestFakeConfig
-		roleName = "fake-role"
-	case venafiConfigTPP:
-		roleData = venafiTestTPPConfig
-		roleName = "tpp-role"
-	case venafiConfigTPPRestricted:
-		roleData = venafiTestTPPConfigRestricted
-		roleName = "tpp-role-restricted"
-	case venafiConfigCloud:
-		roleData = venafiTestCloudConfig
-		roleName = "cloud-role"
-	case venafiConfigCloudRestricted:
-		roleData = venafiTestCloudConfigRestricted
-		roleName = "cloud-role-restricted"
-	default:
-		t.Fatalf("Don't have config data for config %s", config)
+	roleData, roleName, err := makeConfig(configString)
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	resp, err := e.Backend.HandleRequest(context.Background(), &logical.Request{
@@ -142,10 +130,129 @@ func (e *testEnv) IssueCertificate(t *testing.T, data testData, config venafiCon
 
 	data.cert = resp.Data["certificate"].(string)
 	data.private_key = resp.Data["private_key"].(string)
-	data.provider = config
+	data.provider = configString
 
 	checkStandartCert(t, data)
 }
+
+func (e *testEnv) SignCertificate(t *testing.T, data testData, configString venafiConfigString) {
+
+	roleData, roleName, err := makeConfig(configString)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	//Generating CSR for test
+	certificateRequest := x509.CertificateRequest{}
+	certificateRequest.Subject.CommonName = data.cn
+	certificateRequest.DNSNames = append(certificateRequest.DNSNames, data.dns_ns, data.dns_ip)
+	certificateRequest.IPAddresses = []net.IP{net.ParseIP(data.dns_ip)}
+	org := os.Getenv("CERT_O")
+	if org != "" {
+		certificateRequest.Subject.Organization = append(certificateRequest.Subject.Organization, org)
+	}
+
+	//Generating pk for test
+	priv, err := rsa.GenerateKey(r.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data.csrPK = pem.EncodeToMemory(
+		&pem.Block{
+			Type:  "RSA PRIVATE KEY",
+			Bytes: x509.MarshalPKCS1PrivateKey(priv),
+		},
+	)
+
+	csr, err := x509.CreateCertificateRequest(r.Reader, &certificateRequest, priv)
+	if err != nil {
+		csr = nil
+	}
+	pemCSR := strings.TrimSpace(string(pem.EncodeToMemory(&pem.Block{
+		Type:  "CERTIFICATE REQUEST",
+		Bytes: csr,
+	})))
+
+	coreConfig := &vault.CoreConfig{
+		LogicalBackends: map[string]logical.Factory{
+			"pki": Factory,
+		},
+		Logger: hclog.NewNullLogger(),
+	}
+	cluster := vault.NewTestCluster(t, coreConfig, &vault.TestClusterOptions{
+		HandlerFunc: vaulthttp.Handler,
+	})
+	cluster.Start()
+	defer cluster.Cleanup()
+
+	client := cluster.Cores[0].Client
+	err = client.Sys().Mount("pki", &api.MountInput{
+		Type: "pki",
+		Config: api.MountConfigInput{
+			DefaultLeaseTTL: "16h",
+			MaxLeaseTTL:     "32h",
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = client.Logical().Write("pki/roles/example", map[string]interface{}{
+		"generate_lease":    true,
+		"tpp_url":           os.Getenv("TPPURL"),
+		"tpp_user":          os.Getenv("TPPUSER"),
+		"tpp_password":      os.Getenv("TPPPASSWORD"),
+		"zone":              os.Getenv("TPPZONE"),
+		"trust_bundle_file": os.Getenv("TRUST_BUNDLE"),
+		//"service_generated_cert": true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resp, err := client.Logical().Write("pki/sign/example", map[string]interface{}{
+		"csr": pemCSR,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp.Data["certificate"] == "" {
+		t.Fatalf("expected a cert to be generated")
+	}
+
+	data.cert = resp.Data["certificate"].(string)
+
+	checkStandartCert(t, data)
+}
+
+func makeConfig(configString venafiConfigString) (roleData map[string]interface{}, roleName string, err error) {
+
+	switch configString {
+	case venafiConfigFake:
+		roleData = venafiTestFakeConfig
+		roleName = "fake-role"
+	case venafiConfigTPP:
+		roleData = venafiTestTPPConfig
+		roleName = "tpp-role"
+	case venafiConfigTPPRestricted:
+		roleData = venafiTestTPPConfigRestricted
+		roleName = "tpp-role-restricted"
+	case venafiConfigCloud:
+		roleData = venafiTestCloudConfig
+		roleName = "cloud-role"
+	case venafiConfigCloudRestricted:
+		roleData = venafiTestCloudConfigRestricted
+		roleName = "cloud-role-restricted"
+	default:
+		return roleData, roleName, fmt.Errorf("Don't have config data for config %s", configString)
+	}
+
+	return roleData, roleName, nil
+
+}
+
+
 
 func (e *testEnv) FakeIssueCertificate(t *testing.T) {
 
@@ -190,6 +297,22 @@ func (e *testEnv) TPPIssueCertificateRestricted(t *testing.T) {
 
 	var config = venafiConfigTPPRestricted
 	e.IssueCertificate(t, data, config)
+
+}
+
+func (e *testEnv) TPPSignCertificate(t *testing.T) {
+
+	data := testData{}
+	rand := randSeq(9)
+	domain := "vfidev.com"
+	data.cn = rand + "." + domain
+	data.dns_ns = "alt-" + data.cn
+	data.dns_ip = "127.0.0.1"
+	data.signCSR = true
+	data.provider = "tpp"
+
+	var config = venafiConfigTPP
+	e.SignCertificate(t, data, config)
 
 }
 

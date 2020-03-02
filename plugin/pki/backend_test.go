@@ -33,6 +33,7 @@ func TestIntegration(t *testing.T) {
 	t.Run("fake base enroll", integrationTestEnv.FakeIssueCertificate)
 	t.Run("TPP base enroll", integrationTestEnv.TPPIssueCertificate)
 	t.Run("TPP restricted enroll", integrationTestEnv.TPPIssueCertificateRestricted)
+	t.Run("TPP sign certificate", integrationTestEnv.TPPSignCertificate)
 	t.Run("Cloud base enroll", integrationTestEnv.CloudIssueCertificate)
 	t.Run("Cloud restricted enroll", integrationTestEnv.CloudIssueCertificateRestricted)
 
