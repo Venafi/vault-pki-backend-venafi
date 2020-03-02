@@ -145,7 +145,7 @@ func (e *testEnv) SignCertificate(t *testing.T, data testData, configString vena
 	certificateRequest.DNSNames = append(certificateRequest.DNSNames, data.dns_ns, data.dns_ip)
 
 	//Cloud odesn't support IP SANS
-	if data.provider == venafiConfigTPP {
+	if configString == venafiConfigTPP {
 		certificateRequest.IPAddresses = []net.IP{net.ParseIP(data.dns_ip)}
 	}
 
@@ -302,7 +302,6 @@ func (e *testEnv) TPPSignCertificate(t *testing.T) {
 	data.dns_ns = "alt-" + data.cn
 	data.dns_ip = "127.0.0.1"
 	data.signCSR = true
-	data.provider = "tpp"
 
 	var config = venafiConfigTPP
 	e.SignCertificate(t, data, config)
@@ -317,7 +316,6 @@ func (e *testEnv) CloudSignCertificate(t *testing.T) {
 	data.cn = rand + "." + domain
 	data.dns_ns = "alt-" + data.cn
 	data.signCSR = true
-	data.provider = "cloud"
 
 	var config = venafiConfigCloud
 	e.SignCertificate(t, data, config)
