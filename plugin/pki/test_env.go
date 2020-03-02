@@ -382,42 +382,43 @@ func checkStandartCert(t *testing.T, data testData) {
 	}
 
 	//TODO: cloud now have SAN support too. Have to implement it
-	if data.provider == venafiConfigTPP {
-		wantDNSNames := []string{data.cn, data.dns_ns}
-		haveDNSNames := parsedCertificate.DNSNames
-		ips := make([]net.IP, 0, 2)
-		if data.dns_ip != "" {
-			ips = append(ips, net.ParseIP(data.dns_ip))
-		}
-		if data.only_ip != "" {
-			ips = append(ips, net.ParseIP(data.only_ip))
-		}
-		if !SameStringSlice(haveDNSNames, wantDNSNames) {
-			t.Fatalf("Certificate Subject Alternative Names %s doesn't match to requested %s", haveDNSNames, wantDNSNames)
-		}
 
-		if !SameIpSlice(ips, parsedCertificate.IPAddresses) {
-			t.Fatalf("Certificate IPs %v doesn`t match requested %v", parsedCertificate.IPAddresses, ips)
+	wantDNSNames := []string{data.cn, data.dns_ns}
+
+	ips := make([]net.IP, 0, 2)
+	if data.dns_ip != "" {
+		ips = append(ips, net.ParseIP(data.dns_ip))
+	}
+	if data.only_ip != "" {
+		ips = append(ips, net.ParseIP(data.only_ip))
+	}
+	if !SameStringSlice(parsedCertificate.DNSNames, wantDNSNames) {
+		t.Fatalf("Certificate Subject Alternative Names %v doesn't match to requested %v", parsedCertificate.DNSNames, wantDNSNames)
+	}
+
+	if !SameIpSlice(ips, parsedCertificate.IPAddresses) {
+		t.Fatalf("Certificate IPs %v doesn`t match requested %v", parsedCertificate.IPAddresses, ips)
+	}
+	wantEmail := []string{data.dns_email}
+	if !SameStringSlice(parsedCertificate.EmailAddresses, wantEmail) {
+		t.Fatalf("Certificate emails %v doesn't match requested %v", parsedCertificate.EmailAddresses, wantEmail)
+	}
+	//TODO: in policies branch Cloud endpoint should start to populate O,C,L.. fields too
+	wantOrg := os.Getenv("CERT_O")
+	if wantOrg != "" {
+		var haveOrg string
+		if len(parsedCertificate.Subject.Organization) > 0 {
+			haveOrg = parsedCertificate.Subject.Organization[0]
+		} else {
+			t.Fatalf("Organization in certificate is empty.")
 		}
-		//TODO: check email too
-		//wantEmail := []string{data.dns_email}
-		//TODO: in policies branch Cloud endpoint should start to populate O,C,L.. fields too
-		wantOrg := os.Getenv("CERT_O")
-		if wantOrg != "" {
-			var haveOrg string
-			if len(parsedCertificate.Subject.Organization) > 0 {
-				haveOrg = parsedCertificate.Subject.Organization[0]
-			} else {
-				t.Fatalf("Organization in certificate is empty.")
-			}
-			log.Println("want and have", wantOrg, haveOrg)
-			if wantOrg != haveOrg {
-				t.Fatalf("Certificate Organization %s doesn't match to requested %s", haveOrg, wantOrg)
-			}
+		log.Println("want and have", wantOrg, haveOrg)
+		if wantOrg != haveOrg {
+			t.Fatalf("Certificate Organization %s doesn't match to requested %s", haveOrg, wantOrg)
 		}
 	}
-}
 
+}
 func newIntegrationTestEnv(t *testing.T) (*testEnv, error) {
 	ctx := context.Background()
 	defaultLeaseTTLVal := time.Hour * 24
