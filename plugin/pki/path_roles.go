@@ -91,10 +91,9 @@ Example:
 				Description: `Set it to true to store certificates privates key in certificate fields`,
 			},
 			"chain_option": {
-				Type: framework.TypeString,
-				Description: `Specify ordering certificates in chain. Root can be "first" or
-            "last"`,
-				Default: "last",
+				Type:        framework.TypeString,
+				Description: `Specify ordering certificates in chain. Root can be "first" or "last"`,
+				Default:     "last",
 			},
 			"key_type": {
 				Type:    framework.TypeString,
@@ -132,6 +131,11 @@ the value of max_ttl.`,
 				Description: `
 If set, certificates issued/signed against this role will have Vault leases
 attached to them. Defaults to "false".`,
+			},
+			"server_timeout": {
+				Type:        framework.TypeInt,
+				Description: "",
+				Default:     180,
 			},
 		},
 
@@ -225,6 +229,7 @@ func (b *backend) pathRoleCreate(ctx context.Context, req *logical.Request, data
 		MaxTTL:           time.Duration(data.Get("max_ttl").(int)) * time.Second,
 		TTL:              time.Duration(data.Get("ttl").(int)) * time.Second,
 		GenerateLease:    data.Get("generate_lease").(bool),
+		ServerTimeout:    time.Duration(data.Get("server_timeout").(int)) * time.Second,
 	}
 	if !entry.Fakemode && entry.Apikey == "" && (entry.TPPURL == "" || entry.TPPUser == "" || entry.TPPPassword == "") {
 		return logical.ErrorResponse("Invalid mode. fakemode or apikey or tpp credentials required"), nil
@@ -273,6 +278,7 @@ type roleEntry struct {
 	GenerateLease    bool          `json:"generate_lease,omitempty"`
 	DeprecatedMaxTTL string        `json:"max_ttl"`
 	DeprecatedTTL    string        `json:"ttl"`
+	ServerTimeout    time.Duration `json:"server_timeout"`
 }
 
 func (r *roleEntry) ToResponseData() map[string]interface{} {
