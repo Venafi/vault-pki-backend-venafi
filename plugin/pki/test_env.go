@@ -1,17 +1,14 @@
 package pki
 
 import (
-	r "crypto/rand"
 	"context"
+	r "crypto/rand"
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
-	"github.com/hashicorp/go-hclog"
-	"github.com/hashicorp/vault/api"
 	"github.com/hashicorp/vault/logical"
-	"github.com/hashicorp/vault/vault"
 	"log"
 	"net"
 	"os"
@@ -173,48 +170,40 @@ func (e *testEnv) SignCertificate(t *testing.T, data testData, configString vena
 		Bytes: csr,
 	})))
 
-	coreConfig := &vault.CoreConfig{
-		LogicalBackends: map[string]logical.Factory{
-			"pki": Factory,
+	resp, err := e.Backend.HandleRequest(context.Background(), &logical.Request{
+		Operation: logical.UpdateOperation,
+		Path:      "roles/" + roleName,
+		Storage:   e.Storage,
+		Data:      roleData,
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp != nil && resp.IsError() {
+		t.Fatalf("failed to create role, %#v", resp)
+	}
+
+	resp, err = e.Backend.HandleRequest(context.Background(), &logical.Request{
+		Operation: logical.UpdateOperation,
+		Path:      "sign/" + roleName,
+		Storage:   e.Storage,
+		Data: map[string]interface{}{
+			"csr": pemCSR,
 		},
-		Logger: hclog.NewNullLogger(),
-	}
-	cluster := vault.NewTestCluster(t, coreConfig, &vault.TestClusterOptions{
-		HandlerFunc: vaulthttp.Handler,
 	})
-	cluster.Start()
-	defer cluster.Cleanup()
 
-	client := cluster.Cores[0].Client
-	err = client.Sys().Mount("pki", &api.MountInput{
-		Type: "pki",
-		Config: api.MountConfigInput{
-			DefaultLeaseTTL: "16h",
-			MaxLeaseTTL:     "32h",
-		},
-	})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, err = client.Logical().Write("pki/roles/example", map[string]interface{}{
-		"generate_lease":    true,
-		"tpp_url":           os.Getenv("TPPURL"),
-		"tpp_user":          os.Getenv("TPPUSER"),
-		"tpp_password":      os.Getenv("TPPPASSWORD"),
-		"zone":              os.Getenv("TPPZONE"),
-		"trust_bundle_file": os.Getenv("TRUST_BUNDLE"),
-		//"service_generated_cert": true,
-	})
-	if err != nil {
-		t.Fatal(err)
+	if resp != nil && resp.IsError() {
+		t.Fatalf("failed to issue certificate, %#v", resp.Data["error"])
 	}
 
-	resp, err := client.Logical().Write("pki/sign/example", map[string]interface{}{
-		"csr": pemCSR,
-	})
-	if err != nil {
-		t.Fatal(err)
+	if resp == nil {
+		t.Fatalf("should be on output on issue certificate, but response is nil: %#v", resp)
 	}
 
 	if resp.Data["certificate"] == "" {
@@ -222,6 +211,7 @@ func (e *testEnv) SignCertificate(t *testing.T, data testData, configString vena
 	}
 
 	data.cert = resp.Data["certificate"].(string)
+	data.provider = configString
 
 	checkStandartCert(t, data)
 }
