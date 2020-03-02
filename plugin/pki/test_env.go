@@ -247,8 +247,6 @@ func makeConfig(configString venafiConfigString) (roleData map[string]interface{
 
 }
 
-
-
 func (e *testEnv) FakeIssueCertificate(t *testing.T) {
 
 	data := testData{}

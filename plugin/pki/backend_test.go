@@ -11,7 +11,6 @@ func TestIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 
-
 	t.Run("fake base enroll", integrationTestEnv.FakeIssueCertificate)
 	t.Run("TPP base enroll", integrationTestEnv.TPPIssueCertificate)
 	t.Run("TPP restricted enroll", integrationTestEnv.TPPIssueCertificateRestricted)
@@ -21,4 +20,3 @@ func TestIntegration(t *testing.T) {
 	t.Run("Cloud sign certificate", integrationTestEnv.CloudSignCertificate)
 
 }
-
