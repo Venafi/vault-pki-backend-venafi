@@ -35,6 +35,7 @@ func TestIntegration(t *testing.T) {
 	t.Run("TPP sign certificate", integrationTestEnv.TPPSignCertificate)
 	t.Run("Cloud base enroll", integrationTestEnv.CloudIssueCertificate)
 	t.Run("Cloud restricted enroll", integrationTestEnv.CloudIssueCertificateRestricted)
+	t.Run("Cloud sign certificate", integrationTestEnv.CloudSignCertificate)
 
 }
 
