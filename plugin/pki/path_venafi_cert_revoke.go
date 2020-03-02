@@ -2,6 +2,7 @@ package pki
 
 import (
 	"context"
+	"fmt"
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
 )
@@ -26,7 +27,5 @@ func pathVenafiCertRevoke(b *backend) *framework.Path {
 }
 
 func (b *backend) venafiCertRevoke(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
-	//TODO: Add revoke function here
-
-	return nil, nil
+	return nil, fmt.Errorf("not implemented")
 }

@@ -122,7 +122,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 	roleName := data.Get("role").(string)
 
 	b.Logger().Debug("Creating Venafi client:")
-	cl, err := b.ClientVenafi(ctx, req.Storage, data, req, roleName)
+	cl, timeout, err := b.ClientVenafi(ctx, req.Storage, data, req, roleName)
 	if err != nil {
 		return logical.ErrorResponse(err.Error()), nil
 	}
@@ -240,8 +240,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 
 	pickupReq := &certificate.Request{
 		PickupID: requestID,
-		//TODO: make timeout configurable
-		Timeout: 180 * time.Second,
+		Timeout:  timeout,
 	}
 	pcc, err := cl.RetrieveCertificate(pickupReq)
 	if err != nil {
@@ -262,7 +261,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 	chain := strings.Join(append([]string{pcc.Certificate}, pcc.Chain...), "\n")
 
 	if !signCSR {
-		err = pcc.AddPrivateKey(certReq.PrivateKey, []byte(""))
+		err = pcc.AddPrivateKey(certReq.PrivateKey, []byte(data.Get("key_password").(string)))
 		if err != nil {
 			return nil, err
 		}
