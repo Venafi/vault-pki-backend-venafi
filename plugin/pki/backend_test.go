@@ -5,7 +5,6 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
-	"fmt"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/vault/api"
 	vaulthttp "github.com/hashicorp/vault/http"
@@ -37,68 +36,6 @@ func TestIntegration(t *testing.T) {
 	t.Run("Cloud base enroll", integrationTestEnv.CloudIssueCertificate)
 	t.Run("Cloud restricted enroll", integrationTestEnv.CloudIssueCertificateRestricted)
 
-}
-
-func TestPKI_TPP_RestrictedEnroll(t *testing.T) {
-	data := testData{}
-	rand := randSeq(9)
-	domain := "vfidev.com"
-	data.cn = rand + "." + domain
-	data.dns_ns = "alt-" + data.cn
-	data.dns_ip = "192.168.1.1"
-	data.dns_email = "venafi@example.com"
-
-	coreConfig := &vault.CoreConfig{
-		LogicalBackends: map[string]logical.Factory{
-			"pki": Factory,
-		},
-		Logger: hclog.NewNullLogger(),
-	}
-	cluster := vault.NewTestCluster(t, coreConfig, &vault.TestClusterOptions{
-		HandlerFunc: vaulthttp.Handler,
-	})
-	cluster.Start()
-	defer cluster.Cleanup()
-
-	client := cluster.Cores[0].Client
-	var err error
-	err = client.Sys().Mount("pki", &api.MountInput{
-		Type: "pki",
-		Config: api.MountConfigInput{
-			DefaultLeaseTTL: "16h",
-			MaxLeaseTTL:     "32h",
-		},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	_, err = client.Logical().Write("pki/roles/example", map[string]interface{}{
-		"generate_lease":    true,
-		"tpp_url":           os.Getenv("TPPURL"),
-		"tpp_user":          os.Getenv("TPPUSER"),
-		"tpp_password":      os.Getenv("TPPPASSWORD"),
-		"zone":              os.Getenv("TPPZONE_RESTRICTED"),
-		"trust_bundle_file": os.Getenv("TRUST_BUNDLE"),
-		//"service_generated_cert": true,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	resp, err := client.Logical().Write("pki/issue/example", map[string]interface{}{
-		"common_name": data.cn,
-		"alt_names":   fmt.Sprintf("%s,%s", data.dns_ns, data.dns_email),
-		"ip_sans":     []string{data.dns_ip},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	data.cert = resp.Data["certificate"].(string)
-	data.private_key = resp.Data["private_key"].(string)
-
-	checkStandartCert(t, data)
 }
 
 func TestPKI_TPP_CSRSign(t *testing.T) {
