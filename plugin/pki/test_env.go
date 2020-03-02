@@ -103,14 +103,27 @@ func (e *testEnv) IssueCertificate(t *testing.T, data testData, configString ven
 		t.Fatalf("failed to create role, %#v", resp)
 	}
 
+	var issueData map[string]interface{}
+
+	if data.dns_ip != "" {
+		issueData = map[string]interface{}{
+			"common_name": data.cn,
+			"alt_names":   fmt.Sprintf("%s,%s", data.dns_ns, data.dns_email),
+			"ip_sans":     []string{data.dns_ip},
+		}
+	} else {
+		issueData = map[string]interface{}{
+			"common_name": data.cn,
+			"alt_names":   fmt.Sprintf("%s,%s", data.dns_ns, data.dns_email),
+		}
+	}
+
+
 	resp, err = e.Backend.HandleRequest(context.Background(), &logical.Request{
 		Operation: logical.UpdateOperation,
 		Path:      "issue/" + roleName,
 		Storage:   e.Storage,
-		Data: map[string]interface{}{
-			"common_name": data.cn,
-			"alt_names":   fmt.Sprintf("%s,%s,%s", data.dns_ns, data.dns_ip, data.dns_email),
-		},
+		Data: issueData,
 	})
 
 	if err != nil {
