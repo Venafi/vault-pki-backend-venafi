@@ -15,9 +15,9 @@ import (
 )
 
 type testEnv struct {
-	Backend                       logical.Backend
-	Context                       context.Context
-	Storage                       logical.Storage
+	Backend logical.Backend
+	Context context.Context
+	Storage logical.Storage
 }
 
 type venafiConfigString string
@@ -38,11 +38,11 @@ type testData struct {
 }
 
 const (
-	venafiConfigTPP venafiConfigString = "TPP"
-	venafiConfigTPPRestricted = "TPPRestricted"
-	venafiConfigCloud = "Cloud"
-	venafiConfigCloudRestricted = "CloudRestricted"
-	venafiConfigFake = "Fake"
+	venafiConfigTPP             venafiConfigString = "TPP"
+	venafiConfigTPPRestricted   venafiConfigString = "TPPRestricted"
+	venafiConfigCloud           venafiConfigString = "Cloud"
+	venafiConfigCloudRestricted venafiConfigString = "CloudRestricted"
+	venafiConfigFake            venafiConfigString = "Fake"
 )
 
 var venafiTestTPPConfig = map[string]interface{}{
@@ -57,7 +57,7 @@ var venafiTestTPPConfigRestricted = map[string]interface{}{
 	"tpp_url":           os.Getenv("TPPURL"),
 	"tpp_user":          os.Getenv("TPPUSER"),
 	"tpp_password":      os.Getenv("TPPPASSWORD"),
-	"zone":              os.Getenv("TPPRESTRICTEDZONE"),
+	"zone":              os.Getenv("TPPZONE_RESTRICTED"),
 	"trust_bundle_file": os.Getenv("TRUST_BUNDLE"),
 }
 
@@ -81,7 +81,7 @@ var venafiTestFakeConfig = map[string]interface{}{
 func (e *testEnv) IssueCertificate(t *testing.T, data testData, config venafiConfigString) {
 
 	var roleData map[string]interface{}
-    var roleName string
+	var roleName string
 
 	switch config {
 	case venafiConfigFake:
@@ -90,16 +90,24 @@ func (e *testEnv) IssueCertificate(t *testing.T, data testData, config venafiCon
 	case venafiConfigTPP:
 		roleData = venafiTestTPPConfig
 		roleName = "tpp-role"
+	case venafiConfigTPPRestricted:
+		roleData = venafiTestTPPConfigRestricted
+		roleName = "tpp-role-restricted"
 	case venafiConfigCloud:
 		roleData = venafiTestCloudConfig
 		roleName = "cloud-role"
+	case venafiConfigCloudRestricted:
+		roleData = venafiTestCloudConfigRestricted
+		roleName = "cloud-role-restricted"
+	default:
+		t.Fatalf("Don't have config data for config %s", config)
 	}
 
 	resp, err := e.Backend.HandleRequest(context.Background(), &logical.Request{
 		Operation: logical.UpdateOperation,
 		Path:      "roles/" + roleName,
 		Storage:   e.Storage,
-		Data: roleData,
+		Data:      roleData,
 	})
 
 	if err != nil {
@@ -150,7 +158,7 @@ func (e *testEnv) FakeIssueCertificate(t *testing.T) {
 	data.only_ip = "127.0.0.1"
 	data.dns_email = "venafi@example.com"
 
-	var config venafiConfigString = venafiConfigFake
+	var config = venafiConfigFake
 	e.IssueCertificate(t, data, config)
 
 }
@@ -165,19 +173,45 @@ func (e *testEnv) TPPIssueCertificate(t *testing.T) {
 	data.dns_ip = "192.168.1.1"
 	data.dns_email = "venafi@example.com"
 
-	var config venafiConfigString = venafiConfigTPP
+	var config = venafiConfigTPP
 	e.IssueCertificate(t, data, config)
 
 }
 
-func (e *testEnv)CloudIssueCertificate(t *testing.T) {
+func (e *testEnv) TPPIssueCertificateRestricted(t *testing.T) {
+
+	data := testData{}
+	rand := randSeq(9)
+	domain := "vfidev.com"
+	data.cn = rand + "." + domain
+	data.dns_ns = "alt-" + data.cn
+	data.dns_ip = "192.168.1.1"
+	data.dns_email = "venafi@example.com"
+
+	var config = venafiConfigTPPRestricted
+	e.IssueCertificate(t, data, config)
+
+}
+
+func (e *testEnv) CloudIssueCertificate(t *testing.T) {
 
 	data := testData{}
 	rand := randSeq(9)
 	domain := "venafi.example.com"
 	data.cn = rand + "." + domain
 
-	var config venafiConfigString = venafiConfigCloud
+	var config = venafiConfigCloud
+	e.IssueCertificate(t, data, config)
+}
+
+func (e *testEnv) CloudIssueCertificateRestricted(t *testing.T) {
+
+	data := testData{}
+	rand := randSeq(9)
+	domain := "vfidev.com"
+	data.cn = rand + "." + domain
+
+	var config = venafiConfigCloud
 	e.IssueCertificate(t, data, config)
 }
 
