@@ -30,8 +30,10 @@ type testData struct {
 	cn          string
 	csrPK       []byte
 	dns_email   string
+	//dns_ip added to alt_names to support some old browsers which can't parse IP Addresses x509 extension
 	dns_ip      string
 	dns_ns      string
+	//only_ip added IP Address x509 field
 	only_ip     string
 	keyPassword string
 	private_key string
@@ -108,15 +110,15 @@ func (e *testEnv) IssueCertificate(t *testing.T, data testData, configString ven
 	if data.keyPassword != "" {
 		issueData = map[string]interface{}{
 			"common_name": data.cn,
-			"alt_names":   fmt.Sprintf("%s,%s", data.dns_ns, data.dns_email),
-			"ip_sans":     []string{data.dns_ip},
+			"alt_names":   fmt.Sprintf("%s,%s, %s", data.dns_ns, data.dns_email, data.dns_ip),
+			"ip_sans":     []string{data.only_ip},
 			"key_password": data.keyPassword,
 		}
 	} else {
 		issueData = map[string]interface{}{
 			"common_name": data.cn,
-			"alt_names":   fmt.Sprintf("%s,%s", data.dns_ns, data.dns_email),
-			"ip_sans":     []string{data.dns_ip},
+			"alt_names":   fmt.Sprintf("%s,%s, %s", data.dns_ns, data.dns_email, data.dns_ip),
+			"ip_sans":     []string{data.only_ip},
 		}
 	}
 
@@ -469,11 +471,10 @@ func checkStandartCert(t *testing.T, data testData) {
 	//TODO: cloud now have SAN support too. Have to implement it
 
 	wantDNSNames := []string{data.cn, data.dns_ns}
-
-	ips := make([]net.IP, 0, 2)
 	if data.dns_ip != "" {
-		ips = append(ips, net.ParseIP(data.dns_ip))
+		wantDNSNames = append(wantDNSNames, data.dns_ip)
 	}
+	ips := make([]net.IP, 0, 2)
 	if data.only_ip != "" {
 		ips = append(ips, net.ParseIP(data.only_ip))
 	}
