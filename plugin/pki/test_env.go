@@ -26,13 +26,13 @@ type testEnv struct {
 type venafiConfigString string
 
 type testData struct {
-	cert        string
-	cn          string
-	csrPK       []byte
-	dns_email   string
+	cert      string
+	cn        string
+	csrPK     []byte
+	dns_email string
 	//dns_ip added to alt_names to support some old browsers which can't parse IP Addresses x509 extension
-	dns_ip      string
-	dns_ns      string
+	dns_ip string
+	dns_ns string
 	//only_ip added IP Address x509 field
 	only_ip     string
 	keyPassword string
@@ -107,21 +107,29 @@ func (e *testEnv) IssueCertificate(t *testing.T, data testData, configString ven
 	}
 
 	var issueData map[string]interface{}
+
+	var altNames string
+
+	if data.dns_ip != "" {
+		altNames = fmt.Sprintf("%s,%s, %s", data.dns_ns, data.dns_email, data.dns_ip)
+	} else {
+		altNames = fmt.Sprintf("%s,%s", data.dns_ns, data.dns_email)
+	}
+
 	if data.keyPassword != "" {
 		issueData = map[string]interface{}{
-			"common_name": data.cn,
-			"alt_names":   fmt.Sprintf("%s,%s, %s", data.dns_ns, data.dns_email, data.dns_ip),
-			"ip_sans":     []string{data.only_ip},
+			"common_name":  data.cn,
+			"alt_names":    altNames,
+			"ip_sans":      []string{data.only_ip},
 			"key_password": data.keyPassword,
 		}
 	} else {
 		issueData = map[string]interface{}{
 			"common_name": data.cn,
-			"alt_names":   fmt.Sprintf("%s,%s, %s", data.dns_ns, data.dns_email, data.dns_ip),
+			"alt_names":   altNames,
 			"ip_sans":     []string{data.only_ip},
 		}
 	}
-
 
 	resp, err = e.Backend.HandleRequest(context.Background(), &logical.Request{
 		Operation: logical.UpdateOperation,
@@ -172,10 +180,19 @@ func (e *testEnv) SignCertificate(t *testing.T, data testData, configString vena
 	certificateRequest.Subject.CommonName = data.cn
 	certificateRequest.DNSNames = append(certificateRequest.DNSNames, data.dns_ns, data.dns_ip)
 
-	//Cloud odesn't support IP SANS
-	if configString == venafiConfigTPP {
-		certificateRequest.IPAddresses = []net.IP{net.ParseIP(data.dns_ip)}
+	if configString == venafiConfigFake {
+		certificateRequest.DNSNames = append(certificateRequest.DNSNames, data.cn)
 	}
+
+	if data.only_ip != "" {
+		certificateRequest.IPAddresses = []net.IP{net.ParseIP(data.only_ip)}
+	}
+
+	if data.dns_ip != "" {
+		certificateRequest.IPAddresses = append(certificateRequest.IPAddresses, net.ParseIP(data.dns_ip))
+	}
+
+	certificateRequest.EmailAddresses = []string{data.dns_email}
 
 	org := os.Getenv("CERT_O")
 	if org != "" {
@@ -363,7 +380,7 @@ func (e *testEnv) TPPIssueCertificateRestricted(t *testing.T) {
 	domain := "vfidev.com"
 	data.cn = rand + "." + domain
 	data.dns_ns = "alt-" + data.cn
-	data.dns_ip = "192.168.1.1"
+	data.only_ip = "192.168.1.1"
 	data.dns_email = "venafi@example.com"
 
 	var config = venafiConfigTPPRestricted
@@ -379,6 +396,7 @@ func (e *testEnv) TPPSignCertificate(t *testing.T) {
 	data.cn = rand + "." + domain
 	data.dns_ns = "alt-" + data.cn
 	data.dns_ip = "127.0.0.1"
+	data.only_ip = "192.168.0.1"
 	data.signCSR = true
 
 	var config = venafiConfigTPP
@@ -468,16 +486,20 @@ func checkStandartCert(t *testing.T, data testData) {
 		t.Fatalf("Certificate common name expected to be %s but actualy it is %s", parsedCertificate.Subject.CommonName, data.cn)
 	}
 
-	//TODO: cloud now have SAN support too. Have to implement it
-
 	wantDNSNames := []string{data.cn, data.dns_ns}
+
 	if data.dns_ip != "" {
 		wantDNSNames = append(wantDNSNames, data.dns_ip)
 	}
+
 	ips := make([]net.IP, 0, 2)
 	if data.only_ip != "" {
 		ips = append(ips, net.ParseIP(data.only_ip))
 	}
+	if data.dns_ip != "" {
+		ips = append(ips, net.ParseIP(data.dns_ip))
+	}
+
 	if !SameStringSlice(parsedCertificate.DNSNames, wantDNSNames) {
 		t.Fatalf("Certificate Subject Alternative Names %v doesn't match to requested %v", parsedCertificate.DNSNames, wantDNSNames)
 	}
@@ -488,20 +510,6 @@ func checkStandartCert(t *testing.T, data testData) {
 	wantEmail := []string{data.dns_email}
 	if !SameStringSlice(parsedCertificate.EmailAddresses, wantEmail) {
 		t.Fatalf("Certificate emails %v doesn't match requested %v", parsedCertificate.EmailAddresses, wantEmail)
-	}
-	//TODO: in policies branch Cloud endpoint should start to populate O,C,L.. fields too
-	wantOrg := os.Getenv("CERT_O")
-	if wantOrg != "" {
-		var haveOrg string
-		if len(parsedCertificate.Subject.Organization) > 0 {
-			haveOrg = parsedCertificate.Subject.Organization[0]
-		} else {
-			t.Fatalf("Organization in certificate is empty.")
-		}
-		log.Println("want and have", wantOrg, haveOrg)
-		if wantOrg != haveOrg {
-			t.Fatalf("Certificate Organization %s doesn't match to requested %s", haveOrg, wantOrg)
-		}
 	}
 
 }
