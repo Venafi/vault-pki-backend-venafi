@@ -202,8 +202,6 @@ func (e *testEnv) SignCertificate(t *testing.T, data testData, configString vena
 		certificateRequest.EmailAddresses = []string{data.dns_email}
 	}
 
-
-
 	//Generating pk for test
 	priv, err := rsa.GenerateKey(r.Reader, 2048)
 	if err != nil {
@@ -525,7 +523,6 @@ func checkStandartCert(t *testing.T, data testData) {
 			t.Fatalf("Certificate emails %v doesn't match requested %v", parsedCertificate.EmailAddresses, wantEmail)
 		}
 	}
-
 
 }
 func newIntegrationTestEnv(t *testing.T) (*testEnv, error) {
