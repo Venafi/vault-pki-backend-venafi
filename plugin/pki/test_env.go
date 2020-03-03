@@ -27,17 +27,18 @@ type venafiConfigString string
 
 type testData struct {
 	cert        string
-	private_key string
-	wrong_cert  string
-	wrong_pkey  string
 	cn          string
-	dns_ns      string
-	dns_ip      string
-	only_ip     string
+	csrPK       []byte
 	dns_email   string
+	dns_ip      string
+	dns_ns      string
+	only_ip     string
+	keyPassword string
+	private_key string
 	provider    venafiConfigString
 	signCSR     bool
-	csrPK       []byte
+	wrong_cert  string
+	wrong_pkey  string
 }
 
 const (
@@ -103,11 +104,22 @@ func (e *testEnv) IssueCertificate(t *testing.T, data testData, configString ven
 		t.Fatalf("failed to create role, %#v", resp)
 	}
 
-	issueData := map[string]interface{}{
-		"common_name": data.cn,
-		"alt_names":   fmt.Sprintf("%s,%s", data.dns_ns, data.dns_email),
-		"ip_sans":     []string{data.dns_ip},
+	var issueData map[string]interface{}
+	if data.keyPassword != "" {
+		issueData = map[string]interface{}{
+			"common_name": data.cn,
+			"alt_names":   fmt.Sprintf("%s,%s", data.dns_ns, data.dns_email),
+			"ip_sans":     []string{data.dns_ip},
+			"key_password": data.keyPassword,
+		}
+	} else {
+		issueData = map[string]interface{}{
+			"common_name": data.cn,
+			"alt_names":   fmt.Sprintf("%s,%s", data.dns_ns, data.dns_email),
+			"ip_sans":     []string{data.dns_ip},
+		}
 	}
+
 
 	resp, err = e.Backend.HandleRequest(context.Background(), &logical.Request{
 		Operation: logical.UpdateOperation,
@@ -129,7 +141,18 @@ func (e *testEnv) IssueCertificate(t *testing.T, data testData, configString ven
 	}
 
 	data.cert = resp.Data["certificate"].(string)
-	data.private_key = resp.Data["private_key"].(string)
+	if data.keyPassword != "" {
+		encryptedKey := resp.Data["private_key"].(string)
+		b, _ := pem.Decode([]byte(encryptedKey))
+		b.Bytes, err = x509.DecryptPEMBlock(b, []byte(data.keyPassword))
+		if err != nil {
+			t.Fatal(err)
+		}
+		data.private_key = string(pem.EncodeToMemory(b))
+	} else {
+		data.private_key = resp.Data["private_key"].(string)
+	}
+
 	data.provider = configString
 
 	checkStandartCert(t, data)
@@ -266,6 +289,40 @@ func (e *testEnv) FakeIssueCertificate(t *testing.T) {
 
 }
 
+func (e *testEnv) FakeIssueCertificateWithPassword(t *testing.T) {
+
+	data := testData{}
+	rand := randSeq(9)
+	domain := "venafi.example.com"
+	data.cn = rand + "." + domain
+	data.dns_ns = "alt-" + data.cn
+	data.dns_ip = "192.168.1.1"
+	data.only_ip = "127.0.0.1"
+	data.dns_email = "venafi@example.com"
+	data.keyPassword = "password"
+
+	var config = venafiConfigFake
+	e.IssueCertificate(t, data, config)
+
+}
+
+func (e *testEnv) FakeSignCertificate(t *testing.T) {
+
+	data := testData{}
+	rand := randSeq(9)
+	domain := "venafi.example.com"
+	data.cn = rand + "." + domain
+	data.dns_ns = "alt-" + data.cn
+	data.dns_ip = "192.168.1.1"
+	data.only_ip = "127.0.0.1"
+	data.dns_email = "venafi@example.com"
+	data.keyPassword = "password"
+	data.signCSR = true
+
+	var config = venafiConfigFake
+	e.SignCertificate(t, data, config)
+}
+
 func (e *testEnv) TPPIssueCertificate(t *testing.T) {
 
 	data := testData{}
@@ -275,6 +332,22 @@ func (e *testEnv) TPPIssueCertificate(t *testing.T) {
 	data.dns_ns = "alt-" + data.cn
 	data.dns_ip = "192.168.1.1"
 	data.dns_email = "venafi@example.com"
+
+	var config = venafiConfigTPP
+	e.IssueCertificate(t, data, config)
+
+}
+
+func (e *testEnv) TPPIssueCertificateWithPassword(t *testing.T) {
+
+	data := testData{}
+	rand := randSeq(9)
+	domain := "venafi.example.com"
+	data.cn = rand + "." + domain
+	data.dns_ns = "alt-" + data.cn
+	data.dns_ip = "192.168.1.1"
+	data.dns_email = "venafi@example.com"
+	data.keyPassword = "Pass0rd!"
 
 	var config = venafiConfigTPP
 	e.IssueCertificate(t, data, config)
@@ -342,6 +415,18 @@ func (e *testEnv) CloudIssueCertificateRestricted(t *testing.T) {
 	rand := randSeq(9)
 	domain := "vfidev.com"
 	data.cn = rand + "." + domain
+
+	var config = venafiConfigCloud
+	e.IssueCertificate(t, data, config)
+}
+
+func (e *testEnv) CloudIssueCertificateWithPassword(t *testing.T) {
+
+	data := testData{}
+	rand := randSeq(9)
+	domain := "vfidev.com"
+	data.cn = rand + "." + domain
+	data.keyPassword = "password"
 
 	var config = venafiConfigCloud
 	e.IssueCertificate(t, data, config)
