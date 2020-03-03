@@ -178,7 +178,13 @@ func (e *testEnv) SignCertificate(t *testing.T, data testData, configString vena
 	//Generating CSR for test
 	certificateRequest := x509.CertificateRequest{}
 	certificateRequest.Subject.CommonName = data.cn
-	certificateRequest.DNSNames = append(certificateRequest.DNSNames, data.dns_ns, data.dns_ip)
+	if data.dns_ns != "" {
+		certificateRequest.DNSNames = append(certificateRequest.DNSNames, data.dns_ns)
+	}
+
+	if data.dns_ip != "" {
+		certificateRequest.DNSNames = append(certificateRequest.DNSNames, data.dns_ip)
+	}
 
 	if configString == venafiConfigFake {
 		certificateRequest.DNSNames = append(certificateRequest.DNSNames, data.cn)
@@ -192,12 +198,11 @@ func (e *testEnv) SignCertificate(t *testing.T, data testData, configString vena
 		certificateRequest.IPAddresses = append(certificateRequest.IPAddresses, net.ParseIP(data.dns_ip))
 	}
 
-	certificateRequest.EmailAddresses = []string{data.dns_email}
-
-	org := os.Getenv("CERT_O")
-	if org != "" {
-		certificateRequest.Subject.Organization = append(certificateRequest.Subject.Organization, org)
+	if data.dns_email != "" {
+		certificateRequest.EmailAddresses = []string{data.dns_email}
 	}
+
+
 
 	//Generating pk for test
 	priv, err := rsa.GenerateKey(r.Reader, 2048)
@@ -500,6 +505,12 @@ func checkStandartCert(t *testing.T, data testData) {
 		ips = append(ips, net.ParseIP(data.dns_ip))
 	}
 
+	if data.provider == venafiConfigCloud {
+		//This is a workaround since in cloud used Vault 1.0 as internal CA which is duplicating DNSNames
+		//After test cloud update to Vault > 1.3 we can remove this
+		parsedCertificate.DNSNames = unique(parsedCertificate.DNSNames)
+	}
+
 	if !SameStringSlice(parsedCertificate.DNSNames, wantDNSNames) {
 		t.Fatalf("Certificate Subject Alternative Names %v doesn't match to requested %v", parsedCertificate.DNSNames, wantDNSNames)
 	}
@@ -507,10 +518,14 @@ func checkStandartCert(t *testing.T, data testData) {
 	if !SameIpSlice(ips, parsedCertificate.IPAddresses) {
 		t.Fatalf("Certificate IPs %v doesn`t match requested %v", parsedCertificate.IPAddresses, ips)
 	}
-	wantEmail := []string{data.dns_email}
-	if !SameStringSlice(parsedCertificate.EmailAddresses, wantEmail) {
-		t.Fatalf("Certificate emails %v doesn't match requested %v", parsedCertificate.EmailAddresses, wantEmail)
+
+	if data.dns_email != "" {
+		wantEmail := []string{data.dns_email}
+		if !SameStringSlice(parsedCertificate.EmailAddresses, wantEmail) {
+			t.Fatalf("Certificate emails %v doesn't match requested %v", parsedCertificate.EmailAddresses, wantEmail)
+		}
 	}
+
 
 }
 func newIntegrationTestEnv(t *testing.T) (*testEnv, error) {
@@ -533,4 +548,16 @@ func newIntegrationTestEnv(t *testing.T) (*testEnv, error) {
 		Context: ctx,
 		Storage: &logical.InmemStorage{},
 	}, nil
+}
+
+func unique(intSlice []string) []string {
+	keys := make(map[string]bool)
+	list := []string{}
+	for _, entry := range intSlice {
+		if _, value := keys[entry]; !value {
+			keys[entry] = true
+			list = append(list, entry)
+		}
+	}
+	return list
 }
