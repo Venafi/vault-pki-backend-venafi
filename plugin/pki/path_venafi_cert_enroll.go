@@ -167,10 +167,10 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 				ipSet[v] = struct{}{}
 			}
 		}
-		for k, _ := range ipSet {
-			certReq.IPAddresses = append(certReq.IPAddresses, net.ParseIP(k))
+		for ip := range ipSet {
+			certReq.IPAddresses = append(certReq.IPAddresses, net.ParseIP(ip))
 		}
-		for k, _ := range nameSet {
+		for k := range nameSet {
 			certReq.DNSNames = append(certReq.DNSNames, k)
 		}
 
@@ -194,6 +194,9 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 			CsrOrigin: certificate.UserProvidedCSR,
 		}
 		err = certReq.SetCSR(pemBytes)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if !signCSR {

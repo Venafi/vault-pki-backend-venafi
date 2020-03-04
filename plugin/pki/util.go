@@ -3,10 +3,6 @@ package pki
 import (
 	"bytes"
 	"context"
-	"crypto/ecdsa"
-	"crypto/rsa"
-	"crypto/x509"
-	"encoding/pem"
 	"fmt"
 	"github.com/hashicorp/vault/logical"
 	"math/rand"
@@ -33,7 +29,7 @@ func getHexFormatted(buf []byte, sep string) (string, error) {
 	var ret bytes.Buffer
 	for _, cur := range buf {
 		if ret.Len() > 0 {
-			if _, err := fmt.Fprintf(&ret, sep); err != nil {
+			if _, err := fmt.Fprint(&ret, sep); err != nil {
 				return "", err
 			}
 		}
@@ -59,21 +55,6 @@ func createBackendWithStorage(t *testing.T) (*backend, logical.Storage) {
 		t.Fatal(err)
 	}
 	return b, config.StorageView
-}
-
-func getPrivateKeyPEMBock(key interface{}) (*pem.Block, error) {
-	switch k := key.(type) {
-	case *rsa.PrivateKey:
-		return &pem.Block{Type: PKCS1Block, Bytes: x509.MarshalPKCS1PrivateKey(k)}, nil
-	case *ecdsa.PrivateKey:
-		b, err := x509.MarshalECPrivateKey(k)
-		if err != nil {
-			return nil, err
-		}
-		return &pem.Block{Type: ECBlock, Bytes: b}, nil
-	default:
-		return nil, fmt.Errorf("Unable to format Key")
-	}
 }
 
 func randSeq(n int) string {

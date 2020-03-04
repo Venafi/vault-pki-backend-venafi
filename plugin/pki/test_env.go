@@ -41,8 +41,6 @@ type testData struct {
 	private_key string
 	provider    venafiConfigString
 	signCSR     bool
-	wrong_cert  string
-	wrong_pkey  string
 }
 
 const (
@@ -200,7 +198,9 @@ func (e *testEnv) IssueCertificate(t *testing.T, data testData, configString ven
 		Path:      "certs",
 		Storage:   e.Storage,
 	})
-
+	if err != nil {
+		t.Fatal(err)
+	}
 	fmt.Println(resp)
 }
 
