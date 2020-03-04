@@ -35,7 +35,6 @@ func Backend(conf *logical.BackendConfig) *backend {
 			pathVenafiCertSign(&b),
 			pathVenafiCertRead(&b),
 			pathVenafiCertRevoke(&b),
-			//pathVenafiFetchValid(&b),
 			pathVenafiFetchListCerts(&b),
 		},
 
