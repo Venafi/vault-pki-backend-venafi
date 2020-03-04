@@ -17,11 +17,12 @@ import (
 )
 
 type testEnv struct {
-	Backend        logical.Backend
-	Context        context.Context
-	Storage        logical.Storage
-	TestRandString string
-	RoleName       string
+	Backend           logical.Backend
+	Context           context.Context
+	Storage           logical.Storage
+	TestRandString    string
+	RoleName          string
+	CertificateSerial string
 }
 
 type venafiConfigString string
@@ -81,8 +82,11 @@ var venafiTestCloudConfigRestricted = map[string]interface{}{
 }
 
 var venafiTestFakeConfig = map[string]interface{}{
-	"generate_lease": true,
-	"fakemode":       true,
+	"generate_lease":  true,
+	"fakemode":        true,
+	"store_by_cn":     true,
+	"store_by_serial": true,
+	"store_pkey":      true,
 }
 
 func (e *testEnv) writeRoleToBackend(t *testing.T, configString venafiConfigString) {
@@ -281,11 +285,11 @@ func (e *testEnv) SignCertificate(t *testing.T, data testData, configString vena
 	checkStandartCert(t, data)
 }
 
-func (e *testEnv) ReadCertificateByCN(t *testing.T, data testData, configString venafiConfigString) {
+func (e *testEnv) ReadCertificate(t *testing.T, data testData, configString venafiConfigString, certId string) {
 
 	resp, err := e.Backend.HandleRequest(e.Context, &logical.Request{
 		Operation: logical.ReadOperation,
-		Path:      "cert/" + data.cn,
+		Path:      "cert/" + certId,
 		Storage:   e.Storage,
 	})
 
@@ -300,6 +304,21 @@ func (e *testEnv) ReadCertificateByCN(t *testing.T, data testData, configString 
 	if resp == nil {
 		t.Fatalf("should be on output on issue certificate, but response is nil: %#v", resp)
 	}
+
+	if resp.Data["certificate"] == nil {
+		t.Fatalf("expected a cert to be in read data")
+	}
+
+	if resp.Data["private_key"] == nil {
+		t.Fatalf("expected a private_key to be in read data")
+	}
+
+	data.cert = resp.Data["certificate"].(string)
+	data.private_key = resp.Data["private_key"].(string)
+	checkStandartCert(t, data)
+
+	//Set certificate serial number for FakeReadCertificateBySerial test
+	e.CertificateSerial = resp.Data["serial_number"].(string)
 }
 
 func (e *testEnv) ListCertificates(t *testing.T, data testData, configString venafiConfigString) {
@@ -315,11 +334,15 @@ func (e *testEnv) ListCertificates(t *testing.T, data testData, configString ven
 	}
 
 	if resp != nil && resp.IsError() {
-		t.Fatalf("failed to issue certificate, %#v", resp.Data["error"])
+		t.Fatalf("failed to list certificates, %#v", resp.Data["error"])
 	}
 
-	if resp == nil {
-		t.Fatalf("should be on output on issue certificate, but response is nil: %#v", resp)
+	if resp.Data["keys"] == nil {
+		t.Fatalf("certificate list should not be empty, but response data is empty: %#v", resp.Data)
+	}
+
+	if !sliceContains(resp.Data["keys"].([]string), data.cn) {
+		t.Fatalf("expected CN %s in list %s", data.cn, resp.Data["keys"])
 	}
 }
 
@@ -372,7 +395,7 @@ func (e *testEnv) FakeIssueCertificate(t *testing.T) {
 
 }
 
-func (e *testEnv) FakeReadCertificate(t *testing.T) {
+func (e *testEnv) FakeReadCertificateByCN(t *testing.T) {
 
 	data := testData{}
 	rand := e.TestRandString
@@ -384,7 +407,23 @@ func (e *testEnv) FakeReadCertificate(t *testing.T) {
 	data.dns_email = "venafi@example.com"
 
 	var config = venafiConfigFake
-	e.ReadCertificateByCN(t, data, config)
+	e.ReadCertificate(t, data, config, data.cn)
+
+}
+
+func (e *testEnv) FakeReadCertificateBySerial(t *testing.T) {
+
+	data := testData{}
+	rand := e.TestRandString
+	domain := "venafi.example.com"
+	data.cn = rand + "." + domain
+	data.dns_ns = "alt-" + data.cn
+	data.dns_ip = "192.168.1.1"
+	data.only_ip = "127.0.0.1"
+	data.dns_email = "venafi@example.com"
+
+	var config = venafiConfigFake
+	e.ReadCertificate(t, data, config, normalizeSerial(e.CertificateSerial))
 
 }
 

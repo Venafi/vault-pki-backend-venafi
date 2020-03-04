@@ -47,8 +47,6 @@ func (b *backend) pathVenafiCertRead(ctx context.Context, req *logical.Request, 
 	var cert VenafiCert
 	b.Logger().Debug("Getting venafi certificate")
 
-	e := entry.DecodeJSON(&cert)
-	b.Logger().Debug("e:", e)
 	if err := entry.DecodeJSON(&cert); err != nil {
 		b.Logger().Error("error reading venafi configuration: %s", err)
 		return nil, err
