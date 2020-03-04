@@ -8,13 +8,15 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
-	"github.com/hashicorp/vault/logical"
 	"log"
+	"math/rand"
 	"net"
 	"os"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/hashicorp/vault/logical"
 )
 
 type testEnv struct {

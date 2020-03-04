@@ -2,6 +2,7 @@ package pki
 
 import (
 	"context"
+
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
 )
@@ -26,27 +27,6 @@ func (b *backend) pathVenafiFetchCertList(ctx context.Context, req *logical.Requ
 	}
 
 	return logical.ListResponse(entries), nil
-}
-
-func fetchCertBySerial(ctx context.Context, req *logical.Request, prefix, serial string) (*logical.StorageEntry, error) {
-	var path string
-	var err error
-	var certEntry *logical.StorageEntry
-
-	hyphenSerial := normalizeSerial(serial)
-	path = "certs/" + hyphenSerial
-
-	certEntry, err = req.Storage.Get(ctx, path)
-	if err != nil {
-		return nil, errutil.InternalError{Err: fmt.Sprintf("error fetching certificate %s: %s", serial, err)}
-	}
-	if certEntry != nil {
-		if certEntry.Value == nil || len(certEntry.Value) == 0 {
-			return nil, errutil.InternalError{Err: fmt.Sprintf("returned certificate bytes for serial %s were empty", serial)}
-		}
-		return certEntry, nil
-	}
-	return certEntry, nil
 }
 
 const pathVenafiFetchHelpSyn = `
