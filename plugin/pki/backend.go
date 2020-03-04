@@ -33,6 +33,7 @@ func Backend(conf *logical.BackendConfig) *backend {
 			pathRoles(&b),
 			pathVenafiCertEnroll(&b),
 			pathVenafiCertSign(&b),
+			//TODO: figure out the difference between pathVenafiCertRead and pathVenafiFetchValid
 			pathVenafiCertRead(&b),
 			pathVenafiCertRevoke(&b),
 			pathVenafiFetchValid(&b),
