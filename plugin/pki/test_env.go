@@ -84,8 +84,7 @@ var venafiTestFakeConfig = map[string]interface{}{
 	"fakemode":       true,
 }
 
-func (e *testEnv) IssueCertificate(t *testing.T, data testData, configString venafiConfigString) {
-
+func (e *testEnv) writeRoleToBackend(t *testing.T, configString venafiConfigString) (roleName string, err error) {
 	roleData, roleName, err := makeConfig(configString)
 	if err != nil {
 		t.Fatal(err)
@@ -99,11 +98,22 @@ func (e *testEnv) IssueCertificate(t *testing.T, data testData, configString ven
 	})
 
 	if err != nil {
-		t.Fatal(err)
+		return  roleName, err
 	}
 
 	if resp != nil && resp.IsError() {
-		t.Fatalf("failed to create role, %#v", resp)
+		return  roleName, fmt.Errorf("failed to create role, %#v", resp)
+	}
+
+	return  roleName, nil
+}
+
+func (e *testEnv) IssueCertificate(t *testing.T, data testData, configString venafiConfigString) {
+
+	roleName, err := e.writeRoleToBackend(t, configString)
+
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	var issueData map[string]interface{}
@@ -131,7 +141,7 @@ func (e *testEnv) IssueCertificate(t *testing.T, data testData, configString ven
 		}
 	}
 
-	resp, err = e.Backend.HandleRequest(context.Background(), &logical.Request{
+	resp, err := e.Backend.HandleRequest(context.Background(), &logical.Request{
 		Operation: logical.UpdateOperation,
 		Path:      "issue/" + roleName,
 		Storage:   e.Storage,
@@ -170,7 +180,7 @@ func (e *testEnv) IssueCertificate(t *testing.T, data testData, configString ven
 
 func (e *testEnv) SignCertificate(t *testing.T, data testData, configString venafiConfigString) {
 
-	roleData, roleName, err := makeConfig(configString)
+	roleName, err := e.writeRoleToBackend(t, configString)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -224,21 +234,6 @@ func (e *testEnv) SignCertificate(t *testing.T, data testData, configString vena
 	})))
 
 	resp, err := e.Backend.HandleRequest(context.Background(), &logical.Request{
-		Operation: logical.UpdateOperation,
-		Path:      "roles/" + roleName,
-		Storage:   e.Storage,
-		Data:      roleData,
-	})
-
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if resp != nil && resp.IsError() {
-		t.Fatalf("failed to create role, %#v", resp)
-	}
-
-	resp, err = e.Backend.HandleRequest(context.Background(), &logical.Request{
 		Operation: logical.UpdateOperation,
 		Path:      "sign/" + roleName,
 		Storage:   e.Storage,
