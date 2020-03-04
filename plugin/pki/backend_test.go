@@ -15,10 +15,10 @@ func TestEndpoints(t *testing.T) {
 	t.Run("fake list roles", integrationTestEnv.FakeListRole)
 	t.Run("fake issue", integrationTestEnv.FakeIssueCertificate)
 	t.Run("fake sign", integrationTestEnv.FakeSignCertificate)
-	t.Run("fake list", integrationTestEnv.FakeListCertificate)
-	t.Run("fake read by cn", integrationTestEnv.FakeReadCertificateByCN)
-	t.Run("fake read by serial", integrationTestEnv.FakeReadCertificateBySerial)
-	t.Run("fake revoke", integrationTestEnv.FakeRevokeCertificate)
+	t.Run("fake list certificates", integrationTestEnv.FakeListCertificate)
+	t.Run("fake read certificate by cn", integrationTestEnv.FakeReadCertificateByCN)
+	t.Run("fake read certificate by serial", integrationTestEnv.FakeReadCertificateBySerial)
+	t.Run("fake revoke certificate", integrationTestEnv.FakeRevokeCertificate)
 }
 
 //Testing Venafi Platform integration
