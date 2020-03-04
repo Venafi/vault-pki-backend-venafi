@@ -21,6 +21,7 @@ type testEnv struct {
 	Backend logical.Backend
 	Context context.Context
 	Storage logical.Storage
+	TestRandString string
 }
 
 type venafiConfigString string
@@ -293,7 +294,7 @@ func makeConfig(configString venafiConfigString) (roleData map[string]interface{
 func (e *testEnv) FakeIssueCertificate(t *testing.T) {
 
 	data := testData{}
-	rand := randSeq(9)
+	rand := e.TestRandString
 	domain := "venafi.example.com"
 	data.cn = rand + "." + domain
 	data.dns_ns = "alt-" + data.cn
@@ -309,7 +310,7 @@ func (e *testEnv) FakeIssueCertificate(t *testing.T) {
 func (e *testEnv) FakeIssueCertificateWithPassword(t *testing.T) {
 
 	data := testData{}
-	rand := randSeq(9)
+	rand := e.TestRandString
 	domain := "venafi.example.com"
 	data.cn = rand + "." + domain
 	data.dns_ns = "alt-" + data.cn
@@ -326,7 +327,7 @@ func (e *testEnv) FakeIssueCertificateWithPassword(t *testing.T) {
 func (e *testEnv) FakeSignCertificate(t *testing.T) {
 
 	data := testData{}
-	rand := randSeq(9)
+	rand := e.TestRandString
 	domain := "venafi.example.com"
 	data.cn = rand + "." + domain
 	data.dns_ns = "alt-" + data.cn
@@ -343,7 +344,7 @@ func (e *testEnv) FakeSignCertificate(t *testing.T) {
 func (e *testEnv) TPPIssueCertificate(t *testing.T) {
 
 	data := testData{}
-	rand := randSeq(9)
+	rand := e.TestRandString
 	domain := "venafi.example.com"
 	data.cn = rand + "." + domain
 	data.dns_ns = "alt-" + data.cn
@@ -358,7 +359,7 @@ func (e *testEnv) TPPIssueCertificate(t *testing.T) {
 func (e *testEnv) TPPIssueCertificateWithPassword(t *testing.T) {
 
 	data := testData{}
-	rand := randSeq(9)
+	rand := e.TestRandString
 	domain := "venafi.example.com"
 	data.cn = rand + "." + domain
 	data.dns_ns = "alt-" + data.cn
@@ -374,7 +375,7 @@ func (e *testEnv) TPPIssueCertificateWithPassword(t *testing.T) {
 func (e *testEnv) TPPIssueCertificateRestricted(t *testing.T) {
 
 	data := testData{}
-	rand := randSeq(9)
+	rand := e.TestRandString
 	domain := "vfidev.com"
 	data.cn = rand + "." + domain
 	data.dns_ns = "alt-" + data.cn
@@ -389,7 +390,7 @@ func (e *testEnv) TPPIssueCertificateRestricted(t *testing.T) {
 func (e *testEnv) TPPSignCertificate(t *testing.T) {
 
 	data := testData{}
-	rand := randSeq(9)
+	rand := e.TestRandString
 	domain := "vfidev.com"
 	data.cn = rand + "." + domain
 	data.dns_ns = "alt-" + data.cn
@@ -405,7 +406,7 @@ func (e *testEnv) TPPSignCertificate(t *testing.T) {
 func (e *testEnv) CloudSignCertificate(t *testing.T) {
 
 	data := testData{}
-	rand := randSeq(9)
+	rand := e.TestRandString
 	domain := "venafi.example.com"
 	data.cn = rand + "." + domain
 	data.dns_ns = "alt-" + data.cn
@@ -419,7 +420,7 @@ func (e *testEnv) CloudSignCertificate(t *testing.T) {
 func (e *testEnv) CloudIssueCertificate(t *testing.T) {
 
 	data := testData{}
-	rand := randSeq(9)
+	rand := e.TestRandString
 	domain := "venafi.example.com"
 	data.cn = rand + "." + domain
 
@@ -430,7 +431,7 @@ func (e *testEnv) CloudIssueCertificate(t *testing.T) {
 func (e *testEnv) CloudIssueCertificateRestricted(t *testing.T) {
 
 	data := testData{}
-	rand := randSeq(9)
+	rand := e.TestRandString
 	domain := "vfidev.com"
 	data.cn = rand + "." + domain
 
@@ -441,7 +442,7 @@ func (e *testEnv) CloudIssueCertificateRestricted(t *testing.T) {
 func (e *testEnv) CloudIssueCertificateWithPassword(t *testing.T) {
 
 	data := testData{}
-	rand := randSeq(9)
+	rand := e.TestRandString
 	domain := "vfidev.com"
 	data.cn = rand + "." + domain
 	data.keyPassword = "password"
@@ -539,6 +540,7 @@ func newIntegrationTestEnv(t *testing.T) (*testEnv, error) {
 		Backend: b,
 		Context: ctx,
 		Storage: &logical.InmemStorage{},
+		TestRandString: randSeq(9),
 	}, nil
 }
 
