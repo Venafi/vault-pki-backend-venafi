@@ -100,3 +100,16 @@ func TestPki_VcertConfig(t *testing.T) {
 	}
 
 }
+
+func createBackendWithStorage(t *testing.T) (*backend, logical.Storage) {
+	config := logical.TestBackendConfig()
+	config.StorageView = &logical.InmemStorage{}
+
+	var err error
+	b := Backend(config)
+	err = b.Setup(context.Background(), config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b, config.StorageView
+}

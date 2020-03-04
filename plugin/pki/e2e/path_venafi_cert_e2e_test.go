@@ -1,6 +1,8 @@
 package e2e
 
 import (
+	"os"
+	"os/exec"
 	"testing"
 
 	"bufio"
@@ -60,4 +62,28 @@ func TestPki(t *testing.T) {
 	RegisterFailHandler(Fail)
 	junitReporter := reporters.NewJUnitReporter("junit_00.xml")
 	RunSpecsWithDefaultAndCustomReporters(t, "Integration tests for Venafi Vault PKI backend", []Reporter{junitReporter})
+}
+
+func run(command string) string {
+	var err error
+	cmd := splitAndFlat(command)
+	fmt.Println("Running: ", cmd)
+	out, err := exec.Command(cmd[0], cmd[1:]...).CombinedOutput()
+	if err != nil {
+		fmt.Println(string(out))
+		panic(err)
+	}
+	return string(out)
+}
+
+func commandWithArgs(run string, extraArgs ...string) {
+	args := []string{}
+	args = append(args, extraArgs...)
+	cmd := exec.Command(run, args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err := cmd.Run()
+	if err != nil {
+		panic(err)
+	}
 }
