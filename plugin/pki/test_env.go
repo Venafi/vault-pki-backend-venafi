@@ -346,6 +346,26 @@ func (e *testEnv) ListCertificates(t *testing.T, data testData, configString ven
 	}
 }
 
+func (e *testEnv) RevokeCertificate(t *testing.T, certId string) {
+
+	_, err := e.Backend.HandleRequest(e.Context, &logical.Request{
+		Operation: logical.UpdateOperation,
+		Path:      "revoke/" + e.RoleName,
+		Storage:   e.Storage,
+		Data: map[string]interface{}{
+			"certificate_uid": certId,
+		},
+	})
+
+	if err == nil {
+		t.Fatalf("revoke path is not implemented yet and should return error")
+	}
+	if err.Error() != "not implemented yet" {
+		t.Fatalf("error message should be not implemented yet not %s", err)
+	}
+
+}
+
 func makeConfig(configString venafiConfigString) (roleData map[string]interface{}, err error) {
 
 	switch configString {
@@ -424,6 +444,21 @@ func (e *testEnv) FakeReadCertificateBySerial(t *testing.T) {
 
 	var config = venafiConfigFake
 	e.ReadCertificate(t, data, config, normalizeSerial(e.CertificateSerial))
+
+}
+
+func (e *testEnv) FakeRevokeCertificate(t *testing.T) {
+
+	data := testData{}
+	rand := e.TestRandString
+	domain := "venafi.example.com"
+	data.cn = rand + "." + domain
+	data.dns_ns = "alt-" + data.cn
+	data.dns_ip = "192.168.1.1"
+	data.only_ip = "127.0.0.1"
+	data.dns_email = "venafi@example.com"
+
+	e.RevokeCertificate(t, data.cn)
 
 }
 

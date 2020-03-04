@@ -4,6 +4,7 @@ import (
 	"testing"
 )
 
+//Testing all endpoints with fake vcert CA
 func TestEndpoints(t *testing.T) {
 	integrationTestEnv, err := newIntegrationTestEnv()
 	if err != nil {
@@ -17,8 +18,10 @@ func TestEndpoints(t *testing.T) {
 	t.Run("fake list", integrationTestEnv.FakeListCertificate)
 	t.Run("fake read by cn", integrationTestEnv.FakeReadCertificateByCN)
 	t.Run("fake read by serial", integrationTestEnv.FakeReadCertificateBySerial)
+	t.Run("fake revoke", integrationTestEnv.FakeRevokeCertificate)
 }
 
+//Testing Venafi Platform integration
 func TestTPPIntegration(t *testing.T) {
 
 	integrationTestEnv, err := newIntegrationTestEnv()
@@ -33,6 +36,7 @@ func TestTPPIntegration(t *testing.T) {
 
 }
 
+//Testing Venafi Cloud integration
 func TestCloudIntegration(t *testing.T) {
 
 	integrationTestEnv, err := newIntegrationTestEnv()

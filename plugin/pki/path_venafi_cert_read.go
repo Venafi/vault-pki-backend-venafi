@@ -9,7 +9,6 @@ import (
 
 func pathVenafiCertRead(b *backend) *framework.Path {
 	return &framework.Path{
-		//Pattern: "certs/(?P<certificate_uid>[0-9a-z-.]+)",
 		Pattern: "cert/" + framework.GenericNameRegex("certificate_uid"),
 		Fields: map[string]*framework.FieldSchema{
 			"certificate_uid": {
