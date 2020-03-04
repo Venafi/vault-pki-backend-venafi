@@ -380,7 +380,7 @@ func makeConfig(configString venafiConfigString) (roleData map[string]interface{
 	case venafiConfigCloudRestricted:
 		roleData = venafiTestCloudConfigRestricted
 	default:
-		return roleData, fmt.Errorf("Don't have config data for config %s", configString)
+		return roleData, fmt.Errorf("do not have config data for config %s", configString)
 	}
 
 	return roleData, nil
@@ -731,19 +731,6 @@ func checkStandartCert(t *testing.T, data testData) {
 }
 func newIntegrationTestEnv() (*testEnv, error) {
 	ctx := context.Background()
-	//defaultLeaseTTLVal := time.Hour * 24
-	//maxLeaseTTLVal := time.Hour * 24 * 32
-	//
-	//b, err := Factory(context.Background(), &logical.BackendConfig{
-	//	Logger: nil,
-	//	System: &logical.StaticSystemView{
-	//		DefaultLeaseTTLVal: defaultLeaseTTLVal,
-	//		MaxLeaseTTLVal:     maxLeaseTTLVal,
-	//	},
-	//})
-	//if err != nil {
-	//	return nil, err
-	//}
 
 	config := logical.TestBackendConfig()
 	config.StorageView = &logical.InmemStorage{}
