@@ -18,10 +18,11 @@ import (
 )
 
 type testEnv struct {
-	Backend logical.Backend
-	Context context.Context
-	Storage logical.Storage
+	Backend        logical.Backend
+	Context        context.Context
+	Storage        logical.Storage
 	TestRandString string
+	RoleName       string
 }
 
 type venafiConfigString string
@@ -85,37 +86,29 @@ var venafiTestFakeConfig = map[string]interface{}{
 	"fakemode":       true,
 }
 
-func (e *testEnv) writeRoleToBackend(t *testing.T, configString venafiConfigString) (roleName string, err error) {
-	roleData, roleName, err := makeConfig(configString)
+func (e *testEnv) writeRoleToBackend(t *testing.T, configString venafiConfigString) {
+	roleData, err := makeConfig(configString)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	resp, err := e.Backend.HandleRequest(context.Background(), &logical.Request{
 		Operation: logical.UpdateOperation,
-		Path:      "roles/" + roleName,
+		Path:      "roles/" + e.RoleName,
 		Storage:   e.Storage,
 		Data:      roleData,
 	})
 
 	if err != nil {
-		return  roleName, err
+		t.Fatal(err)
 	}
 
 	if resp != nil && resp.IsError() {
-		return  roleName, fmt.Errorf("failed to create role, %#v", resp)
+		t.Fatalf("failed to create role, %#v", resp)
 	}
-
-	return  roleName, nil
 }
 
 func (e *testEnv) IssueCertificate(t *testing.T, data testData, configString venafiConfigString) {
-
-	roleName, err := e.writeRoleToBackend(t, configString)
-
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	var issueData map[string]interface{}
 
@@ -144,7 +137,7 @@ func (e *testEnv) IssueCertificate(t *testing.T, data testData, configString ven
 
 	resp, err := e.Backend.HandleRequest(context.Background(), &logical.Request{
 		Operation: logical.UpdateOperation,
-		Path:      "issue/" + roleName,
+		Path:      "issue/" + e.RoleName,
 		Storage:   e.Storage,
 		Data:      issueData,
 	})
@@ -180,11 +173,6 @@ func (e *testEnv) IssueCertificate(t *testing.T, data testData, configString ven
 }
 
 func (e *testEnv) SignCertificate(t *testing.T, data testData, configString venafiConfigString) {
-
-	roleName, err := e.writeRoleToBackend(t, configString)
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	//Generating CSR for test
 	certificateRequest := x509.CertificateRequest{}
@@ -236,7 +224,7 @@ func (e *testEnv) SignCertificate(t *testing.T, data testData, configString vena
 
 	resp, err := e.Backend.HandleRequest(context.Background(), &logical.Request{
 		Operation: logical.UpdateOperation,
-		Path:      "sign/" + roleName,
+		Path:      "sign/" + e.RoleName,
 		Storage:   e.Storage,
 		Data: map[string]interface{}{
 			"csr": pemCSR,
@@ -265,29 +253,31 @@ func (e *testEnv) SignCertificate(t *testing.T, data testData, configString vena
 	checkStandartCert(t, data)
 }
 
-func makeConfig(configString venafiConfigString) (roleData map[string]interface{}, roleName string, err error) {
+func makeConfig(configString venafiConfigString) (roleData map[string]interface{}, err error) {
 
 	switch configString {
 	case venafiConfigFake:
 		roleData = venafiTestFakeConfig
-		roleName = "fake-role"
 	case venafiConfigTPP:
 		roleData = venafiTestTPPConfig
-		roleName = "tpp-role"
 	case venafiConfigTPPRestricted:
 		roleData = venafiTestTPPConfigRestricted
-		roleName = "tpp-role-restricted"
 	case venafiConfigCloud:
 		roleData = venafiTestCloudConfig
-		roleName = "cloud-role"
 	case venafiConfigCloudRestricted:
 		roleData = venafiTestCloudConfigRestricted
-		roleName = "cloud-role-restricted"
 	default:
-		return roleData, roleName, fmt.Errorf("Don't have config data for config %s", configString)
+		return roleData, fmt.Errorf("Don't have config data for config %s", configString)
 	}
 
-	return roleData, roleName, nil
+	return roleData, nil
+
+}
+
+func (e *testEnv) FakeCreateRole(t *testing.T) {
+
+	var config = venafiConfigFake
+	e.writeRoleToBackend(t, config)
 
 }
 
@@ -307,7 +297,41 @@ func (e *testEnv) FakeIssueCertificate(t *testing.T) {
 
 }
 
-func (e *testEnv) FakeIssueCertificateWithPassword(t *testing.T) {
+func (e *testEnv) FakeReadCertificate(t *testing.T) {
+
+	data := testData{}
+	rand := e.TestRandString
+	domain := "venafi.example.com"
+	data.cn = rand + "." + domain
+	data.dns_ns = "alt-" + data.cn
+	data.dns_ip = "192.168.1.1"
+	data.only_ip = "127.0.0.1"
+	data.dns_email = "venafi@example.com"
+
+	var config = venafiConfigFake
+	e.IssueCertificate(t, data, config)
+
+}
+
+func (e *testEnv) FakeIntegrationIssueCertificate(t *testing.T) {
+
+	data := testData{}
+	rand := e.TestRandString
+	domain := "venafi.example.com"
+	data.cn = rand + "." + domain
+	data.dns_ns = "alt-" + data.cn
+	data.dns_ip = "192.168.1.1"
+	data.only_ip = "127.0.0.1"
+	data.dns_email = "venafi@example.com"
+
+	var config = venafiConfigFake
+
+	e.writeRoleToBackend(t, config)
+	e.IssueCertificate(t, data, config)
+
+}
+
+func (e *testEnv) FakeIntegrationIssueCertificateWithPassword(t *testing.T) {
 
 	data := testData{}
 	rand := e.TestRandString
@@ -320,11 +344,13 @@ func (e *testEnv) FakeIssueCertificateWithPassword(t *testing.T) {
 	data.keyPassword = "password"
 
 	var config = venafiConfigFake
+
+	e.writeRoleToBackend(t, config)
 	e.IssueCertificate(t, data, config)
 
 }
 
-func (e *testEnv) FakeSignCertificate(t *testing.T) {
+func (e *testEnv) FakeIntegrationSignCertificate(t *testing.T) {
 
 	data := testData{}
 	rand := e.TestRandString
@@ -338,10 +364,12 @@ func (e *testEnv) FakeSignCertificate(t *testing.T) {
 	data.signCSR = true
 
 	var config = venafiConfigFake
-	e.SignCertificate(t, data, config)
+
+	e.writeRoleToBackend(t, config)
+    e.SignCertificate(t, data, config)
 }
 
-func (e *testEnv) TPPIssueCertificate(t *testing.T) {
+func (e *testEnv) TPPIntegrationIssueCertificate(t *testing.T) {
 
 	data := testData{}
 	rand := e.TestRandString
@@ -352,11 +380,13 @@ func (e *testEnv) TPPIssueCertificate(t *testing.T) {
 	data.dns_email = "venafi@example.com"
 
 	var config = venafiConfigTPP
+
+	e.writeRoleToBackend(t, config)
 	e.IssueCertificate(t, data, config)
 
 }
 
-func (e *testEnv) TPPIssueCertificateWithPassword(t *testing.T) {
+func (e *testEnv) TPPIntegrationIssueCertificateWithPassword(t *testing.T) {
 
 	data := testData{}
 	rand := e.TestRandString
@@ -368,11 +398,13 @@ func (e *testEnv) TPPIssueCertificateWithPassword(t *testing.T) {
 	data.keyPassword = "Pass0rd!"
 
 	var config = venafiConfigTPP
+
+	e.writeRoleToBackend(t, config)
 	e.IssueCertificate(t, data, config)
 
 }
 
-func (e *testEnv) TPPIssueCertificateRestricted(t *testing.T) {
+func (e *testEnv) TPPIntegrationIssueCertificateRestricted(t *testing.T) {
 
 	data := testData{}
 	rand := e.TestRandString
@@ -383,11 +415,13 @@ func (e *testEnv) TPPIssueCertificateRestricted(t *testing.T) {
 	data.dns_email = "venafi@example.com"
 
 	var config = venafiConfigTPPRestricted
+
+	e.writeRoleToBackend(t, config)
 	e.IssueCertificate(t, data, config)
 
 }
 
-func (e *testEnv) TPPSignCertificate(t *testing.T) {
+func (e *testEnv) TPPIntegrationSignCertificate(t *testing.T) {
 
 	data := testData{}
 	rand := e.TestRandString
@@ -399,11 +433,13 @@ func (e *testEnv) TPPSignCertificate(t *testing.T) {
 	data.signCSR = true
 
 	var config = venafiConfigTPP
+
+	e.writeRoleToBackend(t, config)
 	e.SignCertificate(t, data, config)
 
 }
 
-func (e *testEnv) CloudSignCertificate(t *testing.T) {
+func (e *testEnv) CloudIntegrationSignCertificate(t *testing.T) {
 
 	data := testData{}
 	rand := e.TestRandString
@@ -413,11 +449,13 @@ func (e *testEnv) CloudSignCertificate(t *testing.T) {
 	data.signCSR = true
 
 	var config = venafiConfigCloud
+
+	e.writeRoleToBackend(t, config)
 	e.SignCertificate(t, data, config)
 
 }
 
-func (e *testEnv) CloudIssueCertificate(t *testing.T) {
+func (e *testEnv) CloudIntegrationIssueCertificate(t *testing.T) {
 
 	data := testData{}
 	rand := e.TestRandString
@@ -425,10 +463,12 @@ func (e *testEnv) CloudIssueCertificate(t *testing.T) {
 	data.cn = rand + "." + domain
 
 	var config = venafiConfigCloud
+
+	e.writeRoleToBackend(t, config)
 	e.IssueCertificate(t, data, config)
 }
 
-func (e *testEnv) CloudIssueCertificateRestricted(t *testing.T) {
+func (e *testEnv) CloudIntegrationIssueCertificateRestricted(t *testing.T) {
 
 	data := testData{}
 	rand := e.TestRandString
@@ -436,10 +476,12 @@ func (e *testEnv) CloudIssueCertificateRestricted(t *testing.T) {
 	data.cn = rand + "." + domain
 
 	var config = venafiConfigCloud
+
+	e.writeRoleToBackend(t, config)
 	e.IssueCertificate(t, data, config)
 }
 
-func (e *testEnv) CloudIssueCertificateWithPassword(t *testing.T) {
+func (e *testEnv) CloudIntegrationIssueCertificateWithPassword(t *testing.T) {
 
 	data := testData{}
 	rand := e.TestRandString
@@ -448,6 +490,8 @@ func (e *testEnv) CloudIssueCertificateWithPassword(t *testing.T) {
 	data.keyPassword = "password"
 
 	var config = venafiConfigCloud
+
+	e.writeRoleToBackend(t, config)
 	e.IssueCertificate(t, data, config)
 }
 
@@ -521,7 +565,7 @@ func checkStandartCert(t *testing.T, data testData) {
 	}
 
 }
-func newIntegrationTestEnv(t *testing.T) (*testEnv, error) {
+func newIntegrationTestEnv() (*testEnv, error) {
 	ctx := context.Background()
 	defaultLeaseTTLVal := time.Hour * 24
 	maxLeaseTTLVal := time.Hour * 24 * 32
@@ -537,16 +581,17 @@ func newIntegrationTestEnv(t *testing.T) (*testEnv, error) {
 		return nil, err
 	}
 	return &testEnv{
-		Backend: b,
-		Context: ctx,
-		Storage: &logical.InmemStorage{},
+		Backend:        b,
+		Context:        ctx,
+		Storage:        &logical.InmemStorage{},
 		TestRandString: randSeq(9),
+		RoleName:       randSeq(9) + "role",
 	}, nil
 }
 
 func unique(intSlice []string) []string {
 	keys := make(map[string]bool)
-	list := []string{}
+	var list []string
 	for _, entry := range intSlice {
 		if _, value := keys[entry]; !value {
 			keys[entry] = true

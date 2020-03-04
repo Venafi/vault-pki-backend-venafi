@@ -9,7 +9,7 @@ import (
 
 // Factory creates a new backend implementing the logical.Backend interface
 func Factory(ctx context.Context, conf *logical.BackendConfig) (logical.Backend, error) {
-	b := Backend(conf)
+	b := Backend()
 	if err := b.Setup(ctx, conf); err != nil {
 		return nil, err
 	}
@@ -17,7 +17,7 @@ func Factory(ctx context.Context, conf *logical.BackendConfig) (logical.Backend,
 }
 
 // Backend returns a new Backend framework struct
-func Backend(conf *logical.BackendConfig) *backend {
+func Backend() *backend {
 	var b backend
 	b.Backend = &framework.Backend{
 		Help: strings.TrimSpace(backendHelp),
