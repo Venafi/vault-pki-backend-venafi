@@ -107,6 +107,27 @@ func (e *testEnv) writeRoleToBackend(t *testing.T, configString venafiConfigStri
 	}
 }
 
+func (e *testEnv) listRolesInBackend(t *testing.T) {
+
+	resp, err := e.Backend.HandleRequest(e.Context, &logical.Request{
+		Operation: logical.ListOperation,
+		Path:      "roles",
+		Storage:   e.Storage,
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp != nil && resp.IsError() {
+		t.Fatalf("failed to list roles, %#v", resp)
+	}
+
+	if !sliceContains(resp.Data["keys"].([]string), e.RoleName) {
+		t.Fatalf("expected role name %s in list %s", e.RoleName, resp.Data["keys"])
+	}
+}
+
 func (e *testEnv) IssueCertificate(t *testing.T, data testData, configString venafiConfigString) {
 
 	var issueData map[string]interface{}
@@ -169,6 +190,14 @@ func (e *testEnv) IssueCertificate(t *testing.T, data testData, configString ven
 	data.provider = configString
 
 	checkStandartCert(t, data)
+
+	resp, err = e.Backend.HandleRequest(e.Context, &logical.Request{
+		Operation: logical.ListOperation,
+		Path:      "certs",
+		Storage:   e.Storage,
+	})
+
+	fmt.Println(resp)
 }
 
 func (e *testEnv) SignCertificate(t *testing.T, data testData, configString venafiConfigString) {
@@ -277,7 +306,7 @@ func (e *testEnv) ListCertificates(t *testing.T, data testData, configString ven
 
 	resp, err := e.Backend.HandleRequest(e.Context, &logical.Request{
 		Operation: logical.ListOperation,
-		Path:      "certs/",
+		Path:      "certs",
 		Storage:   e.Storage,
 	})
 
@@ -319,6 +348,11 @@ func (e *testEnv) FakeCreateRole(t *testing.T) {
 
 	var config = venafiConfigFake
 	e.writeRoleToBackend(t, config)
+
+}
+
+func (e *testEnv) FakeListRole(t *testing.T) {
+	e.listRolesInBackend(t)
 
 }
 
@@ -407,12 +441,12 @@ func (e *testEnv) FakeIntegrationIssueCertificateWithPassword(t *testing.T) {
 
 }
 
-func (e *testEnv) FakeIntegrationSignCertificate(t *testing.T) {
+func (e *testEnv) FakeSignCertificate(t *testing.T) {
 
 	data := testData{}
 	rand := e.TestRandString
 	domain := "venafi.example.com"
-	data.cn = rand + "." + domain
+	data.cn = rand + "-signed." + domain
 	data.dns_ns = "alt-" + data.cn
 	data.dns_ip = "192.168.1.1"
 	data.only_ip = "127.0.0.1"
@@ -422,7 +456,6 @@ func (e *testEnv) FakeIntegrationSignCertificate(t *testing.T) {
 
 	var config = venafiConfigFake
 
-	e.writeRoleToBackend(t, config)
 	e.SignCertificate(t, data, config)
 }
 
@@ -653,7 +686,7 @@ func newIntegrationTestEnv() (*testEnv, error) {
 		Context:        ctx,
 		Storage:        config.StorageView,
 		TestRandString: randSeq(9),
-		RoleName:       randSeq(9) + "role",
+		RoleName:       randSeq(9) + "-role",
 	}, nil
 }
 

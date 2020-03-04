@@ -11,13 +11,15 @@ func TestEndpoints(t *testing.T) {
 	}
 
 	t.Run("fake create role", integrationTestEnv.FakeCreateRole)
+	t.Run("fake list roles", integrationTestEnv.FakeListRole)
 	t.Run("fake issue", integrationTestEnv.FakeIssueCertificate)
+	t.Run("fake sign", integrationTestEnv.FakeSignCertificate)
 	t.Run("fake list", integrationTestEnv.FakeListCertificate)
 	t.Run("fake read", integrationTestEnv.FakeReadCertificate)
 
 	//t.Run("fake base enroll", integrationTestEnv.FakeIntegrationIssueCertificate)
 	//t.Run("fake base enroll with password", integrationTestEnv.FakeIntegrationIssueCertificateWithPassword)
-	//t.Run("fake sign certificate", integrationTestEnv.FakeIntegrationSignCertificate)
+	//t.Run("fake sign certificate", integrationTestEnv.FakeSignCertificate)
 }
 
 func TestTPPIntegration(t *testing.T) {

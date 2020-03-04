@@ -140,7 +140,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 			commonName = altNames[0]
 		}
 		if !sliceContains(altNames, commonName) {
-			b.Logger().Debug("Adding CN %s to SAN %s because it wasn't included.", commonName, altNames)
+			b.Logger().Debug(fmt.Sprintf("Adding CN %s to SAN %s because it wasn't included.", commonName, altNames))
 			altNames = append(altNames, commonName)
 		}
 		certReq = &certificate.Request{

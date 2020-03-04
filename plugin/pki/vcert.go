@@ -13,7 +13,7 @@ import (
 
 func (b *backend) ClientVenafi(ctx context.Context, s logical.Storage, data *framework.FieldData, req *logical.Request, roleName string) (
 	endpoint.Connector, time.Duration, error) {
-	b.Logger().Debug("Using role: %s", roleName)
+	b.Logger().Debug(fmt.Sprintf("Using role: %s", roleName))
 	if roleName == "" {
 		return nil, 0, fmt.Errorf("Missing role name")
 	}
