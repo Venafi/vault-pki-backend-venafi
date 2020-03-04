@@ -26,3 +26,5 @@ func TestIntegration(t *testing.T) {
 	t.Run("Cloud sign certificate", integrationTestEnv.CloudSignCertificate)
 
 }
+
+//TODO: add tests for cert read and list
