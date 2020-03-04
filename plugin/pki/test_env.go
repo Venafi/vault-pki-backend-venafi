@@ -14,7 +14,6 @@ import (
 	"os"
 	"strings"
 	"testing"
-	"time"
 )
 
 type testEnv struct {
@@ -92,7 +91,7 @@ func (e *testEnv) writeRoleToBackend(t *testing.T, configString venafiConfigStri
 		t.Fatal(err)
 	}
 
-	resp, err := e.Backend.HandleRequest(context.Background(), &logical.Request{
+	resp, err := e.Backend.HandleRequest(e.Context, &logical.Request{
 		Operation: logical.UpdateOperation,
 		Path:      "roles/" + e.RoleName,
 		Storage:   e.Storage,
@@ -135,7 +134,7 @@ func (e *testEnv) IssueCertificate(t *testing.T, data testData, configString ven
 		}
 	}
 
-	resp, err := e.Backend.HandleRequest(context.Background(), &logical.Request{
+	resp, err := e.Backend.HandleRequest(e.Context, &logical.Request{
 		Operation: logical.UpdateOperation,
 		Path:      "issue/" + e.RoleName,
 		Storage:   e.Storage,
@@ -222,7 +221,7 @@ func (e *testEnv) SignCertificate(t *testing.T, data testData, configString vena
 		Bytes: csr,
 	})))
 
-	resp, err := e.Backend.HandleRequest(context.Background(), &logical.Request{
+	resp, err := e.Backend.HandleRequest(e.Context, &logical.Request{
 		Operation: logical.UpdateOperation,
 		Path:      "sign/" + e.RoleName,
 		Storage:   e.Storage,
@@ -251,6 +250,48 @@ func (e *testEnv) SignCertificate(t *testing.T, data testData, configString vena
 	data.provider = configString
 
 	checkStandartCert(t, data)
+}
+
+func (e *testEnv) ReadCertificateByCN(t *testing.T, data testData, configString venafiConfigString) {
+
+	resp, err := e.Backend.HandleRequest(e.Context, &logical.Request{
+		Operation: logical.ReadOperation,
+		Path:      "cert/" + data.cn,
+		Storage:   e.Storage,
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp != nil && resp.IsError() {
+		t.Fatalf("failed to issue certificate, %#v", resp.Data["error"])
+	}
+
+	if resp == nil {
+		t.Fatalf("should be on output on issue certificate, but response is nil: %#v", resp)
+	}
+}
+
+func (e *testEnv) ListCertificates(t *testing.T, data testData, configString venafiConfigString) {
+
+	resp, err := e.Backend.HandleRequest(e.Context, &logical.Request{
+		Operation: logical.ListOperation,
+		Path:      "certs/",
+		Storage:   e.Storage,
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp != nil && resp.IsError() {
+		t.Fatalf("failed to issue certificate, %#v", resp.Data["error"])
+	}
+
+	if resp == nil {
+		t.Fatalf("should be on output on issue certificate, but response is nil: %#v", resp)
+	}
 }
 
 func makeConfig(configString venafiConfigString) (roleData map[string]interface{}, err error) {
@@ -309,7 +350,23 @@ func (e *testEnv) FakeReadCertificate(t *testing.T) {
 	data.dns_email = "venafi@example.com"
 
 	var config = venafiConfigFake
-	e.IssueCertificate(t, data, config)
+	e.ReadCertificateByCN(t, data, config)
+
+}
+
+func (e *testEnv) FakeListCertificate(t *testing.T) {
+
+	data := testData{}
+	rand := e.TestRandString
+	domain := "venafi.example.com"
+	data.cn = rand + "." + domain
+	data.dns_ns = "alt-" + data.cn
+	data.dns_ip = "192.168.1.1"
+	data.only_ip = "127.0.0.1"
+	data.dns_email = "venafi@example.com"
+
+	var config = venafiConfigFake
+	e.ListCertificates(t, data, config)
 
 }
 
@@ -366,7 +423,7 @@ func (e *testEnv) FakeIntegrationSignCertificate(t *testing.T) {
 	var config = venafiConfigFake
 
 	e.writeRoleToBackend(t, config)
-    e.SignCertificate(t, data, config)
+	e.SignCertificate(t, data, config)
 }
 
 func (e *testEnv) TPPIntegrationIssueCertificate(t *testing.T) {
@@ -567,23 +624,34 @@ func checkStandartCert(t *testing.T, data testData) {
 }
 func newIntegrationTestEnv() (*testEnv, error) {
 	ctx := context.Background()
-	defaultLeaseTTLVal := time.Hour * 24
-	maxLeaseTTLVal := time.Hour * 24 * 32
+	//defaultLeaseTTLVal := time.Hour * 24
+	//maxLeaseTTLVal := time.Hour * 24 * 32
+	//
+	//b, err := Factory(context.Background(), &logical.BackendConfig{
+	//	Logger: nil,
+	//	System: &logical.StaticSystemView{
+	//		DefaultLeaseTTLVal: defaultLeaseTTLVal,
+	//		MaxLeaseTTLVal:     maxLeaseTTLVal,
+	//	},
+	//})
+	//if err != nil {
+	//	return nil, err
+	//}
 
-	b, err := Factory(context.Background(), &logical.BackendConfig{
-		Logger: nil,
-		System: &logical.StaticSystemView{
-			DefaultLeaseTTLVal: defaultLeaseTTLVal,
-			MaxLeaseTTLVal:     maxLeaseTTLVal,
-		},
-	})
+	config := logical.TestBackendConfig()
+	config.StorageView = &logical.InmemStorage{}
+
+	var err error
+	b := Backend(config)
+	err = b.Setup(context.Background(), config)
 	if err != nil {
 		return nil, err
 	}
+
 	return &testEnv{
 		Backend:        b,
 		Context:        ctx,
-		Storage:        &logical.InmemStorage{},
+		Storage:        config.StorageView,
 		TestRandString: randSeq(9),
 		RoleName:       randSeq(9) + "role",
 	}, nil

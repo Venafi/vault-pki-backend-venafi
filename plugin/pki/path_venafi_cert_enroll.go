@@ -341,7 +341,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 				"serial_number": serialNumber,
 			})
 		TTL := time.Until(parsedCertificate.NotAfter)
-		b.Logger().Debug("Setting up secret lease duration to: ", TTL)
+		b.Logger().Debug("Setting up secret lease duration to: ", TTL.String())
 		logResp.Secret.TTL = TTL
 	}
 
