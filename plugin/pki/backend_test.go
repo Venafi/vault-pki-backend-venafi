@@ -49,5 +49,3 @@ func TestCloudIntegration(t *testing.T) {
 	t.Run("Cloud issue certificate with password", integrationTestEnv.CloudIntegrationIssueCertificateWithPassword)
 	t.Run("Cloud sign certificate", integrationTestEnv.CloudIntegrationSignCertificate)
 }
-
-//TODO: add tests for cert read and list

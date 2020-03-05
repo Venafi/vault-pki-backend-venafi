@@ -128,7 +128,10 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 	}
 
 	var commonName string
-	var certReq *certificate.Request
+	certReq := &certificate.Request{
+		CsrOrigin:    certificate.LocalGeneratedCSR,
+		CustomFields: []certificate.CustomField{{Type: certificate.CustomFieldOrigin, Value: utilityName}},
+	}
 	if !signCSR {
 		commonName = data.Get("common_name").(string)
 		altNames := data.Get("alt_names").([]string)
@@ -361,26 +364,23 @@ type VenafiCert struct {
 	SerialNumber     string `json:"serial_number"`
 }
 
-const pathConfigRootHelpSyn = `
+const (
+	pathConfigRootHelpSyn = `
 Configure the Venafi TPP credentials that are used to manage certificates,
 `
-
-const pathConfigRootHelpDesc = `
+	pathConfigRootHelpDesc = `
 Configure TPP first
 `
-
-const pathVenafiCertEnrollHelp = `
+	pathVenafiCertEnrollHelp = `
 Enroll Venafi certificate
 `
-
-const pathVenafiCertEnrollDesc = `
+	pathVenafiCertEnrollDesc = `
 Enroll Venafi certificate
 `
-
-const pathVenafiCertSignHelp = `
+	pathVenafiCertSignHelp = `
 Sign Venafi certificate
 `
-
-const pathVenafiCertSignDesc = `
+	pathVenafiCertSignDesc = `
 Sign Venafi certificate
 `
+)

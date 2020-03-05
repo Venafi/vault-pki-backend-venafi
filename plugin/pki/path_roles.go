@@ -305,10 +305,9 @@ func (r *roleEntry) ToResponseData() map[string]interface{} {
 	return responseData
 }
 
-const pathListRolesHelpSyn = `List the existing roles in this backend`
-
-const pathListRolesHelpDesc = `Roles will be listed by the role name.`
-
-const pathRoleHelpSyn = `Manage the roles that can be created with this backend.`
-
-const pathRoleHelpDesc = `This path lets you manage the roles that can be created with this backend.`
+const (
+	pathListRolesHelpSyn  = `List the existing roles in this backend`
+	pathListRolesHelpDesc = `Roles will be listed by the role name.`
+	pathRoleHelpSyn       = `Manage the roles that can be created with this backend.`
+	pathRoleHelpDesc      = `This path lets you manage the roles that can be created with this backend.`
+)
