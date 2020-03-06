@@ -128,10 +128,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 	}
 
 	var commonName string
-	certReq := &certificate.Request{
-		CsrOrigin:    certificate.LocalGeneratedCSR,
-		CustomFields: []certificate.CustomField{{Type: certificate.CustomFieldOrigin, Value: utilityName}},
-	}
+	var certReq *certificate.Request
 	if !signCSR {
 		commonName = data.Get("common_name").(string)
 		altNames := data.Get("alt_names").([]string)
@@ -236,6 +233,8 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 	if err != nil {
 		return logical.ErrorResponse(err.Error()), nil
 	}
+
+	certReq.CustomFields = []certificate.CustomField{{Type: certificate.CustomFieldOrigin, Value: utilityName }}
 
 	b.Logger().Debug("Running enroll request")
 
