@@ -234,6 +234,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 		return logical.ErrorResponse(err.Error()), nil
 	}
 
+	//Adding origin custom field with utility name to certificate metadata
 	certReq.CustomFields = []certificate.CustomField{{Type: certificate.CustomFieldOrigin, Value: utilityName }}
 
 	b.Logger().Debug("Running enroll request")
