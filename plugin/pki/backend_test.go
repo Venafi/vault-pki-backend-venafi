@@ -11,7 +11,12 @@ func TestEndpoints(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	t.Run("tpp create role", integrationTestEnv.TPPCreateRole)
+	t.Run("tpp read role", integrationTestEnv.TPPReadRole)
+	t.Run("cloud create role", integrationTestEnv.CloudCreateRole)
+	t.Run("cloud read role", integrationTestEnv.CloudReadRole)
 	t.Run("fake create role", integrationTestEnv.FakeCreateRole)
+	t.Run("fake create role", integrationTestEnv.FakeCreateMixedRole)
 	t.Run("fake list roles", integrationTestEnv.FakeListRole)
 	t.Run("fake read roles", integrationTestEnv.FakeReadRole)
 	t.Run("fake issue", integrationTestEnv.FakeIssueCertificate)

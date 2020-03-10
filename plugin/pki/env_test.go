@@ -48,10 +48,13 @@ type testData struct {
 
 const (
 	venafiConfigTPP             venafiConfigString = "TPP"
+	venafiConfigTPPPredefined   venafiConfigString = "TPPPredefined"
+	venafiConfigCloudPredefined venafiConfigString = "CloudPredefined"
 	venafiConfigTPPRestricted   venafiConfigString = "TPPRestricted"
 	venafiConfigCloud           venafiConfigString = "Cloud"
 	venafiConfigCloudRestricted venafiConfigString = "CloudRestricted"
 	venafiConfigFake            venafiConfigString = "Fake"
+	venafiConfigMixed           venafiConfigString = "Mixed"
 )
 
 var venafiTestTPPConfig = map[string]interface{}{
@@ -60,6 +63,14 @@ var venafiTestTPPConfig = map[string]interface{}{
 	"tpp_password":      os.Getenv("TPPPASSWORD"),
 	"zone":              os.Getenv("TPPZONE"),
 	"trust_bundle_file": os.Getenv("TRUST_BUNDLE"),
+}
+
+var venafiTestTPPConfigPredefined = map[string]interface{}{
+	"tpp_url":           "https://tpp.example.com/vedsdk",
+	"tpp_user":          "admin",
+	"tpp_password":      "strongPassword",
+	"zone":              "devops\\vcert",
+	"trust_bundle_file": "/opt/venafi/bundle.pem",
 }
 
 var venafiTestTPPConfigRestricted = map[string]interface{}{
@@ -76,6 +87,11 @@ var venafiTestCloudConfig = map[string]interface{}{
 	"zone":      os.Getenv("CLOUDZONE"),
 }
 
+var venafiTestCloudConfigPredefined = map[string]interface{}{
+	"apikey": "xxxx-xxxxx-xxxxxx-xxxxxx",
+	"zone":   "xxxxx-xxxxx-xxxxxx-xxxxxx-xxxx",
+}
+
 var venafiTestCloudConfigRestricted = map[string]interface{}{
 	"cloud_url": os.Getenv("CLOUDURL"),
 	"apikey":    os.Getenv("CLOUDAPIKEY"),
@@ -88,6 +104,11 @@ var venafiTestFakeConfig = map[string]interface{}{
 	"store_by_cn":     true,
 	"store_by_serial": true,
 	"store_pkey":      true,
+}
+
+var venafiTestMixedConfig = map[string]interface{}{
+	"apikey":  "xxxxxxxxxxxxxxxx",
+	"tpp_url": "xxxxxxxxxxx",
 }
 
 func (e *testEnv) writeRoleToBackend(t *testing.T, configString venafiConfigString) {
@@ -109,6 +130,28 @@ func (e *testEnv) writeRoleToBackend(t *testing.T, configString venafiConfigStri
 
 	if resp != nil && resp.IsError() {
 		t.Fatalf("failed to create role, %#v", resp)
+	}
+}
+
+func (e *testEnv) failToWriteRoleToBackend(t *testing.T, configString venafiConfigString) {
+	roleData, err := makeConfig(configString)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resp, err := e.Backend.HandleRequest(e.Context, &logical.Request{
+		Operation: logical.UpdateOperation,
+		Path:      "roles/" + e.RoleName,
+		Storage:   e.Storage,
+		Data:      roleData,
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp != nil && !resp.IsError() {
+		t.Fatal("Role with mixed cloud api key and tpp url should fail to write")
 	}
 }
 
@@ -141,7 +184,7 @@ func (e *testEnv) readRolesInBackend(t *testing.T, config map[string]interface{}
 
 	resp, err := e.Backend.HandleRequest(e.Context, &logical.Request{
 		Operation: logical.ReadOperation,
-		Path:      "roles/"+ e.RoleName,
+		Path:      "roles/" + e.RoleName,
 		Storage:   e.Storage,
 	})
 
@@ -149,17 +192,29 @@ func (e *testEnv) readRolesInBackend(t *testing.T, config map[string]interface{}
 		t.Fatal(err)
 	}
 
-	if resp != nil && resp.IsError() {
+	if resp == nil {
+		t.Fatalf("should be on output on reading the role %s, but response is nil: %#v", e.RoleName, resp)
+	}
+
+	if resp.IsError() {
 		t.Fatalf("failed to read role %s, %#v", e.RoleName, resp)
 	}
 
-	for k,v := range config {
-		if resp.Data[k] == nil {
-			t.Fatalf("Expected there will be value in %s field", k)
-		}
+	sensitiveData := []string{"tpp_password", "apikey"}
 
-		if resp.Data[k] != v {
-			t.Fatalf("Expected %#v will be %#v",k,v)
+	for k, v := range config {
+		if sliceContains(sensitiveData, k) {
+			if resp.Data[k] != nil {
+				t.Fatalf("Sensitive data %s should be hidden", k)
+			}
+		} else {
+			if resp.Data[k] == nil {
+				t.Fatalf("Expected there will be value in %s field", k)
+			}
+
+			if resp.Data[k] != v {
+				t.Fatalf("Expected %#v will be %#v", k, v)
+			}
 		}
 	}
 
@@ -414,6 +469,12 @@ func makeConfig(configString venafiConfigString) (roleData map[string]interface{
 		roleData = venafiTestCloudConfig
 	case venafiConfigCloudRestricted:
 		roleData = venafiTestCloudConfigRestricted
+	case venafiConfigCloudPredefined:
+		roleData = venafiTestCloudConfigPredefined
+	case venafiConfigMixed:
+		roleData = venafiTestMixedConfig
+	case venafiConfigTPPPredefined:
+		roleData = venafiTestTPPConfigPredefined
 	default:
 		return roleData, fmt.Errorf("do not have config data for config %s", configString)
 	}
@@ -429,6 +490,27 @@ func (e *testEnv) FakeCreateRole(t *testing.T) {
 
 }
 
+func (e *testEnv) TPPCreateRole(t *testing.T) {
+
+	var config = venafiConfigTPPPredefined
+	e.writeRoleToBackend(t, config)
+
+}
+
+func (e *testEnv) CloudCreateRole(t *testing.T) {
+
+	var config = venafiConfigCloudPredefined
+	e.writeRoleToBackend(t, config)
+
+}
+
+func (e *testEnv) FakeCreateMixedRole(t *testing.T) {
+
+	var config = venafiConfigMixed
+	e.failToWriteRoleToBackend(t, config)
+
+}
+
 func (e *testEnv) FakeListRole(t *testing.T) {
 	e.listRolesInBackend(t)
 
@@ -437,6 +519,18 @@ func (e *testEnv) FakeListRole(t *testing.T) {
 func (e *testEnv) FakeReadRole(t *testing.T) {
 
 	e.readRolesInBackend(t, venafiTestFakeConfig)
+
+}
+
+func (e *testEnv) TPPReadRole(t *testing.T) {
+
+	e.readRolesInBackend(t, venafiTestTPPConfigPredefined)
+
+}
+
+func (e *testEnv) CloudReadRole(t *testing.T) {
+
+	e.readRolesInBackend(t, venafiTestCloudConfigPredefined)
 
 }
 

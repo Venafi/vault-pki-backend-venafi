@@ -239,6 +239,12 @@ func (b *backend) pathRoleCreate(ctx context.Context, req *logical.Request, data
 			`"ttl" value must be less than "max_ttl" value`,
 		), nil
 	}
+	
+	if entry.TPPURL != "" && entry.Apikey != "" {
+		return logical.ErrorResponse(
+			`TPP url and Cloud API key can't be specified in one role`,
+		), nil
+	}
 
 	// Store it
 	jsonEntry, err := logical.StorageEntryJSON("role/"+name, entry)
