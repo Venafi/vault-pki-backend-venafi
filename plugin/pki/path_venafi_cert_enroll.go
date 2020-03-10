@@ -293,21 +293,8 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 
 	//if no_store is not specified
 	if !role.NoStore {
-		//Firstly work on deprecated options to ensure backward compatibility
-		//This code is deprecated and should be removed in future to use store_by and no_store options
-		if role.StoreByCN {
-
-			//Writing certificate to the storage with CN
-			b.Logger().Debug("Putting certificate to the certs/" + commonName)
-			entry.Key = "certs/" + commonName
-
-			if err := req.Storage.Put(ctx, entry); err != nil {
-				b.Logger().Error("Error putting entry to storage: " + err.Error())
-				return nil, err
-			}
-		}
-
-		if role.StoreBySerial {
+		//StoreBySerial and StoreByCN options are deprecated
+		if role.StoreBySerial || role.StoreBy == "" || role.StoreBy == storeBySerialString {
 
 			//Writing certificate to the storage with Serial Number
 			b.Logger().Debug("Putting certificate to the certs/", normalizeSerial(serialNumber))
@@ -317,28 +304,15 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 				b.Logger().Error("Error putting entry to storage: " + err.Error())
 				return nil, err
 			}
-		}
+		} else if role.StoreByCN || role.StoreBy == storeByCNString {
 
-		if role.StoreBy != "" {
-			switch role.StoreBy {
-			case storeByCNString:
-				//Writing certificate to the storage with CN
-				b.Logger().Debug("Putting certificate to the certs/" + commonName)
-				entry.Key = "certs/" + commonName
+			//Writing certificate to the storage with CN
+			b.Logger().Debug("Putting certificate to the certs/" + commonName)
+			entry.Key = "certs/" + commonName
 
-				if err := req.Storage.Put(ctx, entry); err != nil {
-					b.Logger().Error("Error putting entry to storage: " + err.Error())
-					return nil, err
-				}
-			case storeBySerialString:
-				//Writing certificate to the storage with Serial Number
-				b.Logger().Debug("Putting certificate to the certs/", normalizeSerial(serialNumber))
-				entry.Key = "certs/" + normalizeSerial(serialNumber)
-
-				if err := req.Storage.Put(ctx, entry); err != nil {
-					b.Logger().Error("Error putting entry to storage: " + err.Error())
-					return nil, err
-				}
+			if err := req.Storage.Put(ctx, entry); err != nil {
+				b.Logger().Error("Error putting entry to storage: " + err.Error())
+				return nil, err
 			}
 		}
 
