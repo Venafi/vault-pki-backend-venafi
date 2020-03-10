@@ -137,7 +137,7 @@ func (e *testEnv) listRolesInBackend(t *testing.T) {
 	}
 }
 
-func (e *testEnv) readRolesInBackend(t *testing.T) {
+func (e *testEnv) readRolesInBackend(t *testing.T, config map[string]interface{}) {
 
 	resp, err := e.Backend.HandleRequest(e.Context, &logical.Request{
 		Operation: logical.ReadOperation,
@@ -153,13 +153,16 @@ func (e *testEnv) readRolesInBackend(t *testing.T) {
 		t.Fatalf("failed to read role %s, %#v", e.RoleName, resp)
 	}
 
-	if resp.Data["fakemode"] == nil {
-		t.Fatalf("Expected there will be value in fakemode field")
+	for k,v := range config {
+		if resp.Data[k] == nil {
+			t.Fatalf("Expected there will be value in %s field", k)
+		}
+
+		if resp.Data[k] != v {
+			t.Fatalf("Expected %#v will be %#v",k,v)
+		}
 	}
 
-	if resp.Data["fakemode"] != true {
-		t.Fatalf("Expected fakemode will be true")
-	}
 }
 
 func (e *testEnv) IssueCertificate(t *testing.T, data testData, configString venafiConfigString) {
@@ -433,7 +436,7 @@ func (e *testEnv) FakeListRole(t *testing.T) {
 
 func (e *testEnv) FakeReadRole(t *testing.T) {
 
-	e.readRolesInBackend(t)
+	e.readRolesInBackend(t, venafiTestFakeConfig)
 
 }
 
