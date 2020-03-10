@@ -234,6 +234,9 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 		return logical.ErrorResponse(err.Error()), nil
 	}
 
+	//Adding origin custom field with utility name to certificate metadata
+	certReq.CustomFields = []certificate.CustomField{{Type: certificate.CustomFieldOrigin, Value: utilityName }}
+
 	b.Logger().Debug("Running enroll request")
 
 	requestID, err := cl.RequestCertificate(certReq)
@@ -361,26 +364,23 @@ type VenafiCert struct {
 	SerialNumber     string `json:"serial_number"`
 }
 
-const pathConfigRootHelpSyn = `
+const (
+	pathConfigRootHelpSyn = `
 Configure the Venafi TPP credentials that are used to manage certificates,
 `
-
-const pathConfigRootHelpDesc = `
+	pathConfigRootHelpDesc = `
 Configure TPP first
 `
-
-const pathVenafiCertEnrollHelp = `
+	pathVenafiCertEnrollHelp = `
 Enroll Venafi certificate
 `
-
-const pathVenafiCertEnrollDesc = `
+	pathVenafiCertEnrollDesc = `
 Enroll Venafi certificate
 `
-
-const pathVenafiCertSignHelp = `
+	pathVenafiCertSignHelp = `
 Sign Venafi certificate
 `
-
-const pathVenafiCertSignDesc = `
+	pathVenafiCertSignDesc = `
 Sign Venafi certificate
 `
+)
