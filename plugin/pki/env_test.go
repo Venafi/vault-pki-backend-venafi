@@ -31,17 +31,17 @@ type testEnv struct {
 type venafiConfigString string
 
 type testData struct {
-	cert      string
-	cn        string
-	csrPK     []byte
-	dns_email string
-	//dns_ip added to alt_names to support some old browsers which can't parse IP Addresses x509 extension
-	dns_ip string
-	dns_ns string
-	//only_ip added IP Address x509 field
-	only_ip     string
+	cert     string
+	cn       string
+	csrPK    []byte
+	dnsEmail string
+	//dnsIP added to alt_names to support some old browsers which can't parse IP Addresses x509 extension
+	dnsIP string
+	dnsNS string
+	//onlyIP added IP Address x509 field
+	onlyIP      string
 	keyPassword string
-	private_key string
+	privateKey  string
 	provider    venafiConfigString
 	signCSR     bool
 }
@@ -128,8 +128,37 @@ func (e *testEnv) listRolesInBackend(t *testing.T) {
 		t.Fatalf("failed to list roles, %#v", resp)
 	}
 
+	if resp.Data["keys"] == nil {
+		t.Fatalf("Expected there will be roles in the keys list")
+	}
+
 	if !sliceContains(resp.Data["keys"].([]string), e.RoleName) {
 		t.Fatalf("expected role name %s in list %s", e.RoleName, resp.Data["keys"])
+	}
+}
+
+func (e *testEnv) readRolesInBackend(t *testing.T) {
+
+	resp, err := e.Backend.HandleRequest(e.Context, &logical.Request{
+		Operation: logical.ReadOperation,
+		Path:      "roles/"+ e.RoleName,
+		Storage:   e.Storage,
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp != nil && resp.IsError() {
+		t.Fatalf("failed to read role %s, %#v", e.RoleName, resp)
+	}
+
+	if resp.Data["fakemode"] == nil {
+		t.Fatalf("Expected there will be value in fakemode field")
+	}
+
+	if resp.Data["fakemode"] != true {
+		t.Fatalf("Expected fakemode will be true")
 	}
 }
 
@@ -139,24 +168,24 @@ func (e *testEnv) IssueCertificate(t *testing.T, data testData, configString ven
 
 	var altNames string
 
-	if data.dns_ip != "" {
-		altNames = fmt.Sprintf("%s,%s, %s", data.dns_ns, data.dns_email, data.dns_ip)
+	if data.dnsIP != "" {
+		altNames = fmt.Sprintf("%s,%s, %s", data.dnsNS, data.dnsEmail, data.dnsIP)
 	} else {
-		altNames = fmt.Sprintf("%s,%s", data.dns_ns, data.dns_email)
+		altNames = fmt.Sprintf("%s,%s", data.dnsNS, data.dnsEmail)
 	}
 
 	if data.keyPassword != "" {
 		issueData = map[string]interface{}{
 			"common_name":  data.cn,
 			"alt_names":    altNames,
-			"ip_sans":      []string{data.only_ip},
+			"ip_sans":      []string{data.onlyIP},
 			"key_password": data.keyPassword,
 		}
 	} else {
 		issueData = map[string]interface{}{
 			"common_name": data.cn,
 			"alt_names":   altNames,
-			"ip_sans":     []string{data.only_ip},
+			"ip_sans":     []string{data.onlyIP},
 		}
 	}
 
@@ -187,9 +216,9 @@ func (e *testEnv) IssueCertificate(t *testing.T, data testData, configString ven
 		if err != nil {
 			t.Fatal(err)
 		}
-		data.private_key = string(pem.EncodeToMemory(b))
+		data.privateKey = string(pem.EncodeToMemory(b))
 	} else {
-		data.private_key = resp.Data["private_key"].(string)
+		data.privateKey = resp.Data["private_key"].(string)
 	}
 
 	data.provider = configString
@@ -212,28 +241,28 @@ func (e *testEnv) SignCertificate(t *testing.T, data testData, configString vena
 	//Generating CSR for test
 	certificateRequest := x509.CertificateRequest{}
 	certificateRequest.Subject.CommonName = data.cn
-	if data.dns_ns != "" {
-		certificateRequest.DNSNames = append(certificateRequest.DNSNames, data.dns_ns)
+	if data.dnsNS != "" {
+		certificateRequest.DNSNames = append(certificateRequest.DNSNames, data.dnsNS)
 	}
 
-	if data.dns_ip != "" {
-		certificateRequest.DNSNames = append(certificateRequest.DNSNames, data.dns_ip)
+	if data.dnsIP != "" {
+		certificateRequest.DNSNames = append(certificateRequest.DNSNames, data.dnsIP)
 	}
 
 	if configString == venafiConfigFake {
 		certificateRequest.DNSNames = append(certificateRequest.DNSNames, data.cn)
 	}
 
-	if data.only_ip != "" {
-		certificateRequest.IPAddresses = []net.IP{net.ParseIP(data.only_ip)}
+	if data.onlyIP != "" {
+		certificateRequest.IPAddresses = []net.IP{net.ParseIP(data.onlyIP)}
 	}
 
-	if data.dns_ip != "" {
-		certificateRequest.IPAddresses = append(certificateRequest.IPAddresses, net.ParseIP(data.dns_ip))
+	if data.dnsIP != "" {
+		certificateRequest.IPAddresses = append(certificateRequest.IPAddresses, net.ParseIP(data.dnsIP))
 	}
 
-	if data.dns_email != "" {
-		certificateRequest.EmailAddresses = []string{data.dns_email}
+	if data.dnsEmail != "" {
+		certificateRequest.EmailAddresses = []string{data.dnsEmail}
 	}
 
 	//Generating pk for test
@@ -317,7 +346,7 @@ func (e *testEnv) ReadCertificate(t *testing.T, data testData, configString vena
 	}
 
 	data.cert = resp.Data["certificate"].(string)
-	data.private_key = resp.Data["private_key"].(string)
+	data.privateKey = resp.Data["private_key"].(string)
 	checkStandartCert(t, data)
 
 	//Set certificate serial number for FakeReadCertificateBySerial test
@@ -402,16 +431,22 @@ func (e *testEnv) FakeListRole(t *testing.T) {
 
 }
 
+func (e *testEnv) FakeReadRole(t *testing.T) {
+
+	e.readRolesInBackend(t)
+
+}
+
 func (e *testEnv) FakeIssueCertificate(t *testing.T) {
 
 	data := testData{}
-	rand := e.TestRandString
+	randString := e.TestRandString
 	domain := "venafi.example.com"
-	data.cn = rand + "." + domain
-	data.dns_ns = "alt-" + data.cn
-	data.dns_ip = "192.168.1.1"
-	data.only_ip = "127.0.0.1"
-	data.dns_email = "venafi@example.com"
+	data.cn = randString + "." + domain
+	data.dnsNS = "alt-" + data.cn
+	data.dnsIP = "192.168.1.1"
+	data.onlyIP = "127.0.0.1"
+	data.dnsEmail = "venafi@example.com"
 
 	var config = venafiConfigFake
 	e.IssueCertificate(t, data, config)
@@ -421,13 +456,13 @@ func (e *testEnv) FakeIssueCertificate(t *testing.T) {
 func (e *testEnv) FakeReadCertificateByCN(t *testing.T) {
 
 	data := testData{}
-	rand := e.TestRandString
+	randString := e.TestRandString
 	domain := "venafi.example.com"
-	data.cn = rand + "." + domain
-	data.dns_ns = "alt-" + data.cn
-	data.dns_ip = "192.168.1.1"
-	data.only_ip = "127.0.0.1"
-	data.dns_email = "venafi@example.com"
+	data.cn = randString + "." + domain
+	data.dnsNS = "alt-" + data.cn
+	data.dnsIP = "192.168.1.1"
+	data.onlyIP = "127.0.0.1"
+	data.dnsEmail = "venafi@example.com"
 
 	var config = venafiConfigFake
 	e.ReadCertificate(t, data, config, data.cn)
@@ -437,13 +472,13 @@ func (e *testEnv) FakeReadCertificateByCN(t *testing.T) {
 func (e *testEnv) FakeReadCertificateBySerial(t *testing.T) {
 
 	data := testData{}
-	rand := e.TestRandString
+	randString := e.TestRandString
 	domain := "venafi.example.com"
-	data.cn = rand + "." + domain
-	data.dns_ns = "alt-" + data.cn
-	data.dns_ip = "192.168.1.1"
-	data.only_ip = "127.0.0.1"
-	data.dns_email = "venafi@example.com"
+	data.cn = randString + "." + domain
+	data.dnsNS = "alt-" + data.cn
+	data.dnsIP = "192.168.1.1"
+	data.onlyIP = "127.0.0.1"
+	data.dnsEmail = "venafi@example.com"
 
 	var config = venafiConfigFake
 	e.ReadCertificate(t, data, config, normalizeSerial(e.CertificateSerial))
@@ -453,13 +488,13 @@ func (e *testEnv) FakeReadCertificateBySerial(t *testing.T) {
 func (e *testEnv) FakeRevokeCertificate(t *testing.T) {
 
 	data := testData{}
-	rand := e.TestRandString
+	randString := e.TestRandString
 	domain := "venafi.example.com"
-	data.cn = rand + "." + domain
-	data.dns_ns = "alt-" + data.cn
-	data.dns_ip = "192.168.1.1"
-	data.only_ip = "127.0.0.1"
-	data.dns_email = "venafi@example.com"
+	data.cn = randString + "." + domain
+	data.dnsNS = "alt-" + data.cn
+	data.dnsIP = "192.168.1.1"
+	data.onlyIP = "127.0.0.1"
+	data.dnsEmail = "venafi@example.com"
 
 	e.RevokeCertificate(t, data.cn)
 
@@ -468,13 +503,13 @@ func (e *testEnv) FakeRevokeCertificate(t *testing.T) {
 func (e *testEnv) FakeListCertificate(t *testing.T) {
 
 	data := testData{}
-	rand := e.TestRandString
+	randString := e.TestRandString
 	domain := "venafi.example.com"
-	data.cn = rand + "." + domain
-	data.dns_ns = "alt-" + data.cn
-	data.dns_ip = "192.168.1.1"
-	data.only_ip = "127.0.0.1"
-	data.dns_email = "venafi@example.com"
+	data.cn = randString + "." + domain
+	data.dnsNS = "alt-" + data.cn
+	data.dnsIP = "192.168.1.1"
+	data.onlyIP = "127.0.0.1"
+	data.dnsEmail = "venafi@example.com"
 
 	var config = venafiConfigFake
 	e.ListCertificates(t, data, config)
@@ -484,13 +519,13 @@ func (e *testEnv) FakeListCertificate(t *testing.T) {
 func (e *testEnv) FakeIntegrationIssueCertificate(t *testing.T) {
 
 	data := testData{}
-	rand := e.TestRandString
+	randString := e.TestRandString
 	domain := "venafi.example.com"
-	data.cn = rand + "." + domain
-	data.dns_ns = "alt-" + data.cn
-	data.dns_ip = "192.168.1.1"
-	data.only_ip = "127.0.0.1"
-	data.dns_email = "venafi@example.com"
+	data.cn = randString + "." + domain
+	data.dnsNS = "alt-" + data.cn
+	data.dnsIP = "192.168.1.1"
+	data.onlyIP = "127.0.0.1"
+	data.dnsEmail = "venafi@example.com"
 
 	var config = venafiConfigFake
 
@@ -502,13 +537,13 @@ func (e *testEnv) FakeIntegrationIssueCertificate(t *testing.T) {
 func (e *testEnv) FakeIntegrationIssueCertificateWithPassword(t *testing.T) {
 
 	data := testData{}
-	rand := e.TestRandString
+	randString := e.TestRandString
 	domain := "venafi.example.com"
-	data.cn = rand + "." + domain
-	data.dns_ns = "alt-" + data.cn
-	data.dns_ip = "192.168.1.1"
-	data.only_ip = "127.0.0.1"
-	data.dns_email = "venafi@example.com"
+	data.cn = randString + "." + domain
+	data.dnsNS = "alt-" + data.cn
+	data.dnsIP = "192.168.1.1"
+	data.onlyIP = "127.0.0.1"
+	data.dnsEmail = "venafi@example.com"
 	data.keyPassword = "password"
 
 	var config = venafiConfigFake
@@ -521,13 +556,13 @@ func (e *testEnv) FakeIntegrationIssueCertificateWithPassword(t *testing.T) {
 func (e *testEnv) FakeSignCertificate(t *testing.T) {
 
 	data := testData{}
-	rand := e.TestRandString
+	randString := e.TestRandString
 	domain := "venafi.example.com"
-	data.cn = rand + "-signed." + domain
-	data.dns_ns = "alt-" + data.cn
-	data.dns_ip = "192.168.1.1"
-	data.only_ip = "127.0.0.1"
-	data.dns_email = "venafi@example.com"
+	data.cn = randString + "-signed." + domain
+	data.dnsNS = "alt-" + data.cn
+	data.dnsIP = "192.168.1.1"
+	data.onlyIP = "127.0.0.1"
+	data.dnsEmail = "venafi@example.com"
 	data.keyPassword = "password"
 	data.signCSR = true
 
@@ -539,12 +574,12 @@ func (e *testEnv) FakeSignCertificate(t *testing.T) {
 func (e *testEnv) TPPIntegrationIssueCertificate(t *testing.T) {
 
 	data := testData{}
-	rand := e.TestRandString
+	randString := e.TestRandString
 	domain := "venafi.example.com"
-	data.cn = rand + "." + domain
-	data.dns_ns = "alt-" + data.cn
-	data.dns_ip = "192.168.1.1"
-	data.dns_email = "venafi@example.com"
+	data.cn = randString + "." + domain
+	data.dnsNS = "alt-" + data.cn
+	data.dnsIP = "192.168.1.1"
+	data.dnsEmail = "venafi@example.com"
 
 	var config = venafiConfigTPP
 
@@ -556,12 +591,12 @@ func (e *testEnv) TPPIntegrationIssueCertificate(t *testing.T) {
 func (e *testEnv) TPPIntegrationIssueCertificateWithPassword(t *testing.T) {
 
 	data := testData{}
-	rand := e.TestRandString
+	randString := e.TestRandString
 	domain := "venafi.example.com"
-	data.cn = rand + "." + domain
-	data.dns_ns = "alt-" + data.cn
-	data.dns_ip = "192.168.1.1"
-	data.dns_email = "venafi@example.com"
+	data.cn = randString + "." + domain
+	data.dnsNS = "alt-" + data.cn
+	data.dnsIP = "192.168.1.1"
+	data.dnsEmail = "venafi@example.com"
 	data.keyPassword = "Pass0rd!"
 
 	var config = venafiConfigTPP
@@ -574,12 +609,12 @@ func (e *testEnv) TPPIntegrationIssueCertificateWithPassword(t *testing.T) {
 func (e *testEnv) TPPIntegrationIssueCertificateRestricted(t *testing.T) {
 
 	data := testData{}
-	rand := e.TestRandString
+	randString := e.TestRandString
 	domain := "vfidev.com"
-	data.cn = rand + "." + domain
-	data.dns_ns = "alt-" + data.cn
-	data.only_ip = "192.168.1.1"
-	data.dns_email = "venafi@example.com"
+	data.cn = randString + "." + domain
+	data.dnsNS = "alt-" + data.cn
+	data.onlyIP = "192.168.1.1"
+	data.dnsEmail = "venafi@example.com"
 
 	var config = venafiConfigTPPRestricted
 
@@ -591,12 +626,12 @@ func (e *testEnv) TPPIntegrationIssueCertificateRestricted(t *testing.T) {
 func (e *testEnv) TPPIntegrationSignCertificate(t *testing.T) {
 
 	data := testData{}
-	rand := e.TestRandString
+	randString := e.TestRandString
 	domain := "vfidev.com"
-	data.cn = rand + "." + domain
-	data.dns_ns = "alt-" + data.cn
-	data.dns_ip = "127.0.0.1"
-	data.only_ip = "192.168.0.1"
+	data.cn = randString + "." + domain
+	data.dnsNS = "alt-" + data.cn
+	data.dnsIP = "127.0.0.1"
+	data.onlyIP = "192.168.0.1"
 	data.signCSR = true
 
 	var config = venafiConfigTPP
@@ -609,10 +644,10 @@ func (e *testEnv) TPPIntegrationSignCertificate(t *testing.T) {
 func (e *testEnv) CloudIntegrationSignCertificate(t *testing.T) {
 
 	data := testData{}
-	rand := e.TestRandString
+	randString := e.TestRandString
 	domain := "venafi.example.com"
-	data.cn = rand + "." + domain
-	data.dns_ns = "alt-" + data.cn
+	data.cn = randString + "." + domain
+	data.dnsNS = "alt-" + data.cn
 	data.signCSR = true
 
 	var config = venafiConfigCloud
@@ -625,9 +660,9 @@ func (e *testEnv) CloudIntegrationSignCertificate(t *testing.T) {
 func (e *testEnv) CloudIntegrationIssueCertificate(t *testing.T) {
 
 	data := testData{}
-	rand := e.TestRandString
+	randString := e.TestRandString
 	domain := "venafi.example.com"
-	data.cn = rand + "." + domain
+	data.cn = randString + "." + domain
 
 	var config = venafiConfigCloud
 
@@ -638,9 +673,9 @@ func (e *testEnv) CloudIntegrationIssueCertificate(t *testing.T) {
 func (e *testEnv) CloudIntegrationIssueCertificateRestricted(t *testing.T) {
 
 	data := testData{}
-	rand := e.TestRandString
+	randString := e.TestRandString
 	domain := "vfidev.com"
-	data.cn = rand + "." + domain
+	data.cn = randString + "." + domain
 
 	var config = venafiConfigCloud
 
@@ -651,9 +686,9 @@ func (e *testEnv) CloudIntegrationIssueCertificateRestricted(t *testing.T) {
 func (e *testEnv) CloudIntegrationIssueCertificateWithPassword(t *testing.T) {
 
 	data := testData{}
-	rand := e.TestRandString
+	randString := e.TestRandString
 	domain := "vfidev.com"
-	data.cn = rand + "." + domain
+	data.cn = randString + "." + domain
 	data.keyPassword = "password"
 
 	var config = venafiConfigCloud
@@ -671,12 +706,12 @@ func checkStandartCert(t *testing.T, data testData) {
 	}
 
 	if !data.signCSR {
-		log.Println("Testing private key:", data.private_key)
-		keyPEMBlock, _ := pem.Decode([]byte(data.private_key))
+		log.Println("Testing private key:", data.privateKey)
+		keyPEMBlock, _ := pem.Decode([]byte(data.privateKey))
 		if keyPEMBlock == nil {
 			t.Fatalf("Private key data is nil in thew private key")
 		}
-		_, err = tls.X509KeyPair([]byte(data.cert), []byte(data.private_key))
+		_, err = tls.X509KeyPair([]byte(data.cert), []byte(data.privateKey))
 		if err != nil {
 			t.Fatalf("Error parsing certificate key pair: %s", err)
 		}
@@ -696,18 +731,18 @@ func checkStandartCert(t *testing.T, data testData) {
 		t.Fatalf("Certificate common name expected to be %s but actualy it is %s", parsedCertificate.Subject.CommonName, data.cn)
 	}
 
-	wantDNSNames := []string{data.cn, data.dns_ns}
+	wantDNSNames := []string{data.cn, data.dnsNS}
 
-	if data.dns_ip != "" {
-		wantDNSNames = append(wantDNSNames, data.dns_ip)
+	if data.dnsIP != "" {
+		wantDNSNames = append(wantDNSNames, data.dnsIP)
 	}
 
 	ips := make([]net.IP, 0, 2)
-	if data.only_ip != "" {
-		ips = append(ips, net.ParseIP(data.only_ip))
+	if data.onlyIP != "" {
+		ips = append(ips, net.ParseIP(data.onlyIP))
 	}
-	if data.dns_ip != "" {
-		ips = append(ips, net.ParseIP(data.dns_ip))
+	if data.dnsIP != "" {
+		ips = append(ips, net.ParseIP(data.dnsIP))
 	}
 
 	if data.provider == venafiConfigCloud {
@@ -724,8 +759,8 @@ func checkStandartCert(t *testing.T, data testData) {
 		t.Fatalf("Certificate IPs %v doesn`t match requested %v", parsedCertificate.IPAddresses, ips)
 	}
 
-	if data.dns_email != "" {
-		wantEmail := []string{data.dns_email}
+	if data.dnsEmail != "" {
+		wantEmail := []string{data.dnsEmail}
 		if !SameStringSlice(parsedCertificate.EmailAddresses, wantEmail) {
 			t.Fatalf("Certificate emails %v doesn't match requested %v", parsedCertificate.EmailAddresses, wantEmail)
 		}

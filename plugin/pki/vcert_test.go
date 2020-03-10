@@ -16,7 +16,7 @@ import (
 	"testing"
 )
 
-func TestPki_VcertIsWorking(t *testing.T) {
+func TestPKIVcertIsWorking(t *testing.T) {
 	var err error
 
 	const cn = "testfake.example.com"
@@ -73,7 +73,7 @@ func TestPki_VcertIsWorking(t *testing.T) {
 	}
 }
 
-func TestPki_VcertConfig(t *testing.T) {
+func TestPKIVcertConfig(t *testing.T) {
 	var resp *logical.Response
 	var err error
 	b, storage := createBackendWithStorage(t)
