@@ -39,12 +39,6 @@ func normalizeSerial(serial string) string {
 	return strings.Replace(strings.ToLower(serial), ":", "-", -1)
 }
 
-const (
-	PKCS1Block string = "RSA PRIVATE KEY"
-	PKCS8Block string = "PRIVATE KEY"
-	ECBlock    string = "EC PRIVATE KEY"
-)
-
 type RunContext struct {
 	TPPurl              string
 	TPPuser             string

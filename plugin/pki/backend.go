@@ -53,8 +53,11 @@ type backend struct {
 	storage logical.Storage
 }
 
-const backendHelp = `
+const (
+	backendHelp = `
 The Venafi certificates backend plugin requests certificates from TPP of Condor.
 
 After mounting this backend create a role using role/ path.
 `
+	utilityName = "HashiCorp Vault"
+)
