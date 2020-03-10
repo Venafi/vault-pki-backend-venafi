@@ -2,6 +2,7 @@ package pki
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/hashicorp/vault/logical"
@@ -81,6 +82,16 @@ Example:
 				Description: `Set it to true to store certificates by unique serial number in certs/ path`,
 			},
 
+			"store_by": {
+				Type:        framework.TypeString,
+				Description: `Store certificate by common name or serial number. Possible values: cn\serial`,
+			},
+
+			"no_store": {
+				Type: framework.TypeBool,
+				Description: `If set, certificates issued/signed against this role will not be stored in the storage backend.`,
+			},
+
 			"service_generated_cert": {
 				Type:        framework.TypeBool,
 				Description: `Use service generated CSR for Venafi Platfrom (ignored if Saas endpoint used)`,
@@ -149,6 +160,12 @@ attached to them. Defaults to "false".`,
 		HelpDescription: pathRoleHelpDesc,
 	}
 }
+
+
+const (
+	storeByCNString     string = "cn"
+	storeBySerialString string = "serial"
+)
 
 func (b *backend) getRole(ctx context.Context, s logical.Storage, n string) (*roleEntry, error) {
 	entry, err := s.Get(ctx, "role/"+n)
@@ -221,6 +238,8 @@ func (b *backend) pathRoleCreate(ctx context.Context, req *logical.Request, data
 		ChainOption:      data.Get("chain_option").(string),
 		StoreByCN:        data.Get("store_by_cn").(bool),
 		StoreBySerial:    data.Get("store_by_serial").(bool),
+		StoreBy:          data.Get("store_by").(string),
+		NoStore:          data.Get("no_store").(bool),
 		ServiceGenerated: data.Get("service_generated_cert").(bool),
 		StorePrivateKey:  data.Get("store_pkey").(bool),
 		KeyType:          data.Get("key_type").(string),
@@ -239,12 +258,39 @@ func (b *backend) pathRoleCreate(ctx context.Context, req *logical.Request, data
 			`"ttl" value must be less than "max_ttl" value`,
 		), nil
 	}
-	
+
 	if entry.TPPURL != "" && entry.Apikey != "" {
 		return logical.ErrorResponse(
 			`TPP url and Cloud API key can't be specified in one role`,
 		), nil
 	}
+
+	if (entry.StoreByCN || entry.StoreBySerial) && entry.StoreBy != "" {
+		return logical.ErrorResponse(
+			`Can't specify both story_by and store_by_cn or store_by_serial options '`,
+		), nil
+	}
+
+	if (entry.StoreByCN || entry.StoreBySerial) && entry.NoStore {
+		return logical.ErrorResponse(
+			`Can't specify both no_store and store_by_cn or store_by_serial options '`,
+		), nil
+	}
+
+	if entry.StoreBy != "" && entry.NoStore {
+		return logical.ErrorResponse(
+			`Can't specify both no_store and store_by options '`,
+		), nil
+	}
+
+	if entry.StoreBy != "" {
+		if (entry.StoreBy != storeBySerialString) && (entry.StoreBy != storeByCNString) {
+			return logical.ErrorResponse(
+				fmt.Sprintf("Option store_by can be %s or %s, not %s", storeBySerialString, storeByCNString, entry.StoreBy),
+			), nil
+		}
+	}
+
 
 	// Store it
 	jsonEntry, err := logical.StorageEntryJSON("role/"+name, entry)
@@ -272,6 +318,8 @@ type roleEntry struct {
 	ChainOption      string        `json:"chain_option"`
 	StoreByCN        bool          `json:"store_by_cn"`
 	StoreBySerial    bool          `json:"store_by_serial"`
+	StoreBy          string `json:"store_by"`
+	NoStore          bool          `json:"no_store"`
 	ServiceGenerated bool          `json:"service_generated_cert"`
 	StorePrivateKey  bool          `json:"store_pkey"`
 	KeyType          string        `json:"key_type"`
