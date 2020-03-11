@@ -302,7 +302,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 				b.Logger().Error("Error putting entry to storage: " + err.Error())
 				return nil, err
 			}
-		} else  {
+		} else {
 			//Writing certificate to the storage with Serial Number
 			b.Logger().Debug("Putting certificate to the certs/", normalizeSerial(serialNumber))
 			entry.Key = "certs/" + normalizeSerial(serialNumber)

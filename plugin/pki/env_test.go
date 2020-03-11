@@ -323,19 +323,12 @@ func (e *testEnv) IssueCertificate(t *testing.T, data testData, configString ven
 		data.privateKey = resp.Data["private_key"].(string)
 	}
 
+	//it is need to determine if we're checking cloud signed certificate in checkStandartCert
 	data.provider = configString
 
 	checkStandartCert(t, data)
 
-	resp, err = e.Backend.HandleRequest(e.Context, &logical.Request{
-		Operation: logical.ListOperation,
-		Path:      "certs",
-		Storage:   e.Storage,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	fmt.Println(resp)
+	e.CertificateSerial = resp.Data["serial_number"].(string)
 }
 
 func (e *testEnv) SignCertificate(t *testing.T, data testData, configString venafiConfigString) {
@@ -451,8 +444,6 @@ func (e *testEnv) ReadCertificate(t *testing.T, data testData, configString vena
 	data.privateKey = resp.Data["private_key"].(string)
 	checkStandartCert(t, data)
 
-	//Set certificate serial number for FakeReadCertificateBySerial test
-	e.CertificateSerial = resp.Data["serial_number"].(string)
 }
 
 func (e *testEnv) ListCertificates(t *testing.T, data testData, configString venafiConfigString) {
@@ -475,6 +466,7 @@ func (e *testEnv) ListCertificates(t *testing.T, data testData, configString ven
 		t.Fatalf("certificate list should not be empty, but response data is empty: %#v", resp.Data)
 	}
 
+	//check that we can read certificate from list
 	e.ReadCertificate(t, data, configString, resp.Data["keys"].([]string)[0])
 }
 
@@ -547,6 +539,41 @@ func (e *testEnv) FakeCreateRole(t *testing.T) {
 func (e *testEnv) FakeCreateRoleDeprecatedStoreByCN(t *testing.T) {
 
 	var config = venafiConfigFakeDeprecatedStoreByCN
+	e.writeRoleToBackend(t, config)
+
+}
+
+func (e *testEnv) FakeCreateRoleDeprecatedStoreBySerial(t *testing.T) {
+
+	var config = venafiConfigFakeDeprecatedStoreBySerial
+	e.writeRoleToBackend(t, config)
+
+}
+
+func (e *testEnv) FakeCreateRoleStoreByCN(t *testing.T) {
+
+	var config = venafiConfigFakeStoreByCN
+	e.writeRoleToBackend(t, config)
+
+}
+
+func (e *testEnv) FakeCreateRoleStoreBySerial(t *testing.T) {
+
+	var config = venafiConfigFakeStoreBySerial
+	e.writeRoleToBackend(t, config)
+
+}
+
+func (e *testEnv) FakeCreateRoleNoStore(t *testing.T) {
+
+	var config = venafiConfigFakeNoStore
+	e.writeRoleToBackend(t, config)
+
+}
+
+func (e *testEnv) FakeCreateRoleNoStorePKey(t *testing.T) {
+
+	var config = venafiConfigFakeNoStorePKey
 	e.writeRoleToBackend(t, config)
 
 }

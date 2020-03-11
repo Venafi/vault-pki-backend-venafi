@@ -43,9 +43,23 @@ func TestStoreByOptions(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	t.Run("fake create role", integrationTestEnv.FakeCreateRoleDeprecatedStoreByCN)
+	//test store_by_serial deprecated option
+	t.Run("fake create role deprecated store_by_serial", integrationTestEnv.FakeCreateRoleDeprecatedStoreBySerial)
+	t.Run("fake issue", integrationTestEnv.FakeIssueCertificate)
+	t.Run("fake read certificate by serial", integrationTestEnv.FakeReadCertificateBySerial)
+	t.Run("delete role", integrationTestEnv.DeleteRole)
+
+	//test store_by_cn deprecated option
+	t.Run("fake create role deprecated store_by_cn", integrationTestEnv.FakeCreateRoleDeprecatedStoreByCN)
 	t.Run("fake issue", integrationTestEnv.FakeIssueCertificate)
 	t.Run("fake read certificate by cn", integrationTestEnv.FakeReadCertificateByCN)
+	t.Run("delete role", integrationTestEnv.DeleteRole)
+
+	//
+	t.Run("fake create role deprecated store_by_cn", integrationTestEnv.FakeCreateRoleStoreBySerial)
+	t.Run("fake issue", integrationTestEnv.FakeIssueCertificate)
+	t.Run("fake read certificate by serial", integrationTestEnv.FakeReadCertificateBySerial)
+	t.Run("delete role", integrationTestEnv.DeleteRole)
 
 }
 
