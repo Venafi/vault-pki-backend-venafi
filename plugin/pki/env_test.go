@@ -98,13 +98,46 @@ var venafiTestCloudConfigRestricted = map[string]interface{}{
 	"zone":      os.Getenv("CLOUDRESTRICTEDZONE"),
 }
 
-var venafiTestFakeConfig = map[string]interface{}{
+var venafiTestFakeConfigDeprecatedStoreByCN = map[string]interface{}{
 	"generate_lease":  true,
 	"fakemode":        true,
 	"store_by_cn":     true,
+	"store_pkey":      true,
+}
+
+var venafiTestFakeConfigDeprecatedStoreBySerial = map[string]interface{}{
+	"generate_lease":  true,
+	"fakemode":        true,
 	"store_by_serial": true,
 	"store_pkey":      true,
 }
+
+var venafiTestFakeConfigStoreByCN = map[string]interface{}{
+	"generate_lease":  true,
+	"fakemode":        true,
+	"store_by":     "cb",
+}
+
+var venafiTestFakeConfigStoreBySerial = map[string]interface{}{
+	"generate_lease":  true,
+	"fakemode":        true,
+	"store_by": "serial",
+	"store_pkey":      true,
+}
+
+var venafiTestFakeConfigNoStore = map[string]interface{}{
+	"generate_lease":  true,
+	"fakemode":        true,
+	"no_store": true,
+	"store_pkey":      true,
+}
+
+var venafiTestFakeConfigNoStorePKey = map[string]interface{}{
+	"generate_lease":  true,
+	"fakemode":        true,
+	"store_pkey":      false,
+}
+
 
 var venafiTestMixedConfig = map[string]interface{}{
 	"apikey":  "xxxxxxxxxxxxxxxx",
@@ -460,7 +493,7 @@ func makeConfig(configString venafiConfigString) (roleData map[string]interface{
 
 	switch configString {
 	case venafiConfigFake:
-		roleData = venafiTestFakeConfig
+		roleData = venafiTestFakeConfigDeprecatedStoreByCN
 	case venafiConfigTPP:
 		roleData = venafiTestTPPConfig
 	case venafiConfigTPPRestricted:
@@ -518,7 +551,7 @@ func (e *testEnv) FakeListRole(t *testing.T) {
 
 func (e *testEnv) FakeReadRole(t *testing.T) {
 
-	e.readRolesInBackend(t, venafiTestFakeConfig)
+	e.readRolesInBackend(t, venafiTestFakeConfigDeprecatedStoreByCN)
 
 }
 

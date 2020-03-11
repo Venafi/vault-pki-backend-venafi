@@ -297,10 +297,10 @@ func (b *backend) pathRoleCreate(ctx context.Context, req *logical.Request, data
 	//StoreBySerial and StoreByCN options are deprecated
 	//if one of them is set we will set store_by option
 	//if both are set then we set store_by to serial
-	if entry.StoreByCN {
-		entry.StoreBy = storeByCNString
-	} else if entry.StoreBySerial {
+	if entry.StoreBySerial {
 		entry.StoreBy = storeBySerialString
+	} else if entry.StoreByCN {
+		entry.StoreBy = storeByCNString
 	}
 
 
