@@ -293,22 +293,19 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 
 	//if no_store is not specified
 	if !role.NoStore {
-		//StoreBySerial and StoreByCN options are deprecated
-		if role.StoreBySerial || role.StoreBy == "" || role.StoreBy == storeBySerialString {
-
-			//Writing certificate to the storage with Serial Number
-			b.Logger().Debug("Putting certificate to the certs/", normalizeSerial(serialNumber))
-			entry.Key = "certs/" + normalizeSerial(serialNumber)
+		if role.StoreBy == storeByCNString {
+			//Writing certificate to the storage with CN
+			b.Logger().Debug("Putting certificate to the certs/" + commonName)
+			entry.Key = "certs/" + commonName
 
 			if err := req.Storage.Put(ctx, entry); err != nil {
 				b.Logger().Error("Error putting entry to storage: " + err.Error())
 				return nil, err
 			}
-		} else if role.StoreByCN || role.StoreBy == storeByCNString {
-
-			//Writing certificate to the storage with CN
-			b.Logger().Debug("Putting certificate to the certs/" + commonName)
-			entry.Key = "certs/" + commonName
+		} else  {
+			//Writing certificate to the storage with Serial Number
+			b.Logger().Debug("Putting certificate to the certs/", normalizeSerial(serialNumber))
+			entry.Key = "certs/" + normalizeSerial(serialNumber)
 
 			if err := req.Storage.Put(ctx, entry); err != nil {
 				b.Logger().Error("Error putting entry to storage: " + err.Error())

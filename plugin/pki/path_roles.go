@@ -75,16 +75,19 @@ Example:
 			"store_by_cn": {
 				Type:        framework.TypeBool,
 				Description: `Set it to true to store certificates by CN in certs/ path`,
+				Deprecated: true,
 			},
 
 			"store_by_serial": {
 				Type:        framework.TypeBool,
 				Description: `Set it to true to store certificates by unique serial number in certs/ path`,
+				Deprecated: true,
 			},
 
 			"store_by": {
 				Type:        framework.TypeString,
-				Description: `Store certificate by common name or serial number. Possible values: cn\serial`,
+				Description: `Store certificate by common name or serial number. Possible values: cn\serial
+By default certificate stored by serial`,
 			},
 
 			"no_store": {
@@ -289,6 +292,15 @@ func (b *backend) pathRoleCreate(ctx context.Context, req *logical.Request, data
 				fmt.Sprintf("Option store_by can be %s or %s, not %s", storeBySerialString, storeByCNString, entry.StoreBy),
 			), nil
 		}
+	}
+
+	//StoreBySerial and StoreByCN options are deprecated
+	//if one of them is set we will set store_by option
+	//if both are set then we set store_by to serial
+	if entry.StoreByCN {
+		entry.StoreBy = storeByCNString
+	} else if entry.StoreBySerial {
+		entry.StoreBy = storeBySerialString
 	}
 
 
