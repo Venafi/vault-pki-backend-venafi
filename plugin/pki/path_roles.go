@@ -44,7 +44,7 @@ func pathRoles(b *backend) *framework.Path {
 				Type: framework.TypeString,
 				Description: `Name of Venafi Platfrom or Cloud policy. 
 Example for Platform: testpolicy\\vault
-Example for Venafi Cloud: Default`,
+Example for Venafi Cloud: e33f3e40-4e7e-11ea-8da3-b3c196ebeb0b`,
 				Required: true,
 			},
 
@@ -148,7 +148,7 @@ attached to them. Defaults to "false".`,
 			},
 			"server_timeout": {
 				Type:        framework.TypeInt,
-				Description: "",
+				Description: "Timeout of waiting certificate",
 				Default:     180,
 			},
 		},

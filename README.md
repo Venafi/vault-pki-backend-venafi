@@ -98,6 +98,11 @@ It is not common for the Venafi Platform's REST API (WebSDK) to be secured using
     vault secrets enable -path=venafi-pki -plugin-name=venafi-pki-backend plugin
     ```
 
+1. Get help for all role options:_
+    ```
+    vault path-help venafi-pki/roles/role
+    ```
+
 1. Create a [PKI role](https://www.vaultproject.io/docs/secrets/pki/index.html) for the `venafi-pki` backend.
 
     **Venafi Cloud**:
@@ -106,7 +111,7 @@ It is not common for the Venafi Platform's REST API (WebSDK) to be secured using
     vault write venafi-pki/roles/cloud-backend \
     apikey="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" \
     zone="zzzzzzzz-zzzz-zzzz-zzzz-zzzzzzzzzzzz" \
-    generate_lease=true store_by_serial=true store_pkey=true ttl=1h max_ttl=1h \
+    generate_lease=true store_pkey=true ttl=1h max_ttl=1h \
     allowed_domains=example.com \
     allow_subdomains=true
     ```
@@ -122,12 +127,12 @@ It is not common for the Venafi Platform's REST API (WebSDK) to be secured using
     tpp_password="password" \
     zone="DevOps\\Vault Backend" \
     trust_bundle_file="/opt/venafi/bundle.pem" \
-    generate_lease=true store_by_serial=true store_pkey=true ttl=1h max_ttl=1h \
+    generate_lease=true store_pkey=true ttl=1h max_ttl=1h \
     allowed_domains=example.com \
     allow_subdomains=true
     ```
 
-    **NOTE**: To view role options, use `vault path-help vault-pki-backend-venafi/roles/<ROLE_NAME>`. When configuring your role, do not specify both `store_by_serial=true` and `store_by_cn=true`. Otherwise, the certificate may not be stored in the Vault.
+    **NOTE**: To view role options, use `vault path-help vault-pki-backend-venafi/roles/<ROLE_NAME>`.
 
 1. Enroll a certificate:
 
@@ -370,8 +375,6 @@ Get the certificate and private key from Trust Protection Platform, and then pas
     tpp_password=password \
     zone=testpolicy\\vault \
     generate_lease=true \
-    store_by_serial="true" \
-    store_pkey="true" \
     trust_bundle_file="/opt/venafi/bundle.pem"
     ```
 
@@ -589,7 +592,36 @@ To get the certificate and private key from HashiCorp Consul-template Engine, yo
 
 ## Testing
 
-There are integration tests written on [Ginkgo](https://github.com/onsi/ginkgo).
+We have tests for fake vcert endpoint, if you don't have TPP or Cloud you can test all endpoints using this command:_
+
+```
+go test -run  ^TestFake -v github.com/Venafi/vault-pki-backend-venafi/plugin/pki
+```
+
+Also you can run integration tests but for it you need to add TPP\Cloud credentials._
+
+Example fro TPP:_
+```
+export TPPUSER='admin'
+export TPPPASSWORD='strongPassword'
+export TRUST_BUNDLE="/opt/venafi/bundle.pem"
+export TPPURL="https://tpp.example.com:/vedsdk"
+export TPPZONE="devops\\\\vcert"
+
+```
+Example for Cloud:_
+```
+export CLOUDZONE="xxxxxxx-xxxxx-xxxx-xxxx-xxxxxxx"
+export CLOUDAPIKEY='xxxxxxx-xxxxx-xxxx-xxxx-xxxxxxx'
+```
+
+To run tests use make commands:_
+```
+make test_tpp
+make test_cloud
+```
+
+There are also e2e tests written on [Ginkgo](https://github.com/onsi/ginkgo).
 
 1. Install the Ginkgo CLI:
 
