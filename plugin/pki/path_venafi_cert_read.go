@@ -18,7 +18,7 @@ func pathVenafiCertRead(b *backend) *framework.Path {
 		},
 		Callbacks: map[logical.Operation]framework.OperationFunc{
 			logical.ReadOperation: b.pathVenafiCertRead,
-		    //todo: maybe add delete operation to delete certificate entry from storage
+			//todo: maybe add delete operation to delete certificate entry from storage
 		},
 
 		HelpSynopsis:    pathConfigRootHelpSyn,
