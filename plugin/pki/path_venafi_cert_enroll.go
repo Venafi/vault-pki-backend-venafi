@@ -235,7 +235,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 	}
 
 	//Adding origin custom field with utility name to certificate metadata
-	certReq.CustomFields = []certificate.CustomField{{Type: certificate.CustomFieldOrigin, Value: utilityName }}
+	certReq.CustomFields = []certificate.CustomField{{Type: certificate.CustomFieldOrigin, Value: utilityName}}
 
 	b.Logger().Debug("Running enroll request")
 
@@ -290,28 +290,29 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 	if err != nil {
 		return nil, err
 	}
-	if role.StoreByCN {
 
-		//Writing certificate to the storage with CN
-		b.Logger().Debug("Putting certificate to the certs/" + commonName)
-		entry.Key = "certs/" + commonName
+	//if no_store is not specified
+	if !role.NoStore {
+		if role.StoreBy == storeByCNString {
+			//Writing certificate to the storage with CN
+			b.Logger().Debug("Putting certificate to the certs/" + commonName)
+			entry.Key = "certs/" + commonName
 
-		if err := req.Storage.Put(ctx, entry); err != nil {
-			b.Logger().Error("Error putting entry to storage: " + err.Error())
-			return nil, err
+			if err := req.Storage.Put(ctx, entry); err != nil {
+				b.Logger().Error("Error putting entry to storage: " + err.Error())
+				return nil, err
+			}
+		} else {
+			//Writing certificate to the storage with Serial Number
+			b.Logger().Debug("Putting certificate to the certs/", normalizeSerial(serialNumber))
+			entry.Key = "certs/" + normalizeSerial(serialNumber)
+
+			if err := req.Storage.Put(ctx, entry); err != nil {
+				b.Logger().Error("Error putting entry to storage: " + err.Error())
+				return nil, err
+			}
 		}
-	}
 
-	if role.StoreBySerial {
-
-		//Writing certificate to the storage with Serial Number
-		b.Logger().Debug("Putting certificate to the certs/", normalizeSerial(serialNumber))
-		entry.Key = "certs/" + normalizeSerial(serialNumber)
-
-		if err := req.Storage.Put(ctx, entry); err != nil {
-			b.Logger().Error("Error putting entry to storage: " + err.Error())
-			return nil, err
-		}
 	}
 
 	var respData map[string]interface{}

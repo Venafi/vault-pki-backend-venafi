@@ -47,14 +47,20 @@ type testData struct {
 }
 
 const (
-	venafiConfigTPP             venafiConfigString = "TPP"
-	venafiConfigTPPPredefined   venafiConfigString = "TPPPredefined"
-	venafiConfigCloudPredefined venafiConfigString = "CloudPredefined"
-	venafiConfigTPPRestricted   venafiConfigString = "TPPRestricted"
-	venafiConfigCloud           venafiConfigString = "Cloud"
-	venafiConfigCloudRestricted venafiConfigString = "CloudRestricted"
-	venafiConfigFake            venafiConfigString = "Fake"
-	venafiConfigMixed           venafiConfigString = "Mixed"
+	venafiConfigTPP                         venafiConfigString = "TPP"
+	venafiConfigTPPPredefined               venafiConfigString = "TPPPredefined"
+	venafiConfigCloudPredefined             venafiConfigString = "CloudPredefined"
+	venafiConfigTPPRestricted               venafiConfigString = "TPPRestricted"
+	venafiConfigCloud                       venafiConfigString = "Cloud"
+	venafiConfigCloudRestricted             venafiConfigString = "CloudRestricted"
+	venafiConfigFake                        venafiConfigString = "Fake"
+	venafiConfigFakeDeprecatedStoreByCN     venafiConfigString = "FakeDeprecatedStoreByCN"
+	venafiConfigFakeDeprecatedStoreBySerial venafiConfigString = "venafiConfigFakeDeprecatedStoreBySerial"
+	venafiConfigFakeStoreByCN               venafiConfigString = "venafiConfigFakeStoreByCN"
+	venafiConfigFakeStoreBySerial           venafiConfigString = "venafiConfigFakeStoreBySerial"
+	venafiConfigFakeNoStore                 venafiConfigString = "venafiConfigFakeNoStore"
+	venafiConfigFakeNoStorePKey             venafiConfigString = "venafiConfigFakeNoStorePKey"
+	venafiConfigMixed                       venafiConfigString = "Mixed"
 )
 
 var venafiTestTPPConfig = map[string]interface{}{
@@ -98,12 +104,50 @@ var venafiTestCloudConfigRestricted = map[string]interface{}{
 	"zone":      os.Getenv("CLOUDRESTRICTEDZONE"),
 }
 
-var venafiTestFakeConfig = map[string]interface{}{
+var venafiTestFakeConfigDeprecatedStoreByCN = map[string]interface{}{
+	"generate_lease": true,
+	"fakemode":       true,
+	"store_by_cn":    true,
+	"store_pkey":     true,
+}
+
+var venafiTestFakeConfigDeprecatedStoreBySerial = map[string]interface{}{
 	"generate_lease":  true,
 	"fakemode":        true,
-	"store_by_cn":     true,
 	"store_by_serial": true,
 	"store_pkey":      true,
+}
+
+var venafiTestFakeConfigStoreByCN = map[string]interface{}{
+	"generate_lease": true,
+	"fakemode":       true,
+	"store_by":       "cn",
+	"store_pkey":     true,
+}
+
+var venafiTestFakeConfigStoreBySerial = map[string]interface{}{
+	"generate_lease": true,
+	"fakemode":       true,
+	"store_by":       "serial",
+	"store_pkey":     true,
+}
+
+var venafiTestFakeConfig = map[string]interface{}{
+	"generate_lease": true,
+	"fakemode":       true,
+	"store_pkey":     true,
+}
+
+var venafiTestFakeConfigNoStore = map[string]interface{}{
+	"generate_lease": true,
+	"fakemode":       true,
+	"no_store":       true,
+}
+
+var venafiTestFakeConfigNoStorePKey = map[string]interface{}{
+	"generate_lease": true,
+	"fakemode":       true,
+	"store_pkey":     false,
 }
 
 var venafiTestMixedConfig = map[string]interface{}{
@@ -220,7 +264,7 @@ func (e *testEnv) readRolesInBackend(t *testing.T, config map[string]interface{}
 
 }
 
-func (e *testEnv) IssueCertificate(t *testing.T, data testData, configString venafiConfigString) {
+func (e *testEnv) IssueCertificateAndSaveSerial(t *testing.T, data testData, configString venafiConfigString) {
 
 	var issueData map[string]interface{}
 
@@ -279,19 +323,13 @@ func (e *testEnv) IssueCertificate(t *testing.T, data testData, configString ven
 		data.privateKey = resp.Data["private_key"].(string)
 	}
 
+	//it is need to determine if we're checking cloud signed certificate in checkStandartCert
 	data.provider = configString
 
 	checkStandartCert(t, data)
 
-	resp, err = e.Backend.HandleRequest(e.Context, &logical.Request{
-		Operation: logical.ListOperation,
-		Path:      "certs",
-		Storage:   e.Storage,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	fmt.Println(resp)
+	//save certificate serial for the next test
+	e.CertificateSerial = resp.Data["serial_number"].(string)
 }
 
 func (e *testEnv) SignCertificate(t *testing.T, data testData, configString venafiConfigString) {
@@ -307,7 +345,7 @@ func (e *testEnv) SignCertificate(t *testing.T, data testData, configString vena
 		certificateRequest.DNSNames = append(certificateRequest.DNSNames, data.dnsIP)
 	}
 
-	if configString == venafiConfigFake {
+	if configString == venafiConfigFakeDeprecatedStoreByCN {
 		certificateRequest.DNSNames = append(certificateRequest.DNSNames, data.cn)
 	}
 
@@ -388,7 +426,7 @@ func (e *testEnv) ReadCertificate(t *testing.T, data testData, configString vena
 	}
 
 	if resp != nil && resp.IsError() {
-		t.Fatalf("failed to issue certificate, %#v", resp.Data["error"])
+		t.Fatalf("failed to read certificate, %#v", resp.Data["error"])
 	}
 
 	if resp == nil {
@@ -407,8 +445,52 @@ func (e *testEnv) ReadCertificate(t *testing.T, data testData, configString vena
 	data.privateKey = resp.Data["private_key"].(string)
 	checkStandartCert(t, data)
 
-	//Set certificate serial number for FakeReadCertificateBySerial test
-	e.CertificateSerial = resp.Data["serial_number"].(string)
+}
+
+func (e *testEnv) CheckThatThereIsNoCertificate(t *testing.T, certId string) {
+
+	_, err := e.Backend.HandleRequest(e.Context, &logical.Request{
+		Operation: logical.ReadOperation,
+		Path:      "cert/" + certId,
+		Storage:   e.Storage,
+	})
+
+	if err == nil {
+		t.Fatal("should be no entry error if there is no certificate")
+	}
+
+	const noCertError = "no entry found in path"
+	certContain := strings.Contains(err.Error(),noCertError)
+	if !certContain {
+		t.Fatalf("error should contain %s substring but it is %s", noCertError, err)
+	}
+
+}
+
+func (e *testEnv) CheckThatThereIsNoPKey(t *testing.T, certId string) {
+
+	resp, err := e.Backend.HandleRequest(e.Context, &logical.Request{
+		Operation: logical.ReadOperation,
+		Path:      "cert/" + certId,
+		Storage:   e.Storage,
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp != nil && resp.IsError() {
+		t.Fatalf("failed to read certificate, %#v", resp.Data["error"])
+	}
+
+	if resp == nil {
+		t.Fatalf("should be on output on issue certificate, but response is nil: %#v", resp)
+	}
+
+	if resp.Data["private_key"] != "" {
+		t.Fatalf("expected no private_key in the store")
+	}
+
 }
 
 func (e *testEnv) ListCertificates(t *testing.T, data testData, configString venafiConfigString) {
@@ -431,9 +513,8 @@ func (e *testEnv) ListCertificates(t *testing.T, data testData, configString ven
 		t.Fatalf("certificate list should not be empty, but response data is empty: %#v", resp.Data)
 	}
 
-	if !sliceContains(resp.Data["keys"].([]string), data.cn) {
-		t.Fatalf("expected CN %s in list %s", data.cn, resp.Data["keys"])
-	}
+	//check that we can read certificate from list
+	e.ReadCertificate(t, data, configString, resp.Data["keys"].([]string)[0])
 }
 
 func (e *testEnv) RevokeCertificate(t *testing.T, certId string) {
@@ -461,6 +542,18 @@ func makeConfig(configString venafiConfigString) (roleData map[string]interface{
 	switch configString {
 	case venafiConfigFake:
 		roleData = venafiTestFakeConfig
+	case venafiConfigFakeDeprecatedStoreByCN:
+		roleData = venafiTestFakeConfigDeprecatedStoreByCN
+	case venafiConfigFakeDeprecatedStoreBySerial:
+		roleData = venafiTestFakeConfigDeprecatedStoreBySerial
+	case venafiConfigFakeStoreByCN:
+		roleData = venafiTestFakeConfigStoreByCN
+	case venafiConfigFakeStoreBySerial:
+		roleData = venafiTestFakeConfigStoreBySerial
+	case venafiConfigFakeNoStore:
+		roleData = venafiTestFakeConfigNoStore
+	case venafiConfigFakeNoStorePKey:
+		roleData = venafiTestFakeConfigNoStorePKey
 	case venafiConfigTPP:
 		roleData = venafiTestTPPConfig
 	case venafiConfigTPPRestricted:
@@ -490,6 +583,48 @@ func (e *testEnv) FakeCreateRole(t *testing.T) {
 
 }
 
+func (e *testEnv) FakeCreateRoleDeprecatedStoreByCN(t *testing.T) {
+
+	var config = venafiConfigFakeDeprecatedStoreByCN
+	e.writeRoleToBackend(t, config)
+
+}
+
+func (e *testEnv) FakeCreateRoleDeprecatedStoreBySerial(t *testing.T) {
+
+	var config = venafiConfigFakeDeprecatedStoreBySerial
+	e.writeRoleToBackend(t, config)
+
+}
+
+func (e *testEnv) FakeCreateRoleStoreByCN(t *testing.T) {
+
+	var config = venafiConfigFakeStoreByCN
+	e.writeRoleToBackend(t, config)
+
+}
+
+func (e *testEnv) FakeCreateRoleStoreBySerial(t *testing.T) {
+
+	var config = venafiConfigFakeStoreBySerial
+	e.writeRoleToBackend(t, config)
+
+}
+
+func (e *testEnv) FakeCreateRoleNoStore(t *testing.T) {
+
+	var config = venafiConfigFakeNoStore
+	e.writeRoleToBackend(t, config)
+
+}
+
+func (e *testEnv) FakeCreateRoleNoStorePKey(t *testing.T) {
+
+	var config = venafiConfigFakeNoStorePKey
+	e.writeRoleToBackend(t, config)
+
+}
+
 func (e *testEnv) TPPCreateRole(t *testing.T) {
 
 	var config = venafiConfigTPPPredefined
@@ -504,10 +639,61 @@ func (e *testEnv) CloudCreateRole(t *testing.T) {
 
 }
 
-func (e *testEnv) FakeCreateMixedRole(t *testing.T) {
+func (e *testEnv) CreateMixedRole(t *testing.T) {
 
 	var config = venafiConfigMixed
 	e.failToWriteRoleToBackend(t, config)
+
+}
+
+func (e *testEnv) FakeCheckThatThereIsNoCertificate(t *testing.T) {
+	data := testData{}
+	randString := e.TestRandString
+	domain := "venafi.example.com"
+	data.cn = randString + "." + domain
+
+	e.CheckThatThereIsNoCertificate(t, normalizeSerial(e.CertificateSerial))
+
+}
+
+func (e *testEnv) FakeCheckThatThereIsNoPKey(t *testing.T) {
+	data := testData{}
+	randString := e.TestRandString
+	domain := "venafi.example.com"
+	data.cn = randString + "." + domain
+
+	e.CheckThatThereIsNoPKey(t, normalizeSerial(e.CertificateSerial))
+}
+
+func (e *testEnv) DeleteRole(t *testing.T) {
+
+	resp, err := e.Backend.HandleRequest(e.Context, &logical.Request{
+		Operation: logical.DeleteOperation,
+		Path:      "roles/" + e.RoleName,
+		Storage:   e.Storage,
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp != nil && resp.IsError() {
+		t.Fatal(resp)
+	}
+
+	resp, err = e.Backend.HandleRequest(e.Context, &logical.Request{
+		Operation: logical.ReadOperation,
+		Path:      "roles/" + e.RoleName,
+		Storage:   e.Storage,
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp != nil {
+		t.Fatalf("should be no output on reading the delted role %s, but response is: %#v", e.RoleName, resp)
+	}
 
 }
 
@@ -534,7 +720,7 @@ func (e *testEnv) CloudReadRole(t *testing.T) {
 
 }
 
-func (e *testEnv) FakeIssueCertificate(t *testing.T) {
+func (e *testEnv) FakeIssueCertificateAndSaveSerial(t *testing.T) {
 
 	data := testData{}
 	randString := e.TestRandString
@@ -545,8 +731,8 @@ func (e *testEnv) FakeIssueCertificate(t *testing.T) {
 	data.onlyIP = "127.0.0.1"
 	data.dnsEmail = "venafi@example.com"
 
-	var config = venafiConfigFake
-	e.IssueCertificate(t, data, config)
+	var config = venafiConfigFakeDeprecatedStoreByCN
+	e.IssueCertificateAndSaveSerial(t, data, config)
 
 }
 
@@ -561,7 +747,7 @@ func (e *testEnv) FakeReadCertificateByCN(t *testing.T) {
 	data.onlyIP = "127.0.0.1"
 	data.dnsEmail = "venafi@example.com"
 
-	var config = venafiConfigFake
+	var config = venafiConfigFakeDeprecatedStoreByCN
 	e.ReadCertificate(t, data, config, data.cn)
 
 }
@@ -577,7 +763,7 @@ func (e *testEnv) FakeReadCertificateBySerial(t *testing.T) {
 	data.onlyIP = "127.0.0.1"
 	data.dnsEmail = "venafi@example.com"
 
-	var config = venafiConfigFake
+	var config = venafiConfigFakeDeprecatedStoreBySerial
 	e.ReadCertificate(t, data, config, normalizeSerial(e.CertificateSerial))
 
 }
@@ -608,7 +794,7 @@ func (e *testEnv) FakeListCertificate(t *testing.T) {
 	data.onlyIP = "127.0.0.1"
 	data.dnsEmail = "venafi@example.com"
 
-	var config = venafiConfigFake
+	var config = venafiConfigFakeDeprecatedStoreByCN
 	e.ListCertificates(t, data, config)
 
 }
@@ -624,10 +810,10 @@ func (e *testEnv) FakeIntegrationIssueCertificate(t *testing.T) {
 	data.onlyIP = "127.0.0.1"
 	data.dnsEmail = "venafi@example.com"
 
-	var config = venafiConfigFake
+	var config = venafiConfigFakeDeprecatedStoreByCN
 
 	e.writeRoleToBackend(t, config)
-	e.IssueCertificate(t, data, config)
+	e.IssueCertificateAndSaveSerial(t, data, config)
 
 }
 
@@ -643,10 +829,10 @@ func (e *testEnv) FakeIntegrationIssueCertificateWithPassword(t *testing.T) {
 	data.dnsEmail = "venafi@example.com"
 	data.keyPassword = "password"
 
-	var config = venafiConfigFake
+	var config = venafiConfigFakeDeprecatedStoreByCN
 
 	e.writeRoleToBackend(t, config)
-	e.IssueCertificate(t, data, config)
+	e.IssueCertificateAndSaveSerial(t, data, config)
 
 }
 
@@ -663,7 +849,7 @@ func (e *testEnv) FakeSignCertificate(t *testing.T) {
 	data.keyPassword = "password"
 	data.signCSR = true
 
-	var config = venafiConfigFake
+	var config = venafiConfigFakeDeprecatedStoreByCN
 
 	e.SignCertificate(t, data, config)
 }
@@ -681,7 +867,7 @@ func (e *testEnv) TPPIntegrationIssueCertificate(t *testing.T) {
 	var config = venafiConfigTPP
 
 	e.writeRoleToBackend(t, config)
-	e.IssueCertificate(t, data, config)
+	e.IssueCertificateAndSaveSerial(t, data, config)
 
 }
 
@@ -699,7 +885,7 @@ func (e *testEnv) TPPIntegrationIssueCertificateWithPassword(t *testing.T) {
 	var config = venafiConfigTPP
 
 	e.writeRoleToBackend(t, config)
-	e.IssueCertificate(t, data, config)
+	e.IssueCertificateAndSaveSerial(t, data, config)
 
 }
 
@@ -716,7 +902,7 @@ func (e *testEnv) TPPIntegrationIssueCertificateRestricted(t *testing.T) {
 	var config = venafiConfigTPPRestricted
 
 	e.writeRoleToBackend(t, config)
-	e.IssueCertificate(t, data, config)
+	e.IssueCertificateAndSaveSerial(t, data, config)
 
 }
 
@@ -764,7 +950,7 @@ func (e *testEnv) CloudIntegrationIssueCertificate(t *testing.T) {
 	var config = venafiConfigCloud
 
 	e.writeRoleToBackend(t, config)
-	e.IssueCertificate(t, data, config)
+	e.IssueCertificateAndSaveSerial(t, data, config)
 }
 
 func (e *testEnv) CloudIntegrationIssueCertificateRestricted(t *testing.T) {
@@ -777,7 +963,7 @@ func (e *testEnv) CloudIntegrationIssueCertificateRestricted(t *testing.T) {
 	var config = venafiConfigCloud
 
 	e.writeRoleToBackend(t, config)
-	e.IssueCertificate(t, data, config)
+	e.IssueCertificateAndSaveSerial(t, data, config)
 }
 
 func (e *testEnv) CloudIntegrationIssueCertificateWithPassword(t *testing.T) {
@@ -791,7 +977,7 @@ func (e *testEnv) CloudIntegrationIssueCertificateWithPassword(t *testing.T) {
 	var config = venafiConfigCloud
 
 	e.writeRoleToBackend(t, config)
-	e.IssueCertificate(t, data, config)
+	e.IssueCertificateAndSaveSerial(t, data, config)
 }
 
 func checkStandartCert(t *testing.T, data testData) {
