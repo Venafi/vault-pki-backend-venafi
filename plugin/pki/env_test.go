@@ -121,7 +121,8 @@ var venafiTestFakeConfigDeprecatedStoreBySerial = map[string]interface{}{
 var venafiTestFakeConfigStoreByCN = map[string]interface{}{
 	"generate_lease": true,
 	"fakemode":       true,
-	"store_by":       "cb",
+	"store_by":       "cn",
+	"store_pkey":     true,
 }
 
 var venafiTestFakeConfigStoreBySerial = map[string]interface{}{
@@ -141,7 +142,6 @@ var venafiTestFakeConfigNoStore = map[string]interface{}{
 	"generate_lease": true,
 	"fakemode":       true,
 	"no_store":       true,
-	"store_pkey":     true,
 }
 
 var venafiTestFakeConfigNoStorePKey = map[string]interface{}{
@@ -425,7 +425,7 @@ func (e *testEnv) ReadCertificate(t *testing.T, data testData, configString vena
 	}
 
 	if resp != nil && resp.IsError() {
-		t.Fatalf("failed to issue certificate, %#v", resp.Data["error"])
+		t.Fatalf("failed to read certificate, %#v", resp.Data["error"])
 	}
 
 	if resp == nil {
@@ -443,6 +443,26 @@ func (e *testEnv) ReadCertificate(t *testing.T, data testData, configString vena
 	data.cert = resp.Data["certificate"].(string)
 	data.privateKey = resp.Data["private_key"].(string)
 	checkStandartCert(t, data)
+
+}
+
+func (e *testEnv) CheckThatThereIsNoCertificate(t *testing.T, certId string) {
+
+	_, err := e.Backend.HandleRequest(e.Context, &logical.Request{
+		Operation: logical.ReadOperation,
+		Path:      "cert/" + certId,
+		Storage:   e.Storage,
+	})
+
+	if err == nil {
+		t.Fatal("should be no entry error if there is no certificate")
+	}
+
+	const noCertError = "no entry found in path"
+	certContain := strings.Contains(err.Error(),noCertError)
+	if !certContain {
+		t.Fatalf("error should containe %s substring but it is %s", noCertError, err)
+	}
 
 }
 
@@ -596,6 +616,17 @@ func (e *testEnv) CreateMixedRole(t *testing.T) {
 
 	var config = venafiConfigMixed
 	e.failToWriteRoleToBackend(t, config)
+
+}
+
+func (e *testEnv) FakeCheckThatThereIsNoCertificate(t *testing.T) {
+	data := testData{}
+	randString := e.TestRandString
+	domain := "venafi.example.com"
+	data.cn = randString + "." + domain
+
+	e.CheckThatThereIsNoCertificate(t, normalizeSerial(e.CertificateSerial))
+	e.CheckThatThereIsNoCertificate(t,data.cn)
 
 }
 
