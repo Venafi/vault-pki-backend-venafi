@@ -293,10 +293,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 
 	//if no_store is not specified
 	if !role.NoStore {
-		//Firstly work on deprecated options to ensure backward compatibility
-		//This code is deprecated and should be removed in future to use store_by and no_store options
-		if role.StoreByCN {
-
+		if role.StoreBy == storeByCNString {
 			//Writing certificate to the storage with CN
 			b.Logger().Debug("Putting certificate to the certs/" + commonName)
 			entry.Key = "certs/" + commonName
@@ -305,10 +302,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 				b.Logger().Error("Error putting entry to storage: " + err.Error())
 				return nil, err
 			}
-		}
-
-		if role.StoreBySerial {
-
+		} else {
 			//Writing certificate to the storage with Serial Number
 			b.Logger().Debug("Putting certificate to the certs/", normalizeSerial(serialNumber))
 			entry.Key = "certs/" + normalizeSerial(serialNumber)
@@ -316,29 +310,6 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 			if err := req.Storage.Put(ctx, entry); err != nil {
 				b.Logger().Error("Error putting entry to storage: " + err.Error())
 				return nil, err
-			}
-		}
-
-		if role.StoreBy != "" {
-			switch role.StoreBy {
-			case storeByCNString:
-				//Writing certificate to the storage with CN
-				b.Logger().Debug("Putting certificate to the certs/" + commonName)
-				entry.Key = "certs/" + commonName
-
-				if err := req.Storage.Put(ctx, entry); err != nil {
-					b.Logger().Error("Error putting entry to storage: " + err.Error())
-					return nil, err
-				}
-			case storeBySerialString:
-				//Writing certificate to the storage with Serial Number
-				b.Logger().Debug("Putting certificate to the certs/", normalizeSerial(serialNumber))
-				entry.Key = "certs/" + normalizeSerial(serialNumber)
-
-				if err := req.Storage.Put(ctx, entry); err != nil {
-					b.Logger().Error("Error putting entry to storage: " + err.Error())
-					return nil, err
-				}
 			}
 		}
 

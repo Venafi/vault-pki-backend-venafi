@@ -44,7 +44,7 @@ func pathRoles(b *backend) *framework.Path {
 				Type: framework.TypeString,
 				Description: `Name of Venafi Platfrom or Cloud policy. 
 Example for Platform: testpolicy\\vault
-Example for Venafi Cloud: Default`,
+Example for Venafi Cloud: e33f3e40-4e7e-11ea-8da3-b3c196ebeb0b`,
 				Required: true,
 			},
 
@@ -75,20 +75,23 @@ Example:
 			"store_by_cn": {
 				Type:        framework.TypeBool,
 				Description: `Set it to true to store certificates by CN in certs/ path`,
+				Deprecated:  true,
 			},
 
 			"store_by_serial": {
 				Type:        framework.TypeBool,
 				Description: `Set it to true to store certificates by unique serial number in certs/ path`,
+				Deprecated:  true,
 			},
 
 			"store_by": {
-				Type:        framework.TypeString,
-				Description: `Store certificate by common name or serial number. Possible values: cn\serial`,
+				Type: framework.TypeString,
+				Description: `Store certificate by common name or serial number. Possible values: cn\serial
+By default certificate stored by serial`,
 			},
 
 			"no_store": {
-				Type: framework.TypeBool,
+				Type:        framework.TypeBool,
 				Description: `If set, certificates issued/signed against this role will not be stored in the storage backend.`,
 			},
 
@@ -145,7 +148,7 @@ attached to them. Defaults to "false".`,
 			},
 			"server_timeout": {
 				Type:        framework.TypeInt,
-				Description: "",
+				Description: "Timeout of waiting certificate",
 				Default:     180,
 			},
 		},
@@ -160,7 +163,6 @@ attached to them. Defaults to "false".`,
 		HelpDescription: pathRoleHelpDesc,
 	}
 }
-
 
 const (
 	storeByCNString     string = "cn"
@@ -291,6 +293,14 @@ func (b *backend) pathRoleCreate(ctx context.Context, req *logical.Request, data
 		}
 	}
 
+	//StoreBySerial and StoreByCN options are deprecated
+	//if one of them is set we will set store_by option
+	//if both are set then we set store_by to serial
+	if entry.StoreBySerial {
+		entry.StoreBy = storeBySerialString
+	} else if entry.StoreByCN {
+		entry.StoreBy = storeByCNString
+	}
 
 	// Store it
 	jsonEntry, err := logical.StorageEntryJSON("role/"+name, entry)
@@ -318,7 +328,7 @@ type roleEntry struct {
 	ChainOption      string        `json:"chain_option"`
 	StoreByCN        bool          `json:"store_by_cn"`
 	StoreBySerial    bool          `json:"store_by_serial"`
-	StoreBy          string `json:"store_by"`
+	StoreBy          string        `json:"store_by"`
 	NoStore          bool          `json:"no_store"`
 	ServiceGenerated bool          `json:"service_generated_cert"`
 	StorePrivateKey  bool          `json:"store_pkey"`
@@ -347,6 +357,8 @@ func (r *roleEntry) ToResponseData() map[string]interface{} {
 		"tpp_user":               r.TPPUser,
 		"trust_bundle_file":      r.TrustBundleFile,
 		"fakemode":               r.Fakemode,
+		"store_by":               r.StoreBy,
+		"no_store":               r.NoStore,
 		"store_by_cn":            r.StoreByCN,
 		"store_by_serial":        r.StoreBySerial,
 		"service_generated_cert": r.ServiceGenerated,
