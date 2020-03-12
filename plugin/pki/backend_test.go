@@ -69,13 +69,13 @@ func TestStoreByOptions(t *testing.T) {
 	t.Run("delete role", integrationTestEnv.DeleteRole)
 
 	//test no_store
-	t.Run("create role store_by cn", integrationTestEnv.FakeCreateRoleNoStore)
+	t.Run("create role no_store true", integrationTestEnv.FakeCreateRoleNoStore)
 	t.Run("issue", integrationTestEnv.FakeIssueCertificateAndSaveSerial)
 	t.Run("check that there is no certificate", integrationTestEnv.FakeCheckThatThereIsNoCertificate)
 	t.Run("delete role", integrationTestEnv.DeleteRole)
 
 	//test store_pkey false
-	t.Run("create role store_by cn", integrationTestEnv.FakeCreateRoleNoStorePKey)
+	t.Run("create role store_pkey false", integrationTestEnv.FakeCreateRoleNoStorePKey)
 	t.Run("issue", integrationTestEnv.FakeIssueCertificateAndSaveSerial)
 	t.Run("check that there is no private key", integrationTestEnv.FakeCheckThatThereIsNoPKey)
 	t.Run("delete role", integrationTestEnv.DeleteRole)
