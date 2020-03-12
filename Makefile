@@ -108,6 +108,9 @@ test_e2e:
 	sed -i "s#image:.*$(IMAGE_NAME).*#image: $(DOCKER_IMAGE):$(BUILD_TAG)#" docker-compose.yaml
 	cd plugin/pki/e2e && ginkgo -v
 
+test_fake:
+	go test -run  ^TestFake -v github.com/Venafi/vault-pki-backend-venafi/plugin/pki
+
 push: build build_docker test_e2e
 	docker push $(DOCKER_IMAGE):$(BUILD_TAG)
 

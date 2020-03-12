@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-func TestRolesConfigurations(t *testing.T) {
+func TestFakeRolesConfigurations(t *testing.T) {
 	integrationTestEnv, err := newIntegrationTestEnv()
 	if err != nil {
 		t.Fatal(err)
@@ -19,7 +19,7 @@ func TestRolesConfigurations(t *testing.T) {
 }
 
 //Testing all endpoints with fake vcert CA
-func TestEndpoints(t *testing.T) {
+func TestFakeEndpoints(t *testing.T) {
 	integrationTestEnv, err := newIntegrationTestEnv()
 	if err != nil {
 		t.Fatal(err)
@@ -37,7 +37,7 @@ func TestEndpoints(t *testing.T) {
 }
 
 //testing store_by no_store and deprecated store_by_cn and store_by_serial options
-func TestStoreByOptions(t *testing.T) {
+func TestFakeStoreByOptions(t *testing.T) {
 	integrationTestEnv, err := newIntegrationTestEnv()
 	if err != nil {
 		t.Fatal(err)
