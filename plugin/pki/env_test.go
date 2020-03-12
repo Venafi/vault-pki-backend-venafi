@@ -461,7 +461,7 @@ func (e *testEnv) CheckThatThereIsNoCertificate(t *testing.T, certId string) {
 	const noCertError = "no entry found in path"
 	certContain := strings.Contains(err.Error(),noCertError)
 	if !certContain {
-		t.Fatalf("error should containe %s substring but it is %s", noCertError, err)
+		t.Fatalf("error should contain %s substring but it is %s", noCertError, err)
 	}
 
 }
