@@ -28,7 +28,7 @@ func TestEndpoints(t *testing.T) {
 	t.Run("fake create role", integrationTestEnv.FakeCreateRole)
 	t.Run("fake list roles", integrationTestEnv.FakeListRole)
 	t.Run("fake read roles", integrationTestEnv.FakeReadRole)
-	t.Run("fake issue", integrationTestEnv.FakeIssueCertificate)
+	t.Run("fake issue", integrationTestEnv.FakeIssueCertificateAndSaveSerial)
 	t.Run("fake list certificates", integrationTestEnv.FakeListCertificate)
 	t.Run("fake read certificate by serial", integrationTestEnv.FakeReadCertificateBySerial)
 	t.Run("fake sign", integrationTestEnv.FakeSignCertificate)
@@ -42,37 +42,43 @@ func TestStoreByOptions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	//test no_store
-	t.Run("fake create role store_by cn", integrationTestEnv.FakeCreateRoleNoStore)
-	t.Run("fake issue", integrationTestEnv.FakeIssueCertificate)
-	t.Run("fake read certificate by cn", integrationTestEnv.FakeCheckThatThereIsNoCertificate)
-	t.Run("delete role", integrationTestEnv.DeleteRole)
 
 	//test store_by_serial deprecated option
-	t.Run("fake create role deprecated store_by_serial", integrationTestEnv.FakeCreateRoleDeprecatedStoreBySerial)
-	t.Run("fake issue", integrationTestEnv.FakeIssueCertificate)
-	t.Run("fake read certificate by serial", integrationTestEnv.FakeReadCertificateBySerial)
+	t.Run("create role deprecated store_by_serial", integrationTestEnv.FakeCreateRoleDeprecatedStoreBySerial)
+	t.Run("issue", integrationTestEnv.FakeIssueCertificateAndSaveSerial)
+	t.Run("read certificate by serial", integrationTestEnv.FakeReadCertificateBySerial)
 	t.Run("delete role", integrationTestEnv.DeleteRole)
 
 	//test store_by_cn deprecated option
-	t.Run("fake create role deprecated store_by_cn", integrationTestEnv.FakeCreateRoleDeprecatedStoreByCN)
-	t.Run("fake issue", integrationTestEnv.FakeIssueCertificate)
-	t.Run("fake read certificate by cn", integrationTestEnv.FakeReadCertificateByCN)
+	t.Run("create role deprecated store_by_cn", integrationTestEnv.FakeCreateRoleDeprecatedStoreByCN)
+	t.Run("issue", integrationTestEnv.FakeIssueCertificateAndSaveSerial)
+	t.Run("read certificate by cn", integrationTestEnv.FakeReadCertificateByCN)
 	t.Run("delete role", integrationTestEnv.DeleteRole)
 
 	//test store_by cn
-	t.Run("fake create role store_by cn", integrationTestEnv.FakeCreateRoleStoreByCN)
-	t.Run("fake issue", integrationTestEnv.FakeIssueCertificate)
-	t.Run("fake read certificate by cn", integrationTestEnv.FakeReadCertificateByCN)
+	t.Run("create role store_by cn", integrationTestEnv.FakeCreateRoleStoreByCN)
+	t.Run("issue", integrationTestEnv.FakeIssueCertificateAndSaveSerial)
+	t.Run("read certificate by cn", integrationTestEnv.FakeReadCertificateByCN)
 	t.Run("delete role", integrationTestEnv.DeleteRole)
 
 
 	//test store_by default
-	t.Run("fake create role store_by serial", integrationTestEnv.FakeCreateRoleStoreBySerial)
-	t.Run("fake issue", integrationTestEnv.FakeIssueCertificate)
-	t.Run("fake read certificate by serial", integrationTestEnv.FakeReadCertificateBySerial)
+	t.Run("create role store_by serial", integrationTestEnv.FakeCreateRoleStoreBySerial)
+	t.Run("issue", integrationTestEnv.FakeIssueCertificateAndSaveSerial)
+	t.Run("read certificate by serial", integrationTestEnv.FakeReadCertificateBySerial)
 	t.Run("delete role", integrationTestEnv.DeleteRole)
 
+	//test no_store
+	t.Run("create role store_by cn", integrationTestEnv.FakeCreateRoleNoStore)
+	t.Run("issue", integrationTestEnv.FakeIssueCertificateAndSaveSerial)
+	t.Run("check that there is no certificate", integrationTestEnv.FakeCheckThatThereIsNoCertificate)
+	t.Run("delete role", integrationTestEnv.DeleteRole)
+
+	//test store_pkey false
+	t.Run("create role store_by cn", integrationTestEnv.FakeCreateRoleNoStorePKey)
+	t.Run("issue", integrationTestEnv.FakeIssueCertificateAndSaveSerial)
+	t.Run("check that there is no private key", integrationTestEnv.FakeCheckThatThereIsNoPKey)
+	t.Run("delete role", integrationTestEnv.DeleteRole)
 }
 
 

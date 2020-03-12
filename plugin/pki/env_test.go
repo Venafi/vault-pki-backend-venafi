@@ -264,7 +264,7 @@ func (e *testEnv) readRolesInBackend(t *testing.T, config map[string]interface{}
 
 }
 
-func (e *testEnv) IssueCertificate(t *testing.T, data testData, configString venafiConfigString) {
+func (e *testEnv) IssueCertificateAndSaveSerial(t *testing.T, data testData, configString venafiConfigString) {
 
 	var issueData map[string]interface{}
 
@@ -328,6 +328,7 @@ func (e *testEnv) IssueCertificate(t *testing.T, data testData, configString ven
 
 	checkStandartCert(t, data)
 
+	//save certificate serial for the next test
 	e.CertificateSerial = resp.Data["serial_number"].(string)
 }
 
@@ -462,6 +463,32 @@ func (e *testEnv) CheckThatThereIsNoCertificate(t *testing.T, certId string) {
 	certContain := strings.Contains(err.Error(),noCertError)
 	if !certContain {
 		t.Fatalf("error should contain %s substring but it is %s", noCertError, err)
+	}
+
+}
+
+func (e *testEnv) CheckThatThereIsNoPKey(t *testing.T, certId string) {
+
+	resp, err := e.Backend.HandleRequest(e.Context, &logical.Request{
+		Operation: logical.ReadOperation,
+		Path:      "cert/" + certId,
+		Storage:   e.Storage,
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp != nil && resp.IsError() {
+		t.Fatalf("failed to read certificate, %#v", resp.Data["error"])
+	}
+
+	if resp == nil {
+		t.Fatalf("should be on output on issue certificate, but response is nil: %#v", resp)
+	}
+
+	if resp.Data["private_key"] != "" {
+		t.Fatalf("expected no private_key in the store")
 	}
 
 }
@@ -626,8 +653,16 @@ func (e *testEnv) FakeCheckThatThereIsNoCertificate(t *testing.T) {
 	data.cn = randString + "." + domain
 
 	e.CheckThatThereIsNoCertificate(t, normalizeSerial(e.CertificateSerial))
-	e.CheckThatThereIsNoCertificate(t,data.cn)
 
+}
+
+func (e *testEnv) FakeCheckThatThereIsNoPKey(t *testing.T) {
+	data := testData{}
+	randString := e.TestRandString
+	domain := "venafi.example.com"
+	data.cn = randString + "." + domain
+
+	e.CheckThatThereIsNoPKey(t, normalizeSerial(e.CertificateSerial))
 }
 
 func (e *testEnv) DeleteRole(t *testing.T) {
@@ -685,7 +720,7 @@ func (e *testEnv) CloudReadRole(t *testing.T) {
 
 }
 
-func (e *testEnv) FakeIssueCertificate(t *testing.T) {
+func (e *testEnv) FakeIssueCertificateAndSaveSerial(t *testing.T) {
 
 	data := testData{}
 	randString := e.TestRandString
@@ -697,7 +732,7 @@ func (e *testEnv) FakeIssueCertificate(t *testing.T) {
 	data.dnsEmail = "venafi@example.com"
 
 	var config = venafiConfigFakeDeprecatedStoreByCN
-	e.IssueCertificate(t, data, config)
+	e.IssueCertificateAndSaveSerial(t, data, config)
 
 }
 
@@ -778,7 +813,7 @@ func (e *testEnv) FakeIntegrationIssueCertificate(t *testing.T) {
 	var config = venafiConfigFakeDeprecatedStoreByCN
 
 	e.writeRoleToBackend(t, config)
-	e.IssueCertificate(t, data, config)
+	e.IssueCertificateAndSaveSerial(t, data, config)
 
 }
 
@@ -797,7 +832,7 @@ func (e *testEnv) FakeIntegrationIssueCertificateWithPassword(t *testing.T) {
 	var config = venafiConfigFakeDeprecatedStoreByCN
 
 	e.writeRoleToBackend(t, config)
-	e.IssueCertificate(t, data, config)
+	e.IssueCertificateAndSaveSerial(t, data, config)
 
 }
 
@@ -832,7 +867,7 @@ func (e *testEnv) TPPIntegrationIssueCertificate(t *testing.T) {
 	var config = venafiConfigTPP
 
 	e.writeRoleToBackend(t, config)
-	e.IssueCertificate(t, data, config)
+	e.IssueCertificateAndSaveSerial(t, data, config)
 
 }
 
@@ -850,7 +885,7 @@ func (e *testEnv) TPPIntegrationIssueCertificateWithPassword(t *testing.T) {
 	var config = venafiConfigTPP
 
 	e.writeRoleToBackend(t, config)
-	e.IssueCertificate(t, data, config)
+	e.IssueCertificateAndSaveSerial(t, data, config)
 
 }
 
@@ -867,7 +902,7 @@ func (e *testEnv) TPPIntegrationIssueCertificateRestricted(t *testing.T) {
 	var config = venafiConfigTPPRestricted
 
 	e.writeRoleToBackend(t, config)
-	e.IssueCertificate(t, data, config)
+	e.IssueCertificateAndSaveSerial(t, data, config)
 
 }
 
@@ -915,7 +950,7 @@ func (e *testEnv) CloudIntegrationIssueCertificate(t *testing.T) {
 	var config = venafiConfigCloud
 
 	e.writeRoleToBackend(t, config)
-	e.IssueCertificate(t, data, config)
+	e.IssueCertificateAndSaveSerial(t, data, config)
 }
 
 func (e *testEnv) CloudIntegrationIssueCertificateRestricted(t *testing.T) {
@@ -928,7 +963,7 @@ func (e *testEnv) CloudIntegrationIssueCertificateRestricted(t *testing.T) {
 	var config = venafiConfigCloud
 
 	e.writeRoleToBackend(t, config)
-	e.IssueCertificate(t, data, config)
+	e.IssueCertificateAndSaveSerial(t, data, config)
 }
 
 func (e *testEnv) CloudIntegrationIssueCertificateWithPassword(t *testing.T) {
@@ -942,7 +977,7 @@ func (e *testEnv) CloudIntegrationIssueCertificateWithPassword(t *testing.T) {
 	var config = venafiConfigCloud
 
 	e.writeRoleToBackend(t, config)
-	e.IssueCertificate(t, data, config)
+	e.IssueCertificateAndSaveSerial(t, data, config)
 }
 
 func checkStandartCert(t *testing.T, data testData) {
