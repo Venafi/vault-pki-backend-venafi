@@ -172,6 +172,8 @@ const (
 	errorTextTPPandCloudMixedCredentials         = `TPP credentials and Cloud API key can't be specified in one role`
 	errorTextStoreByAndStoreByCNOrSerialConflict = `Can't specify both story_by and store_by_cn or store_by_serial options '`
 	errorTextNoStoreAndStoreByCNOrSerialConflict = `Can't specify both no_store and store_by_cn or store_by_serial options '`
+	errorTextNoStoreAndStoreByConflict           = `Can't specify both no_store and store_by options '`
+	errTextStoreByWrongOption                    = "Option store_by can be %s or %s, not %s"
 )
 
 func (b *backend) getRole(ctx context.Context, s logical.Storage, n string) (*roleEntry, error) {
@@ -286,7 +288,6 @@ func validateEntry(entry *roleEntry) (err error, entryModified *roleEntry) {
 		), nil
 	}
 
-
 	if entry.TPPURL != "" && entry.Apikey != "" {
 		return fmt.Errorf(errorTextTPPandCloudMixedCredentials), nil
 	}
@@ -304,15 +305,13 @@ func validateEntry(entry *roleEntry) (err error, entryModified *roleEntry) {
 	}
 
 	if entry.StoreBy != "" && entry.NoStore {
-		return fmt.Errorf(
-			`Can't specify both no_store and store_by options '`,
-		), nil
+		return fmt.Errorf(errorTextNoStoreAndStoreByConflict), nil
 	}
 
 	if entry.StoreBy != "" {
 		if (entry.StoreBy != storeBySerialString) && (entry.StoreBy != storeByCNString) {
 			return fmt.Errorf(
-				fmt.Sprintf("Option store_by can be %s or %s, not %s", storeBySerialString, storeByCNString, entry.StoreBy),
+				fmt.Sprintf(errTextStoreByWrongOption, storeBySerialString, storeByCNString, entry.StoreBy),
 			), nil
 		}
 	}

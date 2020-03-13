@@ -1,6 +1,7 @@
 package pki
 
 import (
+	"fmt"
 	"testing"
 )
 
@@ -19,11 +20,11 @@ func TestRoleValidate(t *testing.T) {
 	}
 
 	entry = &roleEntry{
-		TPPURL: "https://qa-tpp.exmple.com/vedsdk",
-		TPPUser: "admin",
+		TPPURL:      "https://qa-tpp.exmple.com/vedsdk",
+		TPPUser:     "admin",
 		TPPPassword: "xxxx",
-		TTL: 120,
-		MaxTTL: 100,
+		TTL:         120,
+		MaxTTL:      100,
 	}
 
 	err, entry = validateEntry(entry)
@@ -35,9 +36,9 @@ func TestRoleValidate(t *testing.T) {
 	}
 
 	entry = &roleEntry{
-		TPPURL: "https://qa-tpp.exmple.com/vedsdk",
-		Apikey: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-		TPPUser: "admin",
+		TPPURL:      "https://qa-tpp.exmple.com/vedsdk",
+		Apikey:      "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+		TPPUser:     "admin",
 		TPPPassword: "xxxx",
 	}
 
@@ -50,9 +51,9 @@ func TestRoleValidate(t *testing.T) {
 	}
 
 	entry = &roleEntry{
-		Apikey: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+		Apikey:    "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
 		StoreByCN: true,
-		StoreBy: "cn",
+		StoreBy:   "cn",
 	}
 	err, entry = validateEntry(entry)
 	if err == nil {
@@ -63,9 +64,9 @@ func TestRoleValidate(t *testing.T) {
 	}
 
 	entry = &roleEntry{
-		Apikey: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+		Apikey:        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
 		StoreBySerial: true,
-		StoreBy: "cn",
+		StoreBy:       "cn",
 	}
 	err, entry = validateEntry(entry)
 	if err == nil {
@@ -76,10 +77,10 @@ func TestRoleValidate(t *testing.T) {
 	}
 
 	entry = &roleEntry{
-		Apikey: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+		Apikey:        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
 		StoreBySerial: true,
-		StoreByCN: true,
-		StoreBy: "cn",
+		StoreByCN:     true,
+		StoreBy:       "cn",
 	}
 	err, entry = validateEntry(entry)
 	if err == nil {
@@ -87,5 +88,74 @@ func TestRoleValidate(t *testing.T) {
 	}
 	if err.Error() != errorTextStoreByAndStoreByCNOrSerialConflict {
 		t.Fatalf("Expecting error %s but got %s", errorTextStoreByAndStoreByCNOrSerialConflict, err)
+	}
+
+	entry = &roleEntry{
+		Apikey:        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+		StoreBySerial: true,
+		StoreByCN:     true,
+		NoStore:       true,
+	}
+	err, entry = validateEntry(entry)
+	if err == nil {
+		t.Fatalf("Expecting error")
+	}
+	if err.Error() != errorTextNoStoreAndStoreByCNOrSerialConflict {
+		t.Fatalf("Expecting error %s but got %s", errorTextNoStoreAndStoreByCNOrSerialConflict, err)
+	}
+
+	entry = &roleEntry{
+		Apikey:  "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+		StoreBy: "serial",
+		NoStore: true,
+	}
+	err, entry = validateEntry(entry)
+	if err == nil {
+		t.Fatalf("Expecting error")
+	}
+	if err.Error() != errorTextNoStoreAndStoreByConflict {
+		t.Fatalf("Expecting error %s but got %s", errorTextNoStoreAndStoreByConflict, err)
+	}
+
+	entry = &roleEntry{
+		Apikey:  "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+		StoreBy: "sebial",
+	}
+	err, entry = validateEntry(entry)
+	if err == nil {
+		t.Fatalf("Expecting error")
+	}
+	expectingError := fmt.Sprintf(errTextStoreByWrongOption, storeBySerialString, storeByCNString, "sebial")
+	if err.Error() != expectingError {
+		t.Fatalf("Expecting error %s but got %s", expectingError, err)
+	}
+
+	entry = &roleEntry{
+		Apikey:        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+		StoreBySerial: true,
+		StoreByCN:     true,
+
+	}
+	err, entry = validateEntry(entry)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if entry.StoreBy != storeBySerialString {
+		t.Fatalf("Expecting store_by parameter will be set to %s", storeBySerialString)
+	}
+
+	entry = &roleEntry{
+		Apikey:        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+		StoreByCN:     true,
+
+	}
+	err, entry = validateEntry(entry)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if entry.StoreBy != storeByCNString {
+		t.Fatalf("Expecting store_by parameter will be set to %s", storeBySerialString)
 	}
 }
