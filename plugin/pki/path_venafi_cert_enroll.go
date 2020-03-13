@@ -399,7 +399,7 @@ func  formRequest(reqData requestData, role *roleEntry, signCSR bool, logger hcl
 	//Adding origin custom field with utility name to certificate metadata
 	certReq.CustomFields = []certificate.CustomField{{Type: certificate.CustomFieldOrigin, Value: utilityName}}
 
-	return
+	return nil, certReq
 }
 
 type VenafiCert struct {
