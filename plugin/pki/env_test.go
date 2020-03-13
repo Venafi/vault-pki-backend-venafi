@@ -198,11 +198,10 @@ func (e *testEnv) failToWriteRoleToBackend(t *testing.T, configString venafiConf
 		t.Fatal("Role with mixed cloud api key and tpp url should fail to write")
 	}
 
-	expectedText := "TPP url and Cloud API key can't be specified in one role"
 	errText := resp.Data["error"].(string)
 
-	if errText != expectedText {
-		t.Fatalf("Expecting error with text %s but got %s", expectedText, errText)
+	if errText != errorTextTPPandCloudMixedCredentials {
+		t.Fatalf("Expecting error with text %s but got %s", errorTextTPPandCloudMixedCredentials, errText)
 	}
 }
 
