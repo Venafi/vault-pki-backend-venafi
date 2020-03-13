@@ -165,10 +165,13 @@ attached to them. Defaults to "false".`,
 }
 
 const (
-	storeByCNString          = "cn"
-	storeBySerialString      = "serial"
-	errorTextInvalidMode     = "Invalid mode. fakemode or apikey or tpp credentials required"
-	errorTextValueMustBeLess = `"ttl" value must be less than "max_ttl" value`
+	storeByCNString                              = "cn"
+	storeBySerialString                          = "serial"
+	errorTextInvalidMode                         = "Invalid mode. fakemode or apikey or tpp credentials required"
+	errorTextValueMustBeLess                     = `"ttl" value must be less than "max_ttl" value`
+	errorTextTPPandCloudMixedCredentials         = `TPP credentials and Cloud API key can't be specified in one role`
+	errorTextStoreByAndStoreByCNOrSerialConflict = `Can't specify both story_by and store_by_cn or store_by_serial options '`
+	errorTextNoStoreAndStoreByCNOrSerialConflict = `Can't specify both no_store and store_by_cn or store_by_serial options '`
 )
 
 func (b *backend) getRole(ctx context.Context, s logical.Storage, n string) (*roleEntry, error) {
@@ -283,22 +286,21 @@ func validateEntry(entry *roleEntry) (err error, entryModified *roleEntry) {
 		), nil
 	}
 
+
 	if entry.TPPURL != "" && entry.Apikey != "" {
-		return fmt.Errorf(
-			`TPP url and Cloud API key can't be specified in one role`,
-		), nil
+		return fmt.Errorf(errorTextTPPandCloudMixedCredentials), nil
+	}
+
+	if entry.TPPUser != "" && entry.Apikey != "" {
+		return fmt.Errorf(errorTextTPPandCloudMixedCredentials), nil
 	}
 
 	if (entry.StoreByCN || entry.StoreBySerial) && entry.StoreBy != "" {
-		return fmt.Errorf(
-			`Can't specify both story_by and store_by_cn or store_by_serial options '`,
-		), nil
+		return fmt.Errorf(errorTextStoreByAndStoreByCNOrSerialConflict), nil
 	}
 
 	if (entry.StoreByCN || entry.StoreBySerial) && entry.NoStore {
-		return fmt.Errorf(
-			`Can't specify both no_store and store_by_cn or store_by_serial options '`,
-		), nil
+		return fmt.Errorf(errorTextNoStoreAndStoreByCNOrSerialConflict), nil
 	}
 
 	if entry.StoreBy != "" && entry.NoStore {
