@@ -165,8 +165,15 @@ attached to them. Defaults to "false".`,
 }
 
 const (
-	storeByCNString     string = "cn"
-	storeBySerialString string = "serial"
+	storeByCNString                              = "cn"
+	storeBySerialString                          = "serial"
+	errorTextInvalidMode                         = "Invalid mode. fakemode or apikey or tpp credentials required"
+	errorTextValueMustBeLess                     = `"ttl" value must be less than "max_ttl" value`
+	errorTextTPPandCloudMixedCredentials         = `TPP credentials and Cloud API key can't be specified in one role`
+	errorTextStoreByAndStoreByCNOrSerialConflict = `Can't specify both story_by and store_by_cn or store_by_serial options '`
+	errorTextNoStoreAndStoreByCNOrSerialConflict = `Can't specify both no_store and store_by_cn or store_by_serial options '`
+	errorTextNoStoreAndStoreByConflict           = `Can't specify both no_store and store_by options '`
+	errTextStoreByWrongOption                    = "Option store_by can be %s or %s, not %s"
 )
 
 func (b *backend) getRole(ctx context.Context, s logical.Storage, n string) (*roleEntry, error) {
@@ -252,54 +259,10 @@ func (b *backend) pathRoleCreate(ctx context.Context, req *logical.Request, data
 		GenerateLease:    data.Get("generate_lease").(bool),
 		ServerTimeout:    time.Duration(data.Get("server_timeout").(int)) * time.Second,
 	}
-	if !entry.Fakemode && entry.Apikey == "" && (entry.TPPURL == "" || entry.TPPUser == "" || entry.TPPPassword == "") {
-		return logical.ErrorResponse("Invalid mode. fakemode or apikey or tpp credentials required"), nil
-	}
-	if entry.MaxTTL > 0 && entry.TTL > entry.MaxTTL {
-		return logical.ErrorResponse(
-			`"ttl" value must be less than "max_ttl" value`,
-		), nil
-	}
 
-	if entry.TPPURL != "" && entry.Apikey != "" {
-		return logical.ErrorResponse(
-			`TPP url and Cloud API key can't be specified in one role`,
-		), nil
-	}
-
-	if (entry.StoreByCN || entry.StoreBySerial) && entry.StoreBy != "" {
-		return logical.ErrorResponse(
-			`Can't specify both story_by and store_by_cn or store_by_serial options '`,
-		), nil
-	}
-
-	if (entry.StoreByCN || entry.StoreBySerial) && entry.NoStore {
-		return logical.ErrorResponse(
-			`Can't specify both no_store and store_by_cn or store_by_serial options '`,
-		), nil
-	}
-
-	if entry.StoreBy != "" && entry.NoStore {
-		return logical.ErrorResponse(
-			`Can't specify both no_store and store_by options '`,
-		), nil
-	}
-
-	if entry.StoreBy != "" {
-		if (entry.StoreBy != storeBySerialString) && (entry.StoreBy != storeByCNString) {
-			return logical.ErrorResponse(
-				fmt.Sprintf("Option store_by can be %s or %s, not %s", storeBySerialString, storeByCNString, entry.StoreBy),
-			), nil
-		}
-	}
-
-	//StoreBySerial and StoreByCN options are deprecated
-	//if one of them is set we will set store_by option
-	//if both are set then we set store_by to serial
-	if entry.StoreBySerial {
-		entry.StoreBy = storeBySerialString
-	} else if entry.StoreByCN {
-		entry.StoreBy = storeByCNString
+	err = validateEntry(entry)
+	if err != nil {
+		return logical.ErrorResponse(err.Error()), nil
 	}
 
 	// Store it
@@ -312,6 +275,57 @@ func (b *backend) pathRoleCreate(ctx context.Context, req *logical.Request, data
 	}
 
 	return nil, nil
+}
+
+func validateEntry(entry *roleEntry) (err error) {
+	if !entry.Fakemode && entry.Apikey == "" && (entry.TPPURL == "" || entry.TPPUser == "" || entry.TPPPassword == "") {
+		return fmt.Errorf(errorTextInvalidMode)
+	}
+
+	if entry.MaxTTL > 0 && entry.TTL > entry.MaxTTL {
+		return fmt.Errorf(
+			errorTextValueMustBeLess,
+		)
+	}
+
+	if entry.TPPURL != "" && entry.Apikey != "" {
+		return fmt.Errorf(errorTextTPPandCloudMixedCredentials)
+	}
+
+	if entry.TPPUser != "" && entry.Apikey != "" {
+		return fmt.Errorf(errorTextTPPandCloudMixedCredentials)
+	}
+
+	if (entry.StoreByCN || entry.StoreBySerial) && entry.StoreBy != "" {
+		return fmt.Errorf(errorTextStoreByAndStoreByCNOrSerialConflict)
+	}
+
+	if (entry.StoreByCN || entry.StoreBySerial) && entry.NoStore {
+		return fmt.Errorf(errorTextNoStoreAndStoreByCNOrSerialConflict)
+	}
+
+	if entry.StoreBy != "" && entry.NoStore {
+		return fmt.Errorf(errorTextNoStoreAndStoreByConflict)
+	}
+
+	if entry.StoreBy != "" {
+		if (entry.StoreBy != storeBySerialString) && (entry.StoreBy != storeByCNString) {
+			return fmt.Errorf(
+				fmt.Sprintf(errTextStoreByWrongOption, storeBySerialString, storeByCNString, entry.StoreBy),
+			)
+		}
+	}
+
+	//StoreBySerial and StoreByCN options are deprecated
+	//if one of them is set we will set store_by option
+	//if both are set then we set store_by to serial
+	if entry.StoreBySerial {
+		entry.StoreBy = storeBySerialString
+	} else if entry.StoreByCN {
+		entry.StoreBy = storeByCNString
+	}
+
+	return nil
 }
 
 type roleEntry struct {

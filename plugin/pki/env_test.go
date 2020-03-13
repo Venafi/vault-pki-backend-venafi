@@ -197,6 +197,12 @@ func (e *testEnv) failToWriteRoleToBackend(t *testing.T, configString venafiConf
 	if resp != nil && !resp.IsError() {
 		t.Fatal("Role with mixed cloud api key and tpp url should fail to write")
 	}
+
+	errText := resp.Data["error"].(string)
+
+	if errText != errorTextTPPandCloudMixedCredentials {
+		t.Fatalf("Expecting error with text %s but got %s", errorTextTPPandCloudMixedCredentials, errText)
+	}
 }
 
 func (e *testEnv) listRolesInBackend(t *testing.T) {
@@ -460,7 +466,7 @@ func (e *testEnv) CheckThatThereIsNoCertificate(t *testing.T, certId string) {
 	}
 
 	const noCertError = "no entry found in path"
-	certContain := strings.Contains(err.Error(),noCertError)
+	certContain := strings.Contains(err.Error(), noCertError)
 	if !certContain {
 		t.Fatalf("error should contain %s substring but it is %s", noCertError, err)
 	}

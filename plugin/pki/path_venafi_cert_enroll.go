@@ -6,6 +6,7 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"
+	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/vault/helper/consts"
 	"net"
 	"strings"
@@ -127,115 +128,45 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 		return logical.ErrorResponse(err.Error()), nil
 	}
 
-	var commonName string
 	var certReq *certificate.Request
-	if !signCSR {
-		commonName = data.Get("common_name").(string)
-		altNames := data.Get("alt_names").([]string)
-		ipSANs := data.Get("ip_sans").([]string)
-		if len(commonName) == 0 && len(altNames) == 0 {
-			return logical.ErrorResponse("no domains specified on certificate"), nil
-		}
-		if len(commonName) == 0 && len(altNames) > 0 {
-			commonName = altNames[0]
-		}
-		if !sliceContains(altNames, commonName) {
-			b.Logger().Debug(fmt.Sprintf("Adding CN %s to SAN %s because it wasn't included.", commonName, altNames))
-			altNames = append(altNames, commonName)
-		}
-		certReq = &certificate.Request{
-			Subject: pkix.Name{
-				CommonName: commonName,
-			},
-			CsrOrigin:   certificate.LocalGeneratedCSR,
-			KeyPassword: data.Get("key_password").(string),
-		}
-		ipSet := make(map[string]struct{})
-		nameSet := make(map[string]struct{})
-		for _, v := range altNames {
-			if strings.Contains(v, "@") {
-				certReq.EmailAddresses = append(certReq.EmailAddresses, v)
-			} else if net.ParseIP(v) != nil {
-				ipSet[v] = struct{}{}
-				nameSet[v] = struct{}{}
-			} else {
-				nameSet[v] = struct{}{}
-			}
-		}
-		for _, v := range ipSANs {
-			if net.ParseIP(v) != nil {
-				ipSet[v] = struct{}{}
-			}
-		}
-		for ip := range ipSet {
-			certReq.IPAddresses = append(certReq.IPAddresses, net.ParseIP(ip))
-		}
-		for k := range nameSet {
-			certReq.DNSNames = append(certReq.DNSNames, k)
-		}
+	var reqData requestData
 
-	} else {
-		b.Logger().Debug("Signing user provided CSR")
-		csrString := data.Get("csr").(string)
-		if csrString == "" {
-			return logical.ErrorResponse(fmt.Sprintf("\"csr\" is empty")), nil
-		}
-		pemBytes := []byte(csrString)
-		pemBlock, _ := pem.Decode(pemBytes)
-		if pemBlock == nil {
-			return logical.ErrorResponse(fmt.Sprintf("csr contains no data")), nil
-		}
-		csr, err := x509.ParseCertificateRequest(pemBlock.Bytes)
-		if err != nil {
-			return logical.ErrorResponse(fmt.Sprintf("can't parse provided CSR %s", err)), nil
-		}
-		commonName = csr.Subject.CommonName
-		certReq = &certificate.Request{
-			CsrOrigin: certificate.UserProvidedCSR,
-		}
-		err = certReq.SetCSR(pemBytes)
-		if err != nil {
-			return nil, err
-		}
+	if data == nil {
+		return logical.ErrorResponse("data can't be nil"), nil
 	}
 
-	if !signCSR {
-		if role.KeyType == "rsa" {
-			certReq.KeyLength = role.KeyBits
-		} else if role.KeyType == "ec" {
-			certReq.KeyType = certificate.KeyTypeECDSA
-			switch {
-			case role.KeyCurve == "P256":
-				certReq.KeyCurve = certificate.EllipticCurveP256
-			case role.KeyCurve == "P384":
-				certReq.KeyCurve = certificate.EllipticCurveP384
-			case role.KeyCurve == "P521":
-				certReq.KeyCurve = certificate.EllipticCurveP521
-			default:
-				return logical.ErrorResponse(fmt.Sprintf("can't use key curve %s", role.KeyCurve)), nil
-			}
-
-		} else {
-			return logical.ErrorResponse(fmt.Sprintf("can't determine key algorithm for %s", role.KeyType)), nil
-		}
+	commonNameRaw, ok := data.GetOk("common_name")
+	if ok {
+		reqData.commonName = commonNameRaw.(string)
 	}
 
-	if role.ChainOption == "first" {
-		certReq.ChainOption = certificate.ChainOptionRootFirst
-	} else if role.ChainOption == "last" {
-		certReq.ChainOption = certificate.ChainOptionRootLast
-	} else {
-		return logical.ErrorResponse(fmt.Sprintf("Invalid chain option %s", role.ChainOption)), nil
+	altNamesRaw, ok := data.GetOk("alt_names")
+	if ok {
+	  reqData.altNames = altNamesRaw.([]string)
 	}
+
+	ipSANsRaw, ok := data.GetOk("ip_sans")
+	if ok {
+		reqData.ipSANs = ipSANsRaw.([]string)
+	}
+
+	keyPasswordRaw, ok := data.GetOk("key_password")
+	if ok {
+		reqData.keyPassword = keyPasswordRaw.(string)
+	}
+
+	csrStringRaw, ok := data.GetOk("csr")
+	if ok {
+		reqData.csrString = csrStringRaw.(string)
+	}
+
+	err, certReq = formRequest(reqData, role, signCSR, b.Logger())
 
 	b.Logger().Debug("Making certificate request")
 	err = cl.GenerateRequest(nil, certReq)
 	if err != nil {
-		return logical.ErrorResponse(err.Error()), nil
+		return  logical.ErrorResponse(err.Error()), nil
 	}
-
-	//Adding origin custom field with utility name to certificate metadata
-	certReq.CustomFields = []certificate.CustomField{{Type: certificate.CustomFieldOrigin, Value: utilityName}}
 
 	b.Logger().Debug("Running enroll request")
 
@@ -295,8 +226,8 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 	if !role.NoStore {
 		if role.StoreBy == storeByCNString {
 			//Writing certificate to the storage with CN
-			b.Logger().Debug("Putting certificate to the certs/" + commonName)
-			entry.Key = "certs/" + commonName
+			b.Logger().Debug("Putting certificate to the certs/" + reqData.commonName)
+			entry.Key = "certs/" + reqData.commonName
 
 			if err := req.Storage.Put(ctx, entry); err != nil {
 				b.Logger().Error("Error putting entry to storage: " + err.Error())
@@ -318,7 +249,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 	var respData map[string]interface{}
 	if !signCSR {
 		respData = map[string]interface{}{
-			"common_name":       commonName,
+			"common_name":       reqData.commonName,
 			"serial_number":     serialNumber,
 			"certificate_chain": chain,
 			"certificate":       pcc.Certificate,
@@ -326,7 +257,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 		}
 	} else {
 		respData = map[string]interface{}{
-			"common_name":       commonName,
+			"common_name":       reqData.commonName,
 			"serial_number":     serialNumber,
 			"certificate_chain": chain,
 			"certificate":       pcc.Certificate,
@@ -356,6 +287,119 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 		logResp.AddWarning("Read access to this endpoint should be controlled via ACLs as it will return the connection private key as it is.")
 	}
 	return logResp, nil
+}
+
+type requestData struct {
+	commonName string
+	altNames []string
+	ipSANs []string
+	keyPassword string
+	csrString string
+}
+
+func  formRequest(reqData requestData, role *roleEntry, signCSR bool, logger hclog.Logger) (err error, certReq *certificate.Request){
+
+
+	if !signCSR {
+		if len(reqData.commonName) == 0 && len(reqData.altNames) == 0 {
+			return fmt.Errorf("no domains specified on certificate"), certReq
+		}
+		if len(reqData.commonName) == 0 && len(reqData.altNames) > 0 {
+			reqData.commonName = reqData.altNames[0]
+		}
+		if !sliceContains(reqData.altNames, reqData.commonName) {
+			logger.Debug(fmt.Sprintf("Adding CN %s to SAN %s because it wasn't included.", reqData.commonName, reqData.altNames))
+			reqData.altNames = append(reqData.altNames, reqData.commonName)
+		}
+		certReq = &certificate.Request{
+			Subject: pkix.Name{
+				CommonName: reqData.commonName,
+			},
+			CsrOrigin:   certificate.LocalGeneratedCSR,
+			KeyPassword: reqData.keyPassword,
+		}
+		ipSet := make(map[string]struct{})
+		nameSet := make(map[string]struct{})
+		for _, v := range reqData.altNames {
+			if strings.Contains(v, "@") {
+				certReq.EmailAddresses = append(certReq.EmailAddresses, v)
+			} else if net.ParseIP(v) != nil {
+				ipSet[v] = struct{}{}
+				nameSet[v] = struct{}{}
+			} else {
+				nameSet[v] = struct{}{}
+			}
+		}
+		for _, v := range reqData.ipSANs {
+			if net.ParseIP(v) != nil {
+				ipSet[v] = struct{}{}
+			}
+		}
+		for ip := range ipSet {
+			certReq.IPAddresses = append(certReq.IPAddresses, net.ParseIP(ip))
+		}
+		for k := range nameSet {
+			certReq.DNSNames = append(certReq.DNSNames, k)
+		}
+
+	} else {
+		logger.Debug("Signing user provided CSR")
+
+		if reqData.csrString == "" {
+			return fmt.Errorf(fmt.Sprintf("\"csr\" is empty")), certReq
+		}
+		pemBytes := []byte(reqData.csrString)
+		pemBlock, _ := pem.Decode(pemBytes)
+		if pemBlock == nil {
+			return fmt.Errorf(fmt.Sprintf("csr contains no data")), certReq
+		}
+		csr, err := x509.ParseCertificateRequest(pemBlock.Bytes)
+		if err != nil {
+			return fmt.Errorf(fmt.Sprintf("can't parse provided CSR %s", err)), certReq
+		}
+		reqData.commonName = csr.Subject.CommonName
+		certReq = &certificate.Request{
+			CsrOrigin: certificate.UserProvidedCSR,
+		}
+		err = certReq.SetCSR(pemBytes)
+		if err != nil {
+			return err, certReq
+		}
+	}
+
+	if !signCSR {
+		if role.KeyType == "rsa" {
+			certReq.KeyLength = role.KeyBits
+		} else if role.KeyType == "ec" {
+			certReq.KeyType = certificate.KeyTypeECDSA
+			switch {
+			case role.KeyCurve == "P256":
+				certReq.KeyCurve = certificate.EllipticCurveP256
+			case role.KeyCurve == "P384":
+				certReq.KeyCurve = certificate.EllipticCurveP384
+			case role.KeyCurve == "P521":
+				certReq.KeyCurve = certificate.EllipticCurveP521
+			default:
+				return fmt.Errorf(fmt.Sprintf("can't use key curve %s", role.KeyCurve)), certReq
+			}
+
+		} else {
+			return fmt.Errorf(fmt.Sprintf("can't determine key algorithm for %s", role.KeyType)), certReq
+		}
+	}
+
+	if role.ChainOption == "first" {
+		certReq.ChainOption = certificate.ChainOptionRootFirst
+	} else if role.ChainOption == "last" {
+		certReq.ChainOption = certificate.ChainOptionRootLast
+	} else {
+		return fmt.Errorf(fmt.Sprintf("Invalid chain option %s", role.ChainOption)), certReq
+	}
+
+	//Adding origin custom field with utility name to certificate metadata
+	certReq.CustomFields = []certificate.CustomField{{Type: certificate.CustomFieldOrigin, Value: utilityName}}
+
+	return nil, certReq
 }
 
 type VenafiCert struct {

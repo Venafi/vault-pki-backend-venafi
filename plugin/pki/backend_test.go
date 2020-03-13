@@ -61,7 +61,6 @@ func TestFakeStoreByOptions(t *testing.T) {
 	t.Run("read certificate by cn", integrationTestEnv.FakeReadCertificateByCN)
 	t.Run("delete role", integrationTestEnv.DeleteRole)
 
-
 	//test store_by default
 	t.Run("create role store_by serial", integrationTestEnv.FakeCreateRoleStoreBySerial)
 	t.Run("issue", integrationTestEnv.FakeIssueCertificateAndSaveSerial)
@@ -80,7 +79,6 @@ func TestFakeStoreByOptions(t *testing.T) {
 	t.Run("check that there is no private key", integrationTestEnv.FakeCheckThatThereIsNoPKey)
 	t.Run("delete role", integrationTestEnv.DeleteRole)
 }
-
 
 //Testing Venafi Platform integration
 func TestTPPIntegration(t *testing.T) {
