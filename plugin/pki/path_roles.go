@@ -260,7 +260,7 @@ func (b *backend) pathRoleCreate(ctx context.Context, req *logical.Request, data
 		ServerTimeout:    time.Duration(data.Get("server_timeout").(int)) * time.Second,
 	}
 
-	err, entry = validateEntry(entry)
+	err = validateEntry(entry)
 	if err != nil {
 		return logical.ErrorResponse(err.Error()), nil
 	}
@@ -277,42 +277,42 @@ func (b *backend) pathRoleCreate(ctx context.Context, req *logical.Request, data
 	return nil, nil
 }
 
-func validateEntry(entry *roleEntry) (err error, entryModified *roleEntry) {
+func validateEntry(entry *roleEntry) (err error) {
 	if !entry.Fakemode && entry.Apikey == "" && (entry.TPPURL == "" || entry.TPPUser == "" || entry.TPPPassword == "") {
-		return fmt.Errorf(errorTextInvalidMode), nil
+		return fmt.Errorf(errorTextInvalidMode)
 	}
 
 	if entry.MaxTTL > 0 && entry.TTL > entry.MaxTTL {
 		return fmt.Errorf(
 			errorTextValueMustBeLess,
-		), nil
+		)
 	}
 
 	if entry.TPPURL != "" && entry.Apikey != "" {
-		return fmt.Errorf(errorTextTPPandCloudMixedCredentials), nil
+		return fmt.Errorf(errorTextTPPandCloudMixedCredentials)
 	}
 
 	if entry.TPPUser != "" && entry.Apikey != "" {
-		return fmt.Errorf(errorTextTPPandCloudMixedCredentials), nil
+		return fmt.Errorf(errorTextTPPandCloudMixedCredentials)
 	}
 
 	if (entry.StoreByCN || entry.StoreBySerial) && entry.StoreBy != "" {
-		return fmt.Errorf(errorTextStoreByAndStoreByCNOrSerialConflict), nil
+		return fmt.Errorf(errorTextStoreByAndStoreByCNOrSerialConflict)
 	}
 
 	if (entry.StoreByCN || entry.StoreBySerial) && entry.NoStore {
-		return fmt.Errorf(errorTextNoStoreAndStoreByCNOrSerialConflict), nil
+		return fmt.Errorf(errorTextNoStoreAndStoreByCNOrSerialConflict)
 	}
 
 	if entry.StoreBy != "" && entry.NoStore {
-		return fmt.Errorf(errorTextNoStoreAndStoreByConflict), nil
+		return fmt.Errorf(errorTextNoStoreAndStoreByConflict)
 	}
 
 	if entry.StoreBy != "" {
 		if (entry.StoreBy != storeBySerialString) && (entry.StoreBy != storeByCNString) {
 			return fmt.Errorf(
 				fmt.Sprintf(errTextStoreByWrongOption, storeBySerialString, storeByCNString, entry.StoreBy),
-			), nil
+			)
 		}
 	}
 
@@ -325,8 +325,7 @@ func validateEntry(entry *roleEntry) (err error, entryModified *roleEntry) {
 		entry.StoreBy = storeByCNString
 	}
 
-	entryModified = entry
-	return nil, entryModified
+	return nil
 }
 
 type roleEntry struct {

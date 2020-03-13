@@ -11,7 +11,7 @@ func TestRoleValidate(t *testing.T) {
 		TPPURL: "https://ha-tpp12.sqlha.com:5008/vedsdk",
 	}
 
-	err, entry := validateEntry(entry)
+	err := validateEntry(entry)
 	if err == nil {
 		t.Fatalf("Expecting error")
 	}
@@ -27,7 +27,7 @@ func TestRoleValidate(t *testing.T) {
 		MaxTTL:      100,
 	}
 
-	err, entry = validateEntry(entry)
+	err = validateEntry(entry)
 	if err == nil {
 		t.Fatalf("Expecting error")
 	}
@@ -42,7 +42,7 @@ func TestRoleValidate(t *testing.T) {
 		TPPPassword: "xxxx",
 	}
 
-	err, entry = validateEntry(entry)
+	err = validateEntry(entry)
 	if err == nil {
 		t.Fatalf("Expecting error")
 	}
@@ -55,7 +55,7 @@ func TestRoleValidate(t *testing.T) {
 		StoreByCN: true,
 		StoreBy:   "cn",
 	}
-	err, entry = validateEntry(entry)
+	err = validateEntry(entry)
 	if err == nil {
 		t.Fatalf("Expecting error")
 	}
@@ -68,7 +68,7 @@ func TestRoleValidate(t *testing.T) {
 		StoreBySerial: true,
 		StoreBy:       "cn",
 	}
-	err, entry = validateEntry(entry)
+	err = validateEntry(entry)
 	if err == nil {
 		t.Fatalf("Expecting error")
 	}
@@ -82,7 +82,7 @@ func TestRoleValidate(t *testing.T) {
 		StoreByCN:     true,
 		StoreBy:       "cn",
 	}
-	err, entry = validateEntry(entry)
+	err = validateEntry(entry)
 	if err == nil {
 		t.Fatalf("Expecting error")
 	}
@@ -96,7 +96,7 @@ func TestRoleValidate(t *testing.T) {
 		StoreByCN:     true,
 		NoStore:       true,
 	}
-	err, entry = validateEntry(entry)
+	err = validateEntry(entry)
 	if err == nil {
 		t.Fatalf("Expecting error")
 	}
@@ -109,7 +109,7 @@ func TestRoleValidate(t *testing.T) {
 		StoreBy: "serial",
 		NoStore: true,
 	}
-	err, entry = validateEntry(entry)
+	err = validateEntry(entry)
 	if err == nil {
 		t.Fatalf("Expecting error")
 	}
@@ -121,7 +121,7 @@ func TestRoleValidate(t *testing.T) {
 		Apikey:  "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
 		StoreBy: "sebial",
 	}
-	err, entry = validateEntry(entry)
+	err = validateEntry(entry)
 	if err == nil {
 		t.Fatalf("Expecting error")
 	}
@@ -136,7 +136,7 @@ func TestRoleValidate(t *testing.T) {
 		StoreByCN:     true,
 
 	}
-	err, entry = validateEntry(entry)
+	err = validateEntry(entry)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -150,7 +150,7 @@ func TestRoleValidate(t *testing.T) {
 		StoreByCN:     true,
 
 	}
-	err, entry = validateEntry(entry)
+	err = validateEntry(entry)
 	if err != nil {
 		t.Fatal(err)
 	}
