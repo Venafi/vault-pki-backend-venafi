@@ -86,8 +86,7 @@ Example:
 
 			"store_by": {
 				Type: framework.TypeString,
-				Description: `Store certificate by common name or serial number. Possible values: cn\serial
-By default certificate stored by serial`,
+				Description: `The attribute by which certificates are stored in the backend.  "serial" (default) and "cn" are the only valid values.`,
 			},
 
 			"no_store": {
