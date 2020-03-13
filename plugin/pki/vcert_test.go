@@ -16,7 +16,7 @@ import (
 	"testing"
 )
 
-func TestPki_VcertIsWorking(t *testing.T) {
+func TestPKIVcertIsWorking(t *testing.T) {
 	var err error
 
 	const cn = "testfake.example.com"
@@ -73,7 +73,7 @@ func TestPki_VcertIsWorking(t *testing.T) {
 	}
 }
 
-func TestPki_VcertConfig(t *testing.T) {
+func TestPKIVcertConfig(t *testing.T) {
 	var resp *logical.Response
 	var err error
 	b, storage := createBackendWithStorage(t)
@@ -99,4 +99,17 @@ func TestPki_VcertConfig(t *testing.T) {
 		t.Fatalf("bad: err: %v resp: %#v", err, resp)
 	}
 
+}
+
+func createBackendWithStorage(t *testing.T) (*backend, logical.Storage) {
+	config := logical.TestBackendConfig()
+	config.StorageView = &logical.InmemStorage{}
+
+	var err error
+	b := Backend(config)
+	err = b.Setup(context.Background(), config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b, config.StorageView
 }

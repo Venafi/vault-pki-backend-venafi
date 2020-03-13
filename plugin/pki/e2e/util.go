@@ -5,8 +5,6 @@ import (
 	. "github.com/Venafi/vault-pki-backend-venafi/plugin/pki"
 	. "github.com/onsi/ginkgo"
 	"github.com/rendon/testcli"
-	"os"
-	"os/exec"
 	"strings"
 )
 
@@ -25,11 +23,11 @@ type vaultJSONCertificate struct {
 
 func splitAndFlat(parts ...interface{}) (ret []string) {
 	for _, part := range parts {
-		switch part.(type) {
+		switch part := part.(type) {
 		case string:
-			ret = append(ret, strings.Fields(part.(string))...)
+			ret = append(ret, strings.Fields(part)...)
 		case []string:
-			for _, s := range part.([]string) {
+			for _, s := range part {
 				ret = append(ret, strings.Fields(s)...)
 			}
 		default:
@@ -45,28 +43,4 @@ func testRun(cmd string) (out, err string, exitCode int) {
 		"===CMD: %s\n===OUT:%s\n===ERR:%s\n===EXIT(%d)",
 		strings.Fields(cmd), out, err, exitCode)
 	return
-}
-
-func run(command string) string {
-	var err error
-	cmd := splitAndFlat(command)
-	fmt.Println("Running: ", cmd)
-	out, err := exec.Command(cmd[0], cmd[1:]...).CombinedOutput()
-	if err != nil {
-		fmt.Println(string(out))
-		panic(err)
-	}
-	return string(out)
-}
-
-func commandWithArgs(run string, extraArgs ...string) {
-	args := []string{}
-	args = append(args, extraArgs...)
-	cmd := exec.Command(run, args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	err := cmd.Run()
-	if err != nil {
-		panic(err)
-	}
 }

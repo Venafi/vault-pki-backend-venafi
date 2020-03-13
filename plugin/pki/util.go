@@ -2,21 +2,12 @@ package pki
 
 import (
 	"bytes"
-	"context"
-	"crypto/ecdsa"
-	"crypto/rsa"
-	"crypto/x509"
-	"encoding/pem"
 	"fmt"
-	"github.com/hashicorp/vault/logical"
-	"math/rand"
 	"net"
 	"os"
 	"sort"
 	"strconv"
 	"strings"
-	"testing"
-	"time"
 )
 
 func sliceContains(slice []string, item string) bool {
@@ -33,7 +24,7 @@ func getHexFormatted(buf []byte, sep string) (string, error) {
 	var ret bytes.Buffer
 	for _, cur := range buf {
 		if ret.Len() > 0 {
-			if _, err := fmt.Fprintf(&ret, sep); err != nil {
+			if _, err := fmt.Fprint(&ret, sep); err != nil {
 				return "", err
 			}
 		}
@@ -47,50 +38,6 @@ func getHexFormatted(buf []byte, sep string) (string, error) {
 func normalizeSerial(serial string) string {
 	return strings.Replace(strings.ToLower(serial), ":", "-", -1)
 }
-
-func createBackendWithStorage(t *testing.T) (*backend, logical.Storage) {
-	config := logical.TestBackendConfig()
-	config.StorageView = &logical.InmemStorage{}
-
-	var err error
-	b := Backend(config)
-	err = b.Setup(context.Background(), config)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return b, config.StorageView
-}
-
-func getPrivateKeyPEMBock(key interface{}) (*pem.Block, error) {
-	switch k := key.(type) {
-	case *rsa.PrivateKey:
-		return &pem.Block{Type: PKCS1Block, Bytes: x509.MarshalPKCS1PrivateKey(k)}, nil
-	case *ecdsa.PrivateKey:
-		b, err := x509.MarshalECPrivateKey(k)
-		if err != nil {
-			return nil, err
-		}
-		return &pem.Block{Type: ECBlock, Bytes: b}, nil
-	default:
-		return nil, fmt.Errorf("Unable to format Key")
-	}
-}
-
-func randSeq(n int) string {
-	rand.Seed(time.Now().UTC().UnixNano())
-	var letters = []rune("abcdefghijklmnopqrstuvwxyz1234567890")
-	b := make([]rune, n)
-	for i := range b {
-		b[i] = letters[rand.Intn(len(letters))]
-	}
-	return string(b)
-}
-
-const (
-	PKCS1Block string = "RSA PRIVATE KEY"
-	PKCS8Block string = "PRIVATE KEY"
-	ECBlock    string = "EC PRIVATE KEY"
-)
 
 type RunContext struct {
 	TPPurl              string

@@ -28,7 +28,7 @@ MOUNT := venafi-pki
 FAKE_ROLE := fake
 TPP_ROLE := tpp
 CLOUD_ROLE := cloud
-ROLE_OPTIONS := generate_lease=true store_by_cn="true" store_pkey="true" store_by_serial="true" ttl=1h max_ttl=1h
+ROLE_OPTIONS := generate_lease=true store_by="cn" store_pkey="true" ttl=1h max_ttl=1h
 
 SHA256 := $$(shasum -a 256 "$(PLUGIN_PATH)" | cut -d' ' -f1)
 SHA256_DOCKER_CMD := sha256sum "/vault_plugin/venafi-pki-backend" | cut -d' ' -f1
@@ -107,6 +107,15 @@ test_go:
 test_e2e:
 	sed -i "s#image:.*$(IMAGE_NAME).*#image: $(DOCKER_IMAGE):$(BUILD_TAG)#" docker-compose.yaml
 	cd plugin/pki/e2e && ginkgo -v
+
+test_tpp:
+	go test -run  ^TestTPPIntegration$ -v github.com/Venafi/vault-pki-backend-venafi/plugin/pki
+
+test_cloud:
+	go test -run  ^TestCloudIntegration$ -v github.com/Venafi/vault-pki-backend-venafi/plugin/pki
+
+test_fake:
+	go test -run  ^TestFake -v github.com/Venafi/vault-pki-backend-venafi/plugin/pki
 
 push: build build_docker test_e2e
 	docker push $(DOCKER_IMAGE):$(BUILD_TAG)

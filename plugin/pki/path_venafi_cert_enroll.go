@@ -36,6 +36,10 @@ func pathVenafiCertEnroll(b *backend) *framework.Path {
 				Type:        framework.TypeCommaStringSlice,
 				Description: "The requested IP SANs, if any, in a comma-delimited list",
 			},
+			"key_password": {
+				Type:        framework.TypeString,
+				Description: "Password for encrypting private key",
+			},
 		},
 		Callbacks: map[logical.Operation]framework.OperationFunc{
 			logical.UpdateOperation: b.pathVenafiIssue,
@@ -118,7 +122,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 	roleName := data.Get("role").(string)
 
 	b.Logger().Debug("Creating Venafi client:")
-	cl, err := b.ClientVenafi(ctx, req.Storage, data, req, roleName)
+	cl, timeout, err := b.ClientVenafi(ctx, req.Storage, data, req, roleName)
 	if err != nil {
 		return logical.ErrorResponse(err.Error()), nil
 	}
@@ -136,15 +140,15 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 			commonName = altNames[0]
 		}
 		if !sliceContains(altNames, commonName) {
-			b.Logger().Debug("Adding CN %s to SAN %s because it wasn't included.", commonName, altNames)
+			b.Logger().Debug(fmt.Sprintf("Adding CN %s to SAN %s because it wasn't included.", commonName, altNames))
 			altNames = append(altNames, commonName)
 		}
 		certReq = &certificate.Request{
 			Subject: pkix.Name{
 				CommonName: commonName,
 			},
-			CsrOrigin: certificate.LocalGeneratedCSR,
-			//TODO: add key password support
+			CsrOrigin:   certificate.LocalGeneratedCSR,
+			KeyPassword: data.Get("key_password").(string),
 		}
 		ipSet := make(map[string]struct{})
 		nameSet := make(map[string]struct{})
@@ -163,10 +167,10 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 				ipSet[v] = struct{}{}
 			}
 		}
-		for k, _ := range ipSet {
-			certReq.IPAddresses = append(certReq.IPAddresses, net.ParseIP(k))
+		for ip := range ipSet {
+			certReq.IPAddresses = append(certReq.IPAddresses, net.ParseIP(ip))
 		}
-		for k, _ := range nameSet {
+		for k := range nameSet {
 			certReq.DNSNames = append(certReq.DNSNames, k)
 		}
 
@@ -190,6 +194,9 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 			CsrOrigin: certificate.UserProvidedCSR,
 		}
 		err = certReq.SetCSR(pemBytes)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if !signCSR {
@@ -227,6 +234,9 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 		return logical.ErrorResponse(err.Error()), nil
 	}
 
+	//Adding origin custom field with utility name to certificate metadata
+	certReq.CustomFields = []certificate.CustomField{{Type: certificate.CustomFieldOrigin, Value: utilityName}}
+
 	b.Logger().Debug("Running enroll request")
 
 	requestID, err := cl.RequestCertificate(certReq)
@@ -236,8 +246,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 
 	pickupReq := &certificate.Request{
 		PickupID: requestID,
-		//TODO: make timeout configurable
-		Timeout: 180 * time.Second,
+		Timeout:  timeout,
 	}
 	pcc, err := cl.RetrieveCertificate(pickupReq)
 	if err != nil {
@@ -258,7 +267,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 	chain := strings.Join(append([]string{pcc.Certificate}, pcc.Chain...), "\n")
 
 	if !signCSR {
-		err = pcc.AddPrivateKey(certReq.PrivateKey, []byte(""))
+		err = pcc.AddPrivateKey(certReq.PrivateKey, []byte(data.Get("key_password").(string)))
 		if err != nil {
 			return nil, err
 		}
@@ -281,28 +290,29 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 	if err != nil {
 		return nil, err
 	}
-	if role.StoreByCN {
 
-		//Writing certificate to the storage with CN
-		b.Logger().Debug("Putting certificate to the certs/" + commonName)
-		entry.Key = "certs/" + commonName
+	//if no_store is not specified
+	if !role.NoStore {
+		if role.StoreBy == storeByCNString {
+			//Writing certificate to the storage with CN
+			b.Logger().Debug("Putting certificate to the certs/" + commonName)
+			entry.Key = "certs/" + commonName
 
-		if err := req.Storage.Put(ctx, entry); err != nil {
-			b.Logger().Error("Error putting entry to storage: " + err.Error())
-			return nil, err
+			if err := req.Storage.Put(ctx, entry); err != nil {
+				b.Logger().Error("Error putting entry to storage: " + err.Error())
+				return nil, err
+			}
+		} else {
+			//Writing certificate to the storage with Serial Number
+			b.Logger().Debug("Putting certificate to the certs/", normalizeSerial(serialNumber))
+			entry.Key = "certs/" + normalizeSerial(serialNumber)
+
+			if err := req.Storage.Put(ctx, entry); err != nil {
+				b.Logger().Error("Error putting entry to storage: " + err.Error())
+				return nil, err
+			}
 		}
-	}
 
-	if role.StoreBySerial {
-
-		//Writing certificate to the storage with Serial Number
-		b.Logger().Debug("Putting certificate to the certs/", normalizeSerial(serialNumber))
-		entry.Key = "certs/" + normalizeSerial(serialNumber)
-
-		if err := req.Storage.Put(ctx, entry); err != nil {
-			b.Logger().Error("Error putting entry to storage: " + err.Error())
-			return nil, err
-		}
 	}
 
 	var respData map[string]interface{}
@@ -338,7 +348,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 				"serial_number": serialNumber,
 			})
 		TTL := time.Until(parsedCertificate.NotAfter)
-		b.Logger().Debug("Setting up secret lease duration to: ", TTL)
+		b.Logger().Debug("Setting up secret lease duration to: ", TTL.String())
 		logResp.Secret.TTL = TTL
 	}
 
@@ -355,26 +365,23 @@ type VenafiCert struct {
 	SerialNumber     string `json:"serial_number"`
 }
 
-const pathConfigRootHelpSyn = `
+const (
+	pathConfigRootHelpSyn = `
 Configure the Venafi TPP credentials that are used to manage certificates,
 `
-
-const pathConfigRootHelpDesc = `
+	pathConfigRootHelpDesc = `
 Configure TPP first
 `
-
-const pathVenafiCertEnrollHelp = `
+	pathVenafiCertEnrollHelp = `
 Enroll Venafi certificate
 `
-
-const pathVenafiCertEnrollDesc = `
+	pathVenafiCertEnrollDesc = `
 Enroll Venafi certificate
 `
-
-const pathVenafiCertSignHelp = `
+	pathVenafiCertSignHelp = `
 Sign Venafi certificate
 `
-
-const pathVenafiCertSignDesc = `
+	pathVenafiCertSignDesc = `
 Sign Venafi certificate
 `
+)

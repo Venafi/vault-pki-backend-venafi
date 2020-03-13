@@ -6,5 +6,4 @@ linters:
   disable:
     - deadcode
     - varcheck
-    - unused
   enable:

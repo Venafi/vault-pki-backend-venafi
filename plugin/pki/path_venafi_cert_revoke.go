@@ -2,22 +2,26 @@ package pki
 
 import (
 	"context"
+	"fmt"
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
 )
 
 func pathVenafiCertRevoke(b *backend) *framework.Path {
 	return &framework.Path{
-		//Pattern: "certs/(?P<certificate_uid>[0-9a-z-.]+)",
-		Pattern: "cert/" + framework.GenericNameRegex("certificate_uid"),
+		Pattern: "revoke/" + framework.GenericNameRegex("role"),
 		Fields: map[string]*framework.FieldSchema{
+			"role": {
+				Type:        framework.TypeString,
+				Description: `The desired role with configuration for this request`,
+			},
 			"certificate_uid": {
 				Type:        framework.TypeString,
 				Description: "Common name for created certificate",
 			},
 		},
 		Callbacks: map[logical.Operation]framework.OperationFunc{
-			logical.ReadOperation: b.venafiCertRevoke,
+			logical.UpdateOperation: b.venafiCertRevoke,
 		},
 
 		HelpSynopsis:    pathConfigRootHelpSyn,
@@ -26,7 +30,5 @@ func pathVenafiCertRevoke(b *backend) *framework.Path {
 }
 
 func (b *backend) venafiCertRevoke(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
-	//TODO: Add revoke function here
-
-	return nil, nil
+	return nil, fmt.Errorf("not implemented yet")
 }

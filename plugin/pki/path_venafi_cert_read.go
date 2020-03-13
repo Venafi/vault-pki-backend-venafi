@@ -9,7 +9,6 @@ import (
 
 func pathVenafiCertRead(b *backend) *framework.Path {
 	return &framework.Path{
-		//Pattern: "certs/(?P<certificate_uid>[0-9a-z-.]+)",
 		Pattern: "cert/" + framework.GenericNameRegex("certificate_uid"),
 		Fields: map[string]*framework.FieldSchema{
 			"certificate_uid": {
@@ -19,6 +18,7 @@ func pathVenafiCertRead(b *backend) *framework.Path {
 		},
 		Callbacks: map[logical.Operation]framework.OperationFunc{
 			logical.ReadOperation: b.pathVenafiCertRead,
+		    //todo: maybe add delete operation to delete certificate entry from storage
 		},
 
 		HelpSynopsis:    pathConfigRootHelpSyn,
@@ -33,20 +33,26 @@ func (b *backend) pathVenafiCertRead(ctx context.Context, req *logical.Request, 
 		return logical.ErrorResponse("no common name specified on certificate"), nil
 	}
 
-	entry, err := req.Storage.Get(ctx, "certs/"+certUID)
+	path := "certs/" + certUID
+
+	entry, err := req.Storage.Get(ctx, path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read Venafi certificate")
+		return nil, fmt.Errorf("failed to read Venafi certificate: %s", err)
 	}
+
+	if entry == nil {
+		return nil, fmt.Errorf("no entry found in path %s", path)
+	}
+
 	var cert VenafiCert
 	b.Logger().Debug("Getting venafi certificate")
-	b.Logger().Debug("certificate:", cert.Certificate)
-	e := entry.DecodeJSON(&cert)
-	b.Logger().Debug("e:", e)
+
 	if err := entry.DecodeJSON(&cert); err != nil {
 		b.Logger().Error("error reading venafi configuration: %s", err)
 		return nil, err
 	}
-	b.Logger().Debug("chain is:", cert.Certificate)
+	b.Logger().Debug("certificate is:", cert.Certificate)
+	b.Logger().Debug("chain is:", cert.CertificateChain)
 
 	respData := map[string]interface{}{
 		"certificate_uid":   certUID,

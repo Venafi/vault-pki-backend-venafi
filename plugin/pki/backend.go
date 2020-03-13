@@ -35,7 +35,6 @@ func Backend(conf *logical.BackendConfig) *backend {
 			pathVenafiCertSign(&b),
 			pathVenafiCertRead(&b),
 			pathVenafiCertRevoke(&b),
-			pathVenafiFetchValid(&b),
 			pathVenafiFetchListCerts(&b),
 		},
 
@@ -45,15 +44,20 @@ func Backend(conf *logical.BackendConfig) *backend {
 
 		BackendType: logical.TypeLogical,
 	}
+	b.storage = conf.StorageView
 	return &b
 }
 
 type backend struct {
 	*framework.Backend
+	storage logical.Storage
 }
 
-const backendHelp = `
+const (
+	backendHelp = `
 The Venafi certificates backend plugin requests certificates from TPP of Condor.
 
 After mounting this backend create a role using role/ path.
 `
+	utilityName = "HashiCorp Vault"
+)

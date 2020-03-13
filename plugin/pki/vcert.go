@@ -8,21 +8,22 @@ import (
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
 	"io/ioutil"
+	"time"
 )
 
 func (b *backend) ClientVenafi(ctx context.Context, s logical.Storage, data *framework.FieldData, req *logical.Request, roleName string) (
-	endpoint.Connector, error) {
-	b.Logger().Debug("Using role: %s", roleName)
+	endpoint.Connector, time.Duration, error) {
+	b.Logger().Debug(fmt.Sprintf("Using role: %s", roleName))
 	if roleName == "" {
-		return nil, fmt.Errorf("Missing role name")
+		return nil, 0, fmt.Errorf("Missing role name")
 	}
 
 	role, err := b.getRole(ctx, req.Storage, roleName)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	if role == nil {
-		return nil, fmt.Errorf("Unknown role %v", role)
+		return nil, 0, fmt.Errorf("Unknown role %v", role)
 	}
 
 	var cfg *vcert.Config
@@ -38,7 +39,7 @@ func (b *backend) ClientVenafi(ctx context.Context, s logical.Storage, data *fra
 			b.Logger().Debug("Trying to read trust bundle from file %s\n", role.TrustBundleFile)
 			trustBundle, err := ioutil.ReadFile(role.TrustBundleFile)
 			if err != nil {
-				return nil, err
+				return nil, 0, err
 			}
 			trustBundlePEM := string(trustBundle)
 			cfg = &vcert.Config{
@@ -77,14 +78,14 @@ func (b *backend) ClientVenafi(ctx context.Context, s logical.Storage, data *fra
 			LogVerbose: true,
 		}
 	} else {
-		return nil, fmt.Errorf("failed to build config for Venafi issuer")
+		return nil, 0, fmt.Errorf("failed to build config for Venafi issuer")
 	}
 
 	client, err := vcert.NewClient(cfg)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get Venafi issuer client: %s", err)
+		return nil, 0, fmt.Errorf("failed to get Venafi issuer client: %s", err)
 	}
 
-	return client, nil
+	return client, role.ServerTimeout, nil
 
 }
