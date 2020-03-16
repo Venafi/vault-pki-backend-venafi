@@ -2,7 +2,6 @@ package pki
 
 import (
 	"context"
-	"fmt"
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
 )
