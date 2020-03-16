@@ -534,13 +534,9 @@ func (e *testEnv) RevokeCertificate(t *testing.T, certId string) {
 		},
 	})
 
-	if err == nil {
-		t.Fatalf("revoke path is not implemented yet and should return error")
+	if err != nil {
+		t.Fatal(err)
 	}
-	if err.Error() != "not implemented yet" {
-		t.Fatalf("error message should be not implemented yet not %s", err)
-	}
-
 }
 
 func makeConfig(configString venafiConfigString) (roleData map[string]interface{}, err error) {
