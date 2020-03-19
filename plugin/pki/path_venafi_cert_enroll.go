@@ -142,7 +142,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 
 	altNamesRaw, ok := data.GetOk("alt_names")
 	if ok {
-	  reqData.altNames = altNamesRaw.([]string)
+		reqData.altNames = altNamesRaw.([]string)
 	}
 
 	ipSANsRaw, ok := data.GetOk("ip_sans")
@@ -160,12 +160,15 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 		reqData.csrString = csrStringRaw.(string)
 	}
 
-	err, certReq = formRequest(reqData, role, signCSR, b.Logger())
+	certReq, err = formRequest(reqData, role, signCSR, b.Logger())
+	if err != nil {
+		return logical.ErrorResponse(err.Error()), nil
+	}
 
 	b.Logger().Debug("Making certificate request")
 	err = cl.GenerateRequest(nil, certReq)
 	if err != nil {
-		return  logical.ErrorResponse(err.Error()), nil
+		return logical.ErrorResponse(err.Error()), nil
 	}
 
 	b.Logger().Debug("Running enroll request")
@@ -290,19 +293,17 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 }
 
 type requestData struct {
-	commonName string
-	altNames []string
-	ipSANs []string
+	commonName  string
+	altNames    []string
+	ipSANs      []string
 	keyPassword string
-	csrString string
+	csrString   string
 }
 
-func  formRequest(reqData requestData, role *roleEntry, signCSR bool, logger hclog.Logger) (err error, certReq *certificate.Request){
-
-
+func formRequest(reqData requestData, role *roleEntry, signCSR bool, logger hclog.Logger) (certReq *certificate.Request, err error) {
 	if !signCSR {
 		if len(reqData.commonName) == 0 && len(reqData.altNames) == 0 {
-			return fmt.Errorf("no domains specified on certificate"), certReq
+			return certReq, fmt.Errorf("no domains specified on certificate")
 		}
 		if len(reqData.commonName) == 0 && len(reqData.altNames) > 0 {
 			reqData.commonName = reqData.altNames[0]
@@ -346,16 +347,16 @@ func  formRequest(reqData requestData, role *roleEntry, signCSR bool, logger hcl
 		logger.Debug("Signing user provided CSR")
 
 		if reqData.csrString == "" {
-			return fmt.Errorf(fmt.Sprintf("\"csr\" is empty")), certReq
+			return certReq, fmt.Errorf("\"csr\" is empty")
 		}
 		pemBytes := []byte(reqData.csrString)
 		pemBlock, _ := pem.Decode(pemBytes)
 		if pemBlock == nil {
-			return fmt.Errorf(fmt.Sprintf("csr contains no data")), certReq
+			return certReq, fmt.Errorf("csr contains no data")
 		}
 		csr, err := x509.ParseCertificateRequest(pemBlock.Bytes)
 		if err != nil {
-			return fmt.Errorf(fmt.Sprintf("can't parse provided CSR %s", err)), certReq
+			return certReq, fmt.Errorf("can't parse provided CSR %v", err)
 		}
 		reqData.commonName = csr.Subject.CommonName
 		certReq = &certificate.Request{
@@ -363,7 +364,7 @@ func  formRequest(reqData requestData, role *roleEntry, signCSR bool, logger hcl
 		}
 		err = certReq.SetCSR(pemBytes)
 		if err != nil {
-			return err, certReq
+			return certReq, err
 		}
 	}
 
@@ -380,11 +381,11 @@ func  formRequest(reqData requestData, role *roleEntry, signCSR bool, logger hcl
 			case role.KeyCurve == "P521":
 				certReq.KeyCurve = certificate.EllipticCurveP521
 			default:
-				return fmt.Errorf(fmt.Sprintf("can't use key curve %s", role.KeyCurve)), certReq
+				return certReq, fmt.Errorf("can't use key curve %s", role.KeyCurve)
 			}
 
 		} else {
-			return fmt.Errorf(fmt.Sprintf("can't determine key algorithm for %s", role.KeyType)), certReq
+			return certReq, fmt.Errorf("can't determine key algorithm for %s", role.KeyType)
 		}
 	}
 
@@ -393,13 +394,13 @@ func  formRequest(reqData requestData, role *roleEntry, signCSR bool, logger hcl
 	} else if role.ChainOption == "last" {
 		certReq.ChainOption = certificate.ChainOptionRootLast
 	} else {
-		return fmt.Errorf(fmt.Sprintf("Invalid chain option %s", role.ChainOption)), certReq
+		return certReq, fmt.Errorf("Invalid chain option %s", role.ChainOption)
 	}
 
 	//Adding origin custom field with utility name to certificate metadata
 	certReq.CustomFields = []certificate.CustomField{{Type: certificate.CustomFieldOrigin, Value: utilityName}}
 
-	return nil, certReq
+	return certReq, nil
 }
 
 type VenafiCert struct {
