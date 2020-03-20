@@ -94,7 +94,7 @@ compress:
 build_docker:
 	docker build -t $(DOCKER_IMAGE):$(BUILD_TAG) .
 
-test: test_go test_e2e
+test: linter test_go test_e2e
 
 test_go:
 	go test -v \
