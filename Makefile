@@ -312,7 +312,7 @@ collect_artifacts:
 	mkdir -p artifcats
 	cp -rv $(DIST_DIR)/*.zip artifcats
 	cd artifcats; echo '```' > ../release.txt
-	cd artifcats; sha1sum * >> ../release.txt
+	cd artifcats; sha256sum * >> ../release.txt
 	cd artifcats; echo '```' >> ../release.txt
 
 linter:
