@@ -64,10 +64,10 @@ const (
 )
 
 var venafiTestTPPConfig = map[string]interface{}{
-	"tpp_url":           os.Getenv("TPPURL"),
-	"tpp_user":          os.Getenv("TPPUSER"),
-	"tpp_password":      os.Getenv("TPPPASSWORD"),
-	"zone":              os.Getenv("TPPZONE"),
+	"tpp_url":           os.Getenv("TPP_URL"),
+	"tpp_user":          os.Getenv("TPP_USER"),
+	"tpp_password":      os.Getenv("TPP_PASSWORD"),
+	"zone":              os.Getenv("TPP_ZONE"),
 	"trust_bundle_file": os.Getenv("TRUST_BUNDLE"),
 }
 
@@ -80,17 +80,17 @@ var venafiTestTPPConfigPredefined = map[string]interface{}{
 }
 
 var venafiTestTPPConfigRestricted = map[string]interface{}{
-	"tpp_url":           os.Getenv("TPPURL"),
-	"tpp_user":          os.Getenv("TPPUSER"),
-	"tpp_password":      os.Getenv("TPPPASSWORD"),
-	"zone":              os.Getenv("TPPZONE_RESTRICTED"),
+	"tpp_url":           os.Getenv("TPP_URL"),
+	"tpp_user":          os.Getenv("TPP_USER"),
+	"tpp_password":      os.Getenv("TPP_PASSWORD"),
+	"zone":              os.Getenv("TPP_ZONE_RESTRICTED"),
 	"trust_bundle_file": os.Getenv("TRUST_BUNDLE"),
 }
 
 var venafiTestCloudConfig = map[string]interface{}{
-	"cloud_url": os.Getenv("CLOUDURL"),
-	"apikey":    os.Getenv("CLOUDAPIKEY"),
-	"zone":      os.Getenv("CLOUDZONE"),
+	"cloud_url": os.Getenv("CLOUD_URL"),
+	"apikey":    os.Getenv("CLOUD_APIKEY"),
+	"zone":      os.Getenv("CLOUD_ZONE"),
 }
 
 var venafiTestCloudConfigPredefined = map[string]interface{}{
@@ -99,9 +99,9 @@ var venafiTestCloudConfigPredefined = map[string]interface{}{
 }
 
 var venafiTestCloudConfigRestricted = map[string]interface{}{
-	"cloud_url": os.Getenv("CLOUDURL"),
-	"apikey":    os.Getenv("CLOUDAPIKEY"),
-	"zone":      os.Getenv("CLOUDRESTRICTEDZONE"),
+	"cloud_url": os.Getenv("CLOUD_URL"),
+	"apikey":    os.Getenv("CLOUD_APIKEY"),
+	"zone":      os.Getenv("CLOUD_ZONE_RESTRICTED"),
 }
 
 var venafiTestFakeConfigDeprecatedStoreByCN = map[string]interface{}{

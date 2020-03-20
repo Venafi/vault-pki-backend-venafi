@@ -210,31 +210,31 @@ Here, we'll use a Makefile to encapsulate several command sequences in a single 
     **Venafi Platform Variables**
 
     ```text
-    export TPPUSER=<WebSDK User for Venafi Platform, e.g. "admin">
-    export TPPPASSWORD=<Password for WebSDK User, e.g. "password">
-    export TPPURL=<URL of Venafi Platform WebSDK, e.g. "https://venafi.example.com/vedsdk">
-    export TPPZONE=<Name of the policy folder that will hold all certificates that will be requested>
+    export TPP_USER=<WebSDK User for Venafi Platform, e.g. "admin">
+    export TPP_PASSWORD=<Password for WebSDK User, e.g. "password">
+    export TPP_URL=<URL of Venafi Platform WebSDK, e.g. "https://venafi.example.com/vedsdk">
+    export TPP_ZONE=<Name of the policy folder that will hold all certificates that will be requested>
     export TRUST_BUNDLE=/bundle.pem
     ```
 
     The syntax for the Venafi Platform policy folder can be tricky. If the policy folder name contains spaces, it must be wrapped in double quotes like this:
 
     ```text
-    export TPPZONE="My Policy" *
+    export TPP_ZONE="My Policy" *
     ```
 
     Also, if the policy folder is not at the root of the policy tree (nested folder), you need to escape the backslash delimiters twice (four backslashes in total):
 
     ```text
-    export TPPZONE="Parent Folder\\\\Child Folder"
+    export TPP_ZONE="Parent Folder\\\\Child Folder"
     ```
 
     **Venafi Cloud Variables**
 
     ```text
-    export CLOUDAPIKEY=<API key for Venafi Cloud>
-    export CLOUDZONE=<Zone that governs all certificates that are requested, refer to Venafi Cloud UI to get Zone ID>
-    export CLOUDURL=<only set when instructed to use a non-production instance of Venafi Cloud>
+    export CLOUD_APIKEY=<API key for Venafi Cloud>
+    export CLOUD_ZONE=<Zone that governs all certificates that are requested, refer to Venafi Cloud UI to get Zone ID>
+    export CLOUD_URL=<only set when instructed to use a non-production instance of Venafi Cloud>
     ```
 
 1. Run `make prod`.
@@ -602,17 +602,17 @@ Also you can run integration tests but for it you need to add TPP\Cloud credenti
 
 Example fro TPP:_
 ```
-export TPPUSER='admin'
-export TPPPASSWORD='strongPassword'
+export TPP_USER='admin'
+export TPP_PASSWORD='strongPassword'
 export TRUST_BUNDLE="/opt/venafi/bundle.pem"
-export TPPURL="https://tpp.example.com:/vedsdk"
-export TPPZONE="devops\\\\vcert"
+export TPP_URL="https://tpp.example.com:/vedsdk"
+export TPP_ZONE="devops\\\\vcert"
 
 ```
 Example for Cloud:_
 ```
-export CLOUDZONE="xxxxxxx-xxxxx-xxxx-xxxx-xxxxxxx"
-export CLOUDAPIKEY='xxxxxxx-xxxxx-xxxx-xxxx-xxxxxxx'
+export CLOUD_ZONE="xxxxxxx-xxxxx-xxxx-xxxx-xxxxxxx"
+export CLOUD_APIKEY='xxxxxxx-xxxxx-xxxx-xxxx-xxxxxxx'
 ```
 
 To run tests use make commands:_

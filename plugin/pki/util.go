@@ -59,14 +59,14 @@ func GetContext() *RunContext {
 
 	c := RunContext{}
 
-	c.TPPurl = os.Getenv("TPPURL")
-	c.TPPuser = os.Getenv("TPPUSER")
-	c.TPPPassword = os.Getenv("TPPPASSWORD")
-	c.TPPZone = os.Getenv("TPPZONE")
+	c.TPPurl = os.Getenv("TPP_URL")
+	c.TPPuser = os.Getenv("TPP_USER")
+	c.TPPPassword = os.Getenv("TPP_PASSWORD")
+	c.TPPZone = os.Getenv("TPP_ZONE")
 
-	c.CloudUrl = os.Getenv("CLOUDURL")
-	c.CloudAPIkey = os.Getenv("CLOUDAPIKEY")
-	c.CloudZone = os.Getenv("CLOUDZONE")
+	c.CloudUrl = os.Getenv("CLOUD_URL")
+	c.CloudAPIkey = os.Getenv("CLOUD_APIKEY")
+	c.CloudZone = os.Getenv("CLOUD_ZONE")
 	c.TPPTestingEnabled, _ = strconv.ParseBool(os.Getenv("VENAFI_TPP_TESTING"))
 	c.CloudTestingEnabled, _ = strconv.ParseBool(os.Getenv("VENAFI_CLOUD_TESTING"))
 	c.FakeTestingEnabled, _ = strconv.ParseBool(os.Getenv("VENAFI_FAKE_TESTING"))

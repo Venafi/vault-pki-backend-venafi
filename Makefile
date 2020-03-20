@@ -217,7 +217,7 @@ fake: fake_config_write fake_cert_write fake_cert_read_certificate fake_cert_rea
 
 #Cloud role tasks
 cloud_config_write:
-	vault write $(MOUNT)/roles/$(CLOUD_ROLE) cloud_url=$(CLOUDURL) zone="$(CLOUDZONE)" apikey=$(CLOUDAPIKEY) $(ROLE_OPTIONS)
+	vault write $(MOUNT)/roles/$(CLOUD_ROLE) cloud_url=$(CLOUD_URL) zone="$(CLOUD_ZONE)" apikey=$(CLOUD_APIKEY) $(ROLE_OPTIONS)
 cloud_config_read:
 	vault read $(MOUNT)/roles/$(CLOUD_ROLE)
 
@@ -239,7 +239,7 @@ cloud: cloud_config_write cloud_cert_write cloud_cert_read_certificate cloud_cer
 
 #TPP role tasks
 tpp_config_write:
-	vault write $(MOUNT)/roles/$(TPP_ROLE) tpp_url=$(TPPURL) tpp_user=$(TPPUSER) tpp_password=$(TPPPASSWORD) zone="$(TPPZONE)" trust_bundle_file=$(TRUST_BUNDLE) $(ROLE_OPTIONS)
+	vault write $(MOUNT)/roles/$(TPP_ROLE) tpp_url=$(TPP_URL) tpp_user=$(TPP_USER) tpp_password=$(TPP_PASSWORD) zone="$(TPP_ZONE)" trust_bundle_file=$(TRUST_BUNDLE) $(ROLE_OPTIONS)
 tpp_config_read:
 	vault read $(MOUNT)/roles/$(TPP_ROLE)
 
