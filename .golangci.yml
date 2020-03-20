@@ -7,3 +7,4 @@ linters:
     - deadcode
     - varcheck
   enable:
+    - gosec
