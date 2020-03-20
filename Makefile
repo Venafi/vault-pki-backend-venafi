@@ -17,6 +17,15 @@ else
 	VERSION=`git describe --abbrev=0 --tags`
 endif
 
+#define version if release is set
+ifdef RELEASE_VERSION
+ifdef BUILD_NUMBER
+VERSION=$(RELEASE_VERSION)+$(BUILD_NUMBER)
+else
+VERSION=$(RELEASE_VERSION)
+endif
+endif
+
 ###Demo scripts parameteres
 VAULT_VERSION := $(shell vault --version|awk '{print $$2}')
 VAULT_CONT := $$(docker-compose ps |grep Up|grep vault_1|awk '{print $$1}')
@@ -302,7 +311,13 @@ collect_artifacts:
 	rm -rf artifcats
 	mkdir -p artifcats
 	cp -rv $(DIST_DIR)/*.zip artifcats
-	cd artifcats; sha1sum * > hashsums.sha1
+	cd artifcats; echo '```' > ../release.txt
+	cd artifcats; sha256sum * >> ../release.txt
+	cd artifcats; echo '```' >> ../release.txt
 
 linter:
 	golangci-lint run
+
+release:
+	go get -u github.com/tcnksm/ghr
+	ghr -prerelease -n $$RELEASE_VERSION -body="$$(cat ./release.txt)" $$RELEASE_VERSION artifcats/
