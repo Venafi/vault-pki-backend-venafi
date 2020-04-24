@@ -948,6 +948,7 @@ func (e *testEnv) CloudIntegrationIssueCertificate(t *testing.T) {
 	randString := e.TestRandString
 	domain := "venafi.example.com"
 	data.cn = randString + "." + domain
+	data.dnsNS = "www." + data.cn
 
 	var config = venafiConfigCloud
 
@@ -961,6 +962,7 @@ func (e *testEnv) CloudIntegrationIssueCertificateRestricted(t *testing.T) {
 	randString := e.TestRandString
 	domain := "vfidev.com"
 	data.cn = randString + "." + domain
+	data.dnsNS = "www." + data.cn
 
 	var config = venafiConfigCloud
 
@@ -974,6 +976,7 @@ func (e *testEnv) CloudIntegrationIssueCertificateWithPassword(t *testing.T) {
 	randString := e.TestRandString
 	domain := "vfidev.com"
 	data.cn = randString + "." + domain
+	data.dnsNS = "www." + data.cn
 	data.keyPassword = "password"
 
 	var config = venafiConfigCloud
