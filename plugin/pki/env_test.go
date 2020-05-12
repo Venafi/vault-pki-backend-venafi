@@ -274,17 +274,17 @@ func (e *testEnv) IssueCertificateAndSaveSerial(t *testing.T, data testData, con
 
 	var issueData map[string]interface{}
 
-        var altNames []string
+	var altNames []string
 
-        if data.dnsNS != "" {
-                altNames = append(altNames, data.dnsNS)
-        }
-        if data.dnsEmail != "" {
-                altNames = append(altNames, data.dnsEmail)
-        }
-        if data.dnsIP != "" {
-                altNames = append(altNames, data.dnsIP)
-        }
+	if data.dnsNS != "" {
+		altNames = append(altNames, data.dnsNS)
+	}
+	if data.dnsEmail != "" {
+		altNames = append(altNames, data.dnsEmail)
+	}
+	if data.dnsIP != "" {
+		altNames = append(altNames, data.dnsIP)
+	}
 
 	if data.keyPassword != "" {
 		issueData = map[string]interface{}{
