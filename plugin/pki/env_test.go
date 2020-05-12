@@ -274,13 +274,19 @@ func (e *testEnv) IssueCertificateAndSaveSerial(t *testing.T, data testData, con
 
 	var issueData map[string]interface{}
 
-	var altNames string
+        var sans []string
 
-	if data.dnsIP != "" {
-		altNames = fmt.Sprintf("%s,%s, %s", data.dnsNS, data.dnsEmail, data.dnsIP)
-	} else {
-		altNames = fmt.Sprintf("%s,%s", data.dnsNS, data.dnsEmail)
-	}
+        if data.dnsNS != "" {
+                sans = append(sans, data.dnsNS)
+        }
+        if data.dnsEmail != "" {
+                sans = append(sans, data.dnsEmail)
+        }
+        if data.dnsIP != "" {
+                sans = append(sans, data.dnsIP)
+        }
+
+	altNames := strings.Join(sans, ",")
 
 	if data.keyPassword != "" {
 		issueData = map[string]interface{}{
