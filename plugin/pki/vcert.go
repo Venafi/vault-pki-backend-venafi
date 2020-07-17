@@ -38,7 +38,7 @@ func (b *backend) ClientVenafi(ctx context.Context, s logical.Storage, data *fra
 	}
 
 	if role.Fakemode {
-		b.Logger().Debug("Using dev mode to issue certificate")
+		b.Logger().Debug("Using fakemode to issue certificate")
 		cfg = &vcert.Config{
 			ConnectorType: endpoint.ConnectorTypeFake,
 			LogVerbose:    true,
