@@ -34,7 +34,7 @@ func (b *backend) ClientVenafi(ctx context.Context, s logical.Storage, data *fra
 		if err != nil {
 			return nil, 0, err
 		}
-		trustBundlePEM := string(trustBundle)
+		trustBundlePEM = string(trustBundle)
 	}
 
 	if role.Fakemode {
