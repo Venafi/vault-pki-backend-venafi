@@ -115,7 +115,8 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 	// When utilizing performance standbys in Vault Enterprise, this forces the call to be redirected to the primary since
 	// a storage call is made after the API calls to issue the certificate.  This prevents the certificate from being
 	// issued twice in this scenario.
-	if !role.NoStore && b.System().ReplicationState().HasState(consts.ReplicationPerformanceStandby) {
+	if !role.NoStore && b.System().ReplicationState().
+		HasState(consts.ReplicationPerformanceStandby | consts.ReplicationPerformanceSecondary) {
 		return nil, logical.ErrReadOnly
 	}
 
