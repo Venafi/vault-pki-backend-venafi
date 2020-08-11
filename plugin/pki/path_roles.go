@@ -34,6 +34,10 @@ func pathRoles(b *backend) *framework.Path {
 				Type:        framework.TypeString,
 				Description: `URL of Venafi Platfrom. Example: https://tpp.venafi.example/vedsdk`,
 			},
+			"url": {
+				Type:        framework.TypeString,
+				Description: `URL of Venafi Platfrom. Example: https://tpp.venafi.example/vedsdk, is replacing tpp_url`,
+			},
 
 			"cloud_url": {
 				Type:        framework.TypeString,
@@ -55,6 +59,14 @@ Example for Venafi Cloud: e33f3e40-4e7e-11ea-8da3-b3c196ebeb0b`,
 			"tpp_password": {
 				Type:        framework.TypeString,
 				Description: `Password for web API user Example: password`,
+			},
+			"access_token": {
+				Type:        framework.TypeString,
+				Description: `Access token for TPP, user should use this for authentication`,
+			},
+			"refresh_token": {
+				Type:        framework.TypeString,
+				Description: `Refresh token for updating access TPP token`,
 			},
 			"trust_bundle_file": {
 				Type: framework.TypeString,
@@ -173,6 +185,7 @@ const (
 	errorTextNoStoreAndStoreByCNOrSerialConflict = `Can't specify both no_store and store_by_cn or store_by_serial options '`
 	errorTextNoStoreAndStoreByConflict           = `Can't specify both no_store and store_by options '`
 	errTextStoreByWrongOption                    = "Option store_by can be %s or %s, not %s"
+	errorTextMixedTPPTokenAndCloudAPIKey         = `TPP Token and Cloud API key can't be specified in one role`
 )
 
 func (b *backend) getRole(ctx context.Context, s logical.Storage, n string) (*roleEntry, error) {
@@ -236,9 +249,12 @@ func (b *backend) pathRoleCreate(ctx context.Context, req *logical.Request, data
 
 	entry := &roleEntry{
 		TPPURL:           data.Get("tpp_url").(string),
+		URL:              data.Get("url").(string),
 		CloudURL:         data.Get("cloud_url").(string),
 		Zone:             data.Get("zone").(string),
 		TPPPassword:      data.Get("tpp_password").(string),
+		AccessToken:      data.Get("access_token").(string),
+		RefreshToken:     data.Get("refresh_token").(string),
 		Apikey:           data.Get("apikey").(string),
 		TPPUser:          data.Get("tpp_user").(string),
 		TrustBundleFile:  data.Get("trust_bundle_file").(string),
@@ -273,11 +289,29 @@ func (b *backend) pathRoleCreate(ctx context.Context, req *logical.Request, data
 		return nil, err
 	}
 
+
+	var logResp *logical.Response
+
+	respData := map[string]interface{}{
+	}
+
+	warnings := getWarnings(entry, name)
+
+	if cap(warnings) > 0 {
+		logResp = &logical.Response{
+
+		Data:     respData,
+		Redirect: "",
+		Warnings: warnings,
+	}
+		return logResp, nil
+	}
+
 	return nil, nil
 }
 
 func validateEntry(entry *roleEntry) (err error) {
-	if !entry.Fakemode && entry.Apikey == "" && (entry.TPPURL == "" || entry.TPPUser == "" || entry.TPPPassword == "") {
+	if !entry.Fakemode && entry.Apikey == "" && (entry.TPPURL == "" || entry.TPPUser == "" || entry.TPPPassword == "") && (entry.AccessToken == "") {
 		return fmt.Errorf(errorTextInvalidMode)
 	}
 
@@ -293,6 +327,10 @@ func validateEntry(entry *roleEntry) (err error) {
 
 	if entry.TPPUser != "" && entry.Apikey != "" {
 		return fmt.Errorf(errorTextTPPandCloudMixedCredentials)
+	}
+
+	if entry.AccessToken != "" && entry.Apikey != "" {
+		return fmt.Errorf(errorTextMixedTPPTokenAndCloudAPIKey)
 	}
 
 	if (entry.StoreByCN || entry.StoreBySerial) && entry.StoreBy != "" {
@@ -327,15 +365,37 @@ func validateEntry(entry *roleEntry) (err error) {
 	return nil
 }
 
+func getWarnings(entry *roleEntry, name string) []string {
+
+	warnings := []string{}
+
+	if entry.TPPURL != "" {
+		warnings = append(warnings, "Role: "+name+", saved successfully, but tpp_url is deprecated, please use url instead")
+	}
+
+	if entry.TPPUser != "" {
+		warnings = append(warnings, "Role: "+name+", saved successfully, but tpp_user is deprecated, please use access_token token instead")
+	}
+
+	if entry.TPPPassword != "" {
+		warnings = append(warnings, "Role: "+name+", saved successfully, but tpp_password is deprecated, please use access_token instead")
+	}
+
+	return warnings
+}
+
 type roleEntry struct {
 
 	//Venafi values
 	TPPURL           string        `json:"tpp_url"`
+	URL              string        `json:"url"`
 	CloudURL         string        `json:"cloud_url"`
 	Zone             string        `json:"zone"`
 	TPPPassword      string        `json:"tpp_password"`
 	Apikey           string        `json:"apikey"`
 	TPPUser          string        `json:"tpp_user"`
+	AccessToken      string        `json:"access_token"`
+	RefreshToken     string        `json:"refresh_token"`
 	TrustBundleFile  string        `json:"trust_bundle_file"`
 	Fakemode         bool          `json:"fakemode"`
 	ChainOption      string        `json:"chain_option"`
@@ -361,7 +421,7 @@ type roleEntry struct {
 func (r *roleEntry) ToResponseData() map[string]interface{} {
 	responseData := map[string]interface{}{
 		//Venafi
-		"tpp_url":   r.TPPURL,
+		"url":   r.URL,
 		"cloud_url": r.CloudURL,
 		"zone":      r.Zone,
 		//We shouldn't show credentials

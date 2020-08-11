@@ -2,7 +2,13 @@ package pki
 
 import (
 	"bytes"
+	"context"
+	"crypto/x509"
 	"fmt"
+	"github.com/Venafi/vcert"
+	"github.com/Venafi/vcert/pkg/endpoint"
+	"github.com/Venafi/vcert/pkg/venafi/tpp"
+	"github.com/hashicorp/vault/logical"
 	"net"
 	"os"
 	"sort"
@@ -113,4 +119,63 @@ func SameStringSlice(x, y []string) bool {
 		}
 	}
 	return true
+}
+
+func getTppConnector(cfg *vcert.Config) (*tpp.Connector, error) {
+
+	var connectionTrustBundle *x509.CertPool
+	if cfg.ConnectionTrust != "" {
+		connectionTrustBundle = x509.NewCertPool()
+		if !connectionTrustBundle.AppendCertsFromPEM([]byte(cfg.ConnectionTrust)) {
+			return nil, fmt.Errorf("Failed to parse PEM trust bundle")
+		}
+	}
+	tppConnector, err := tpp.NewConnector(cfg.BaseUrl, "", cfg.LogVerbose, connectionTrustBundle)
+	if err != nil {
+		return nil, fmt.Errorf("could not create TPP connector: %s", err)
+	}
+
+	return tppConnector, nil
+}
+
+func updateAccessToken(cfg *vcert.Config, b *backend, ctx context.Context, req *logical.Request, roleName string) error {
+	tppConnector, _ := getTppConnector(cfg)
+
+	resp, err := tppConnector.RefreshAccessToken(&endpoint.Authentication{
+		RefreshToken: cfg.Credentials.RefreshToken,
+		ClientId:     "hashicorp-vault-by-venafi",
+		Scope:        "certificate:revoke",
+	})
+	if resp.Access_token != "" && resp.Refresh_token != "" {
+
+		err := storeAccessData(b, ctx, req, roleName, resp)
+		if err != nil {
+			return err
+		}
+
+	} else {
+		return err
+	}
+	return nil
+}
+
+func storeAccessData(b *backend, ctx context.Context, req *logical.Request, roleName string, resp tpp.OauthRefreshAccessTokenResponse) error {
+	entry, err := b.getRole(ctx, req.Storage, roleName)
+
+	if err != nil {
+		return err
+	}
+
+	entry.RefreshToken = resp.Refresh_token
+	entry.AccessToken = resp.Access_token
+
+	// Store it
+	jsonEntry, err := logical.StorageEntryJSON("role/"+roleName, entry)
+	if err != nil {
+		return err
+	}
+	if err := req.Storage.Put(ctx, jsonEntry); err != nil {
+		return err
+	}
+	return nil
 }
