@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"github.com/Venafi/vcert"
 	"github.com/Venafi/vcert/pkg/endpoint"
-	"github.com/hashicorp/vault/logical"
-	"github.com/hashicorp/vault/logical/framework"
+	"github.com/hashicorp/vault/sdk/logical"
+	"github.com/hashicorp/vault/sdk/framework"
 	"io/ioutil"
 	"time"
 )

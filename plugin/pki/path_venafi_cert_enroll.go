@@ -7,14 +7,14 @@ import (
 	"encoding/pem"
 	"fmt"
 	"github.com/hashicorp/go-hclog"
-	"github.com/hashicorp/vault/helper/consts"
+	"github.com/hashicorp/vault/sdk/helper/consts"
 	"net"
 	"strings"
 	"time"
 
 	"github.com/Venafi/vcert/pkg/certificate"
-	"github.com/hashicorp/vault/logical"
-	"github.com/hashicorp/vault/logical/framework"
+	"github.com/hashicorp/vault/sdk/logical"
+	"github.com/hashicorp/vault/sdk/framework"
 )
 
 func pathVenafiCertEnroll(b *backend) *framework.Path {
