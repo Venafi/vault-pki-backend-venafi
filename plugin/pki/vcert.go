@@ -72,14 +72,27 @@ func (b *backend) ClientVenafi(ctx context.Context, s logical.Storage, data *fra
 		}
 
 	} else if role.URL != "" && role.AccessToken != "" {
+		if trustBundlePEM != "" {
 		cfg = &vcert.Config{
 			ConnectorType: endpoint.ConnectorTypeTPP,
 			BaseUrl:       role.URL,
+			ConnectionTrust: trustBundlePEM,
 			Credentials: &endpoint.Authentication{
 				AccessToken: role.AccessToken,
 			},
 			Zone:       role.Zone,
 			LogVerbose: true,
+		}
+		}else {
+			cfg = &vcert.Config{
+				ConnectorType: endpoint.ConnectorTypeTPP,
+				BaseUrl:       role.URL,
+				Credentials: &endpoint.Authentication{
+					AccessToken: role.AccessToken,
+				},
+				Zone:       role.Zone,
+				LogVerbose: true,
+			}
 		}
 	} else if role.Apikey != "" {
 		b.Logger().Debug("Using Venafi Cloud to issue certificate")
@@ -179,16 +192,29 @@ func (b *backend) getConfig(ctx context.Context, s logical.Storage, data *framew
 		}
 
 	} else if role.URL != "" && role.AccessToken != "" {
-		cfg = &vcert.Config{
-			ConnectorType:   endpoint.ConnectorTypeTPP,
-			BaseUrl:         role.URL,
-			ConnectionTrust: trustBundlePEM,
-			Credentials: &endpoint.Authentication{
-				AccessToken:  role.AccessToken,
-				RefreshToken: role.RefreshToken,
-			},
-			Zone:       role.Zone,
-			LogVerbose: true,
+		if trustBundlePEM != "" {
+			cfg = &vcert.Config{
+				ConnectorType:   endpoint.ConnectorTypeTPP,
+				BaseUrl:         role.URL,
+				ConnectionTrust: trustBundlePEM,
+				Credentials: &endpoint.Authentication{
+					AccessToken:  role.AccessToken,
+					RefreshToken: role.RefreshToken,
+				},
+				Zone:       role.Zone,
+				LogVerbose: true,
+			}
+		}else {
+			cfg = &vcert.Config{
+				ConnectorType:   endpoint.ConnectorTypeTPP,
+				BaseUrl:         role.URL,
+				Credentials: &endpoint.Authentication{
+					AccessToken:  role.AccessToken,
+					RefreshToken: role.RefreshToken,
+				},
+				Zone:       role.Zone,
+				LogVerbose: true,
+			}
 		}
 	} else if role.Apikey != "" {
 		b.Logger().Debug("Using Venafi Cloud to issue certificate")
