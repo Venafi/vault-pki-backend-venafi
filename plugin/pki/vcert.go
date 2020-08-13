@@ -15,7 +15,7 @@ func (b *backend) ClientVenafi(ctx context.Context, s logical.Storage, data *fra
 	endpoint.Connector, time.Duration, error) {
 	b.Logger().Debug(fmt.Sprintf("Using role: %s", roleName))
 	if roleName == "" {
-		return nil, 0, fmt.Errorf("Missing role name")
+		return nil, 0, fmt.Errorf("missing role name")
 	}
 
 	role, err := b.getRole(ctx, req.Storage, roleName)
@@ -23,103 +23,12 @@ func (b *backend) ClientVenafi(ctx context.Context, s logical.Storage, data *fra
 		return nil, 0, err
 	}
 	if role == nil {
-		return nil, 0, fmt.Errorf("Unknown role %v", role)
+		return nil, 0, fmt.Errorf("unknown role %v", role)
 	}
 
-	var cfg *vcert.Config
-	var trustBundlePEM string
-	if role.TrustBundleFile != "" {
-		b.Logger().Debug("Reading trust bundle from file %s\n", role.TrustBundleFile)
-		trustBundle, err := ioutil.ReadFile(role.TrustBundleFile)
-		if err != nil {
-			return nil, 0, err
-		}
-		trustBundlePEM = string(trustBundle)
-	}
-
-	if role.Fakemode {
-		b.Logger().Debug("Using fakemode to issue certificate")
-		cfg = &vcert.Config{
-			ConnectorType: endpoint.ConnectorTypeFake,
-			LogVerbose:    true,
-		}
-
-	} else if role.TPPURL != "" && role.TPPUser != "" && role.TPPPassword != "" {
-		b.Logger().Debug("Using Venafi Platform with URL %s to issue certificate\n", role.TPPURL)
-		if trustBundlePEM != "" {
-			cfg = &vcert.Config{
-				ConnectorType:   endpoint.ConnectorTypeTPP,
-				BaseUrl:         role.TPPURL,
-				ConnectionTrust: trustBundlePEM,
-				Credentials: &endpoint.Authentication{
-					User:     role.TPPUser,
-					Password: role.TPPPassword,
-				},
-				Zone:       role.Zone,
-				LogVerbose: true,
-			}
-		} else {
-			cfg = &vcert.Config{
-				ConnectorType: endpoint.ConnectorTypeTPP,
-				BaseUrl:       role.TPPURL,
-				Credentials: &endpoint.Authentication{
-					User:     role.TPPUser,
-					Password: role.TPPPassword,
-				},
-				Zone:       role.Zone,
-				LogVerbose: true,
-			}
-		}
-
-	} else if role.URL != "" && role.AccessToken != "" {
-		if trustBundlePEM != "" {
-		cfg = &vcert.Config{
-			ConnectorType: endpoint.ConnectorTypeTPP,
-			BaseUrl:       role.URL,
-			ConnectionTrust: trustBundlePEM,
-			Credentials: &endpoint.Authentication{
-				AccessToken: role.AccessToken,
-			},
-			Zone:       role.Zone,
-			LogVerbose: true,
-		}
-		}else {
-			cfg = &vcert.Config{
-				ConnectorType: endpoint.ConnectorTypeTPP,
-				BaseUrl:       role.URL,
-				Credentials: &endpoint.Authentication{
-					AccessToken: role.AccessToken,
-				},
-				Zone:       role.Zone,
-				LogVerbose: true,
-			}
-		}
-	} else if role.Apikey != "" {
-		b.Logger().Debug("Using Venafi Cloud to issue certificate")
-		if trustBundlePEM != "" {
-			cfg = &vcert.Config{
-				ConnectorType: endpoint.ConnectorTypeCloud,
-				BaseUrl:       role.CloudURL,
-				ConnectionTrust: trustBundlePEM,
-				Credentials: &endpoint.Authentication{
-					APIKey: role.Apikey,
-				},
-				Zone:       role.Zone,
-				LogVerbose: true,
-			}
-		} else {
-			cfg = &vcert.Config{
-				ConnectorType: endpoint.ConnectorTypeCloud,
-				BaseUrl:       role.CloudURL,
-				Credentials: &endpoint.Authentication{
-					APIKey: role.Apikey,
-				},
-				Zone:       role.Zone,
-				LogVerbose: true,
-			}
-		}
-	} else {
-		return nil, 0, fmt.Errorf("failed to build config for Venafi issuer")
+	cfg, err := b.getConfig(ctx, req, roleName)
+	if err != nil {
+		return nil, 0, err
 	}
 
 	client, err := vcert.NewClient(cfg)
@@ -131,12 +40,11 @@ func (b *backend) ClientVenafi(ctx context.Context, s logical.Storage, data *fra
 
 }
 
-func (b *backend) getConfig(ctx context.Context, s logical.Storage, data *framework.FieldData, req *logical.Request, roleName string) (
-	*vcert.Config, error) {
+func (b *backend) getConfig(ctx context.Context, req *logical.Request, roleName string) (*vcert.Config, error) {
 	var cfg *vcert.Config
 	b.Logger().Debug(fmt.Sprintf("Using role: %s", roleName))
 	if roleName == "" {
-		return nil, fmt.Errorf("Missing role name")
+		return nil, fmt.Errorf("missing role name")
 	}
 
 	role, err := b.getRole(ctx, req.Storage, roleName)
@@ -144,13 +52,21 @@ func (b *backend) getConfig(ctx context.Context, s logical.Storage, data *framew
 		return nil, err
 	}
 	if role == nil {
-		return nil, fmt.Errorf("Unknown role %v", role)
+		return nil, fmt.Errorf("unknown role %v", role)
+	}
+
+	venafiSecret, err := b.getCredentials(ctx, req.Storage, role.VenafiSecret)
+	if err != nil {
+		return nil, err
+	}
+	if venafiSecret == nil {
+		return nil, fmt.Errorf("unknown venafi secret %v", role.VenafiSecret)
 	}
 
 	var trustBundlePEM string
-	if role.TrustBundleFile != "" {
-		b.Logger().Debug("Reading trust bundle from file %s\n", role.TrustBundleFile)
-		trustBundle, err := ioutil.ReadFile(role.TrustBundleFile)
+	if venafiSecret.TrustBundleFile != "" {
+		b.Logger().Debug("Reading trust bundle from file %s\n", venafiSecret.TrustBundleFile)
+		trustBundle, err := ioutil.ReadFile(venafiSecret.TrustBundleFile)
 		if err != nil {
 			return cfg, err
 		}
@@ -164,82 +80,50 @@ func (b *backend) getConfig(ctx context.Context, s logical.Storage, data *framew
 			LogVerbose:    true,
 		}
 
-	} else if role.TPPURL != "" && role.TPPUser != "" && role.TPPPassword != "" {
-		b.Logger().Debug("Using Venafi Platform with URL %s to issue certificate\n", role.TPPURL)
+	} else if venafiSecret.URL != "" && venafiSecret.TppUser != "" && venafiSecret.TppPassword != "" {
+		b.Logger().Debug("Using Venafi Platform with URL %s to issue certificate\n", venafiSecret.URL)
+		cfg = &vcert.Config{}
+		cfg.ConnectorType = endpoint.ConnectorTypeTPP
+		cfg.BaseUrl = venafiSecret.URL
+		cfg.Zone = role.Zone
+		cfg.LogVerbose = true
+		cfg.Credentials = &endpoint.Authentication{
+			User:     venafiSecret.TppUser,
+			Password: venafiSecret.TppPassword,
+		}
 		if trustBundlePEM != "" {
-			cfg = &vcert.Config{
-				ConnectorType:   endpoint.ConnectorTypeTPP,
-				BaseUrl:         role.TPPURL,
-				ConnectionTrust: trustBundlePEM,
-				Credentials: &endpoint.Authentication{
-					User:     role.TPPUser,
-					Password: role.TPPPassword,
-				},
-				Zone:       role.Zone,
-				LogVerbose: true,
-			}
-		} else {
-			cfg = &vcert.Config{
-				ConnectorType: endpoint.ConnectorTypeTPP,
-				BaseUrl:       role.TPPURL,
-				Credentials: &endpoint.Authentication{
-					User:     role.TPPUser,
-					Password: role.TPPPassword,
-				},
-				Zone:       role.Zone,
-				LogVerbose: true,
-			}
+			cfg.ConnectionTrust = trustBundlePEM
 		}
 
-	} else if role.URL != "" && role.AccessToken != "" {
-		if trustBundlePEM != "" {
-			cfg = &vcert.Config{
-				ConnectorType:   endpoint.ConnectorTypeTPP,
-				BaseUrl:         role.URL,
-				ConnectionTrust: trustBundlePEM,
-				Credentials: &endpoint.Authentication{
-					AccessToken:  role.AccessToken,
-					RefreshToken: role.RefreshToken,
-				},
-				Zone:       role.Zone,
-				LogVerbose: true,
-			}
-		}else {
-			cfg = &vcert.Config{
-				ConnectorType:   endpoint.ConnectorTypeTPP,
-				BaseUrl:         role.URL,
-				Credentials: &endpoint.Authentication{
-					AccessToken:  role.AccessToken,
-					RefreshToken: role.RefreshToken,
-				},
-				Zone:       role.Zone,
-				LogVerbose: true,
-			}
+	} else if venafiSecret.URL != "" && venafiSecret.AccessToken != "" {
+		b.Logger().Debug("Using Venafi Platform with URL %s to issue certificate\n", venafiSecret.URL)
+		cfg = &vcert.Config{}
+		cfg.ConnectorType = endpoint.ConnectorTypeTPP
+		cfg.BaseUrl = venafiSecret.URL
+		cfg.Zone = role.Zone
+		cfg.LogVerbose = true
+		cfg.Credentials = &endpoint.Authentication{
+			AccessToken: venafiSecret.AccessToken,
 		}
-	} else if role.Apikey != "" {
+		if trustBundlePEM != "" {
+			cfg.ConnectionTrust = trustBundlePEM
+		}
+
+	} else if venafiSecret.Apikey != "" {
 		b.Logger().Debug("Using Venafi Cloud to issue certificate")
-		if trustBundlePEM != "" {
-			cfg = &vcert.Config{
-				ConnectorType:   endpoint.ConnectorTypeCloud,
-				BaseUrl:         role.CloudURL,
-				ConnectionTrust: trustBundlePEM,
-				Credentials: &endpoint.Authentication{
-					APIKey: role.Apikey,
-				},
-				Zone:       role.Zone,
-				LogVerbose: true,
-			}
-		} else {
-			cfg = &vcert.Config{
-				ConnectorType: endpoint.ConnectorTypeCloud,
-				BaseUrl:       role.CloudURL,
-				Credentials: &endpoint.Authentication{
-					APIKey: role.Apikey,
-				},
-				Zone:       role.Zone,
-				LogVerbose: true,
-			}
+		b.Logger().Debug("Using Venafi Cloud to issue certificate")
+		cfg = &vcert.Config{}
+		cfg.ConnectorType = endpoint.ConnectorTypeCloud
+		cfg.BaseUrl = venafiSecret.URL
+		cfg.Zone = role.Zone
+		cfg.LogVerbose = true
+		cfg.Credentials = &endpoint.Authentication{
+			APIKey: venafiSecret.Apikey,
 		}
+		if trustBundlePEM != "" {
+			cfg.ConnectionTrust = trustBundlePEM
+		}
+
 	} else {
 		return nil, fmt.Errorf("failed to build config for Venafi issuer")
 	}

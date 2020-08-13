@@ -30,53 +30,12 @@ func pathRoles(b *backend) *framework.Path {
 				Type:        framework.TypeString,
 				Description: "Name of the role",
 			},
-			"tpp_url": {
-				Type:        framework.TypeString,
-				Description: `URL of Venafi Platfrom. Example: https://tpp.venafi.example/vedsdk`,
-			},
-			"url": {
-				Type:        framework.TypeString,
-				Description: `URL of Venafi Platfrom. Example: https://tpp.venafi.example/vedsdk, is replacing tpp_url`,
-			},
-
-			"cloud_url": {
-				Type:        framework.TypeString,
-				Description: `URL for Venafi Cloud. Set it only if you want to use non production Cloud`,
-			},
-
 			"zone": {
 				Type: framework.TypeString,
 				Description: `Name of Venafi Platfrom or Cloud policy. 
 Example for Platform: testpolicy\\vault
 Example for Venafi Cloud: e33f3e40-4e7e-11ea-8da3-b3c196ebeb0b`,
 				Required: true,
-			},
-
-			"tpp_user": {
-				Type:        framework.TypeString,
-				Description: `web API user for Venafi Platfrom Example: admin`,
-			},
-			"tpp_password": {
-				Type:        framework.TypeString,
-				Description: `Password for web API user Example: password`,
-			},
-			"access_token": {
-				Type:        framework.TypeString,
-				Description: `Access token for TPP, user should use this for authentication`,
-			},
-			"refresh_token": {
-				Type:        framework.TypeString,
-				Description: `Refresh token for updating access TPP token`,
-			},
-			"trust_bundle_file": {
-				Type: framework.TypeString,
-				Description: `Use to specify a PEM formatted file with certificates to be used as trust anchors when communicating with the remote server.
-Example:
-  trust_bundle_file = "/full/path/to/bundle.pem""`,
-			},
-			"apikey": {
-				Type:        framework.TypeString,
-				Description: `API key for Venafi Cloud. Example: 142231b7-cvb0-412e-886b-6aeght0bc93d`,
 			},
 			"fakemode": {
 				Type:        framework.TypeBool,
@@ -97,7 +56,7 @@ Example:
 			},
 
 			"store_by": {
-				Type: framework.TypeString,
+				Type:        framework.TypeString,
 				Description: `The attribute by which certificates are stored in the backend.  "serial" (default) and "cn" are the only valid values.`,
 			},
 
@@ -162,6 +121,10 @@ attached to them. Defaults to "false".`,
 				Description: "Timeout of waiting certificate",
 				Default:     180,
 			},
+			"venafi_secret": {
+				Type:        framework.TypeString,
+				Description: `The name of the credentials object to be used for authentication`,
+			},
 			"update_if_exist": {
 				Type:        framework.TypeBool,
 				Description: `If a role exist and this parameter is true then the role will be overridden`,
@@ -191,7 +154,6 @@ attached to them. Defaults to "false".`,
 const (
 	storeByCNString                              = "cn"
 	storeBySerialString                          = "serial"
-	errorTextInvalidMode                         = "Invalid mode. fakemode or apikey or tpp credentials required"
 	errorTextValueMustBeLess                     = `"ttl" value must be less than "max_ttl" value`
 	errorTextTPPandCloudMixedCredentials         = `TPP credentials and Cloud API key can't be specified in one role`
 	errorTextStoreByAndStoreByCNOrSerialConflict = `Can't specify both story_by and store_by_cn or store_by_serial options '`
@@ -199,8 +161,8 @@ const (
 	errorTextNoStoreAndStoreByConflict           = `Can't specify both no_store and store_by options '`
 	errTextStoreByWrongOption                    = "Option store_by can be %s or %s, not %s"
 	/* #nosec */
-	errorTextMixedURLAndTokenUrl                 = `tpp_url and url can't be specified in one role`
-	errorAccessTokenOrUrlEmpty                   = `Access Token and URL should have a value`
+	errorTextMixedURLAndTokenUrl = `tpp_url and url can't be specified in one role`
+	errorAccessTokenOrUrlEmpty   = `Access Token and URL should have a value`
 )
 
 func (b *backend) getRole(ctx context.Context, s logical.Storage, n string) (*roleEntry, error) {
@@ -258,68 +220,21 @@ func (b *backend) pathRoleList(ctx context.Context, req *logical.Request, d *fra
 	return logical.ListResponse(entries), nil
 }
 
-func (b *backend) pathRoleUpdate(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+func (b *backend) pathRoleUpdate(ctx context.Context, req *logical.Request, data *framework.FieldData) (*roleEntry, error) {
 	name := data.Get("name").(string)
-	entry, _ := b.getRole(ctx, req.Storage, name)
+	entry, err := b.getRole(ctx, req.Storage, name)
 
-	_, isSet := data.GetOk("tpp_url")
-	tpp_url := data.Get("tpp_url").(string)
-	if isSet && (entry.TPPURL != tpp_url) {
-		entry.TPPURL = tpp_url
+	if err != nil {
+		return nil, err
+	}
+	if entry == nil {
+		return nil, fmt.Errorf("role %s does not exist", name)
 	}
 
-	_, isSet = data.GetOk("url")
-	url := data.Get("url").(string)
-	if isSet && (entry.URL != url) {
-		entry.URL = url
-	}
-
-	_, isSet = data.GetOk("cloud_url")
-	cloud_url := data.Get("cloud_url").(string)
-	if isSet && (entry.CloudURL != cloud_url) {
-		entry.CloudURL = cloud_url
-	}
-
-	_, isSet = data.GetOk("zone")
+	_, isSet := data.GetOk("zone")
 	zone := data.Get("zone").(string)
 	if isSet && (entry.Zone != zone) {
 		entry.Zone = zone
-	}
-
-	_, isSet = data.GetOk("tpp_password")
-	tpp_password := data.Get("tpp_password").(string)
-	if isSet && (entry.TPPPassword != tpp_password) {
-		entry.TPPPassword = tpp_password
-	}
-
-	_, isSet = data.GetOk("access_token")
-	access_token := data.Get("access_token").(string)
-	if isSet && (entry.AccessToken != access_token) {
-		entry.AccessToken = access_token
-	}
-
-	_, isSet = data.GetOk("refresh_token")
-	refresh_token := data.Get("refresh_token").(string)
-	if isSet && (entry.RefreshToken != refresh_token) {
-		entry.RefreshToken = refresh_token
-	}
-
-	_, isSet = data.GetOk("apikey")
-	apikey := data.Get("apikey").(string)
-	if isSet && (entry.Apikey != apikey) {
-		entry.Apikey = apikey
-	}
-
-	_, isSet = data.GetOk("tpp_user")
-	tpp_user := data.Get("tpp_user").(string)
-	if isSet && (entry.TPPUser != tpp_user) {
-		entry.TPPUser = tpp_user
-	}
-
-	_, isSet = data.GetOk("trust_bundle_file")
-	trust_bundle_file := data.Get("trust_bundle_file").(string)
-	if isSet && (entry.TrustBundleFile != trust_bundle_file) {
-		entry.TrustBundleFile = trust_bundle_file
 	}
 
 	_, isSet = data.GetOk("fakemode")
@@ -411,11 +326,61 @@ func (b *backend) pathRoleUpdate(ctx context.Context, req *logical.Request, data
 	if isSet && (entry.ServerTimeout != server_timeout) {
 		entry.ServerTimeout = server_timeout
 	}
-	err := validateEntry(entry)
+
+	_, isSet = data.GetOk("venafi_secret")
+	venafiSecret := data.Get("venafi_secret").(string)
+	if isSet && (entry.VenafiSecret != venafiSecret) {
+		entry.VenafiSecret = venafiSecret
+	}
+
+	err = validateEntry(b, ctx, req.Storage, entry)
+	if err != nil {
+		return nil, err
+	}
+
+	return entry, nil
+}
+
+func (b *backend) pathRoleCreate(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+	var err error
+
+	name := data.Get("name").(string)
+	updateEntry := data.Get("update_if_exist").(bool)
+
+	var entry *roleEntry
+
+	if updateEntry {
+		entry, err = b.pathRoleUpdate(ctx, req, data)
+		if err != nil {
+			return nil, err
+		}
+
+	} else {
+		entry = &roleEntry{
+			Zone:             data.Get("zone").(string),
+			Fakemode:         data.Get("fakemode").(bool),
+			ChainOption:      data.Get("chain_option").(string),
+			StoreByCN:        data.Get("store_by_cn").(bool),
+			StoreBySerial:    data.Get("store_by_serial").(bool),
+			StoreBy:          data.Get("store_by").(string),
+			NoStore:          data.Get("no_store").(bool),
+			ServiceGenerated: data.Get("service_generated_cert").(bool),
+			StorePrivateKey:  data.Get("store_pkey").(bool),
+			KeyType:          data.Get("key_type").(string),
+			KeyBits:          data.Get("key_bits").(int),
+			KeyCurve:         data.Get("key_curve").(string),
+			MaxTTL:           time.Duration(data.Get("max_ttl").(int)) * time.Second,
+			TTL:              time.Duration(data.Get("ttl").(int)) * time.Second,
+			GenerateLease:    data.Get("generate_lease").(bool),
+			ServerTimeout:    time.Duration(data.Get("server_timeout").(int)) * time.Second,
+			VenafiSecret:     data.Get("venafi_secret").(string),
+		}
+	}
+
+	err = validateEntry(b, ctx, req.Storage, entry)
 	if err != nil {
 		return logical.ErrorResponse(err.Error()), nil
 	}
-
 
 	// Store it
 	jsonEntry, err := logical.StorageEntryJSON("role/"+name, entry)
@@ -426,13 +391,11 @@ func (b *backend) pathRoleUpdate(ctx context.Context, req *logical.Request, data
 		return nil, err
 	}
 
-
 	var logResp *logical.Response
 
-	respData := map[string]interface{}{
-	}
+	respData := map[string]interface{}{}
 
-	warnings := getWarnings(entry, name)
+	warnings := getCredentialsWarnings(b, ctx, req.Storage, entry.VenafiSecret)
 
 	if cap(warnings) > 0 {
 		logResp = &logical.Response{
@@ -447,106 +410,24 @@ func (b *backend) pathRoleUpdate(ctx context.Context, req *logical.Request, data
 	return nil, nil
 }
 
-func (b *backend) pathRoleCreate(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+func validateEntry(b *backend, ctx context.Context, s logical.Storage, entry *roleEntry) (err error) {
 
-	name := data.Get("name").(string)
-	update := data.Get("update_if_exist").(bool)
-
-	entry, _ := b.getRole(ctx, req.Storage, name)
-
-	if (entry != nil) && update {
-		return b.pathRoleUpdate(ctx, req, data)
+	credName := entry.VenafiSecret
+	if credName == "" {
+		return fmt.Errorf("missing credentials object name")
 	}
 
-	var err error
-
-
-	entry = &roleEntry{
-		TPPURL:           data.Get("tpp_url").(string),
-		URL:              data.Get("url").(string),
-		CloudURL:         data.Get("cloud_url").(string),
-		Zone:             data.Get("zone").(string),
-		TPPPassword:      data.Get("tpp_password").(string),
-		AccessToken:      data.Get("access_token").(string),
-		RefreshToken:     data.Get("refresh_token").(string),
-		Apikey:           data.Get("apikey").(string),
-		TPPUser:          data.Get("tpp_user").(string),
-		TrustBundleFile:  data.Get("trust_bundle_file").(string),
-		Fakemode:         data.Get("fakemode").(bool),
-		ChainOption:      data.Get("chain_option").(string),
-		StoreByCN:        data.Get("store_by_cn").(bool),
-		StoreBySerial:    data.Get("store_by_serial").(bool),
-		StoreBy:          data.Get("store_by").(string),
-		NoStore:          data.Get("no_store").(bool),
-		ServiceGenerated: data.Get("service_generated_cert").(bool),
-		StorePrivateKey:  data.Get("store_pkey").(bool),
-		KeyType:          data.Get("key_type").(string),
-		KeyBits:          data.Get("key_bits").(int),
-		KeyCurve:         data.Get("key_curve").(string),
-		MaxTTL:           time.Duration(data.Get("max_ttl").(int)) * time.Second,
-		TTL:              time.Duration(data.Get("ttl").(int)) * time.Second,
-		GenerateLease:    data.Get("generate_lease").(bool),
-		ServerTimeout:    time.Duration(data.Get("server_timeout").(int)) * time.Second,
-	}
-
-	err = validateEntry(entry)
+	cred, err := b.getCredentials(ctx, s, credName)
 	if err != nil {
-		return logical.ErrorResponse(err.Error()), nil
+		return fmt.Errorf("credentials object error: " + err.Error())
+	}
+	if cred == nil {
+		return fmt.Errorf("credentials object error: Credentials object does not exist")
 	}
 
-	// Store it
-	jsonEntry, err := logical.StorageEntryJSON("role/"+name, entry)
+	err = validateCredentialsEntry(cred)
 	if err != nil {
-		return nil, err
-	}
-	if err := req.Storage.Put(ctx, jsonEntry); err != nil {
-		return nil, err
-	}
-
-
-	var logResp *logical.Response
-
-	respData := map[string]interface{}{
-	}
-
-	warnings := getWarnings(entry, name)
-
-	if cap(warnings) > 0 {
-		logResp = &logical.Response{
-
-		Data:     respData,
-		Redirect: "",
-		Warnings: warnings,
-	}
-		return logResp, nil
-	}
-
-	return nil, nil
-}
-
-func validateEntry(entry *roleEntry) (err error) {
-	if !entry.Fakemode && entry.Apikey == "" && (entry.TPPURL == "" || entry.TPPUser == "" || entry.TPPPassword == "") && (entry.AccessToken == "") {
-		return fmt.Errorf(errorTextInvalidMode)
-	}
-
-	if entry.TPPURL != "" && entry.URL != "" {
-		return fmt.Errorf(errorTextMixedURLAndTokenUrl)
-	}
-
-	if entry.URL != "" && entry.AccessToken == "" {
-		return fmt.Errorf(errorAccessTokenOrUrlEmpty)
-	}
-
-	if entry.URL == "" && entry.AccessToken != "" {
-		return fmt.Errorf(errorAccessTokenOrUrlEmpty)
-	}
-
-	if entry.Apikey != "" && entry.URL != "" {
-		return fmt.Errorf(errorTextTPPandCloudMixedCredentials)
-	}
-
-	if entry.Apikey != "" && entry.AccessToken != "" {
-		return fmt.Errorf(errorTextTPPandCloudMixedCredentials)
+		return fmt.Errorf("credentials object error: " + err.Error())
 	}
 
 	if entry.MaxTTL > 0 && entry.TTL > entry.MaxTTL {
@@ -555,30 +436,15 @@ func validateEntry(entry *roleEntry) (err error) {
 		)
 	}
 
-	if entry.TPPURL != "" && entry.Apikey != "" {
-		return fmt.Errorf(errorTextTPPandCloudMixedCredentials)
-	}
-
-	if entry.TPPUser != "" && entry.Apikey != "" {
-		return fmt.Errorf(errorTextTPPandCloudMixedCredentials)
-	}
-
-	if entry.AccessToken != "" && entry.Apikey != "" {
-		return fmt.Errorf(errorTextTPPandCloudMixedCredentials)
-	}
-
 	if (entry.StoreByCN || entry.StoreBySerial) && entry.StoreBy != "" {
 		return fmt.Errorf(errorTextStoreByAndStoreByCNOrSerialConflict)
 	}
-
 	if (entry.StoreByCN || entry.StoreBySerial) && entry.NoStore {
 		return fmt.Errorf(errorTextNoStoreAndStoreByCNOrSerialConflict)
 	}
-
 	if entry.StoreBy != "" && entry.NoStore {
 		return fmt.Errorf(errorTextNoStoreAndStoreByConflict)
 	}
-
 	if entry.StoreBy != "" {
 		if (entry.StoreBy != storeBySerialString) && (entry.StoreBy != storeByCNString) {
 			return fmt.Errorf(
@@ -599,21 +465,17 @@ func validateEntry(entry *roleEntry) (err error) {
 	return nil
 }
 
-func getWarnings(entry *roleEntry, name string) []string {
-
-	warnings := []string{}
-
-	if entry.TPPURL != "" {
-		warnings = append(warnings, "Role: "+name+", saved successfully, but tpp_url is deprecated, please use url instead")
+func getCredentialsWarnings(b *backend, ctx context.Context, s logical.Storage, credentialsName string) []string {
+	if credentialsName == "" {
+		return []string{}
 	}
 
-	if entry.TPPUser != "" {
-		warnings = append(warnings, "Role: "+name+", saved successfully, but tpp_user is deprecated, please use access_token token instead")
+	cred, err := b.getCredentials(ctx, s, credentialsName)
+	if err != nil || cred == nil {
+		return []string{}
 	}
 
-	if entry.TPPPassword != "" {
-		warnings = append(warnings, "Role: "+name+", saved successfully, but tpp_password is deprecated, please use access_token instead")
-	}
+	warnings := getWarnings(cred, credentialsName)
 
 	return warnings
 }
@@ -621,16 +483,7 @@ func getWarnings(entry *roleEntry, name string) []string {
 type roleEntry struct {
 
 	//Venafi values
-	TPPURL           string        `json:"tpp_url"`
-	URL              string        `json:"url"`
-	CloudURL         string        `json:"cloud_url"`
 	Zone             string        `json:"zone"`
-	TPPPassword      string        `json:"tpp_password"`
-	Apikey           string        `json:"apikey"`
-	TPPUser          string        `json:"tpp_user"`
-	AccessToken      string        `json:"access_token"`
-	RefreshToken     string        `json:"refresh_token"`
-	TrustBundleFile  string        `json:"trust_bundle_file"`
 	Fakemode         bool          `json:"fakemode"`
 	ChainOption      string        `json:"chain_option"`
 	StoreByCN        bool          `json:"store_by_cn"`
@@ -650,19 +503,12 @@ type roleEntry struct {
 	DeprecatedMaxTTL string        `json:"max_ttl"`
 	DeprecatedTTL    string        `json:"ttl"`
 	ServerTimeout    time.Duration `json:"server_timeout"`
+	VenafiSecret     string        `json:"venafi_secret"`
 }
 
 func (r *roleEntry) ToResponseData() map[string]interface{} {
 	responseData := map[string]interface{}{
-		//Venafi
-		"tpp_url":   r.TPPURL,
-		"cloud_url": r.CloudURL,
-		"zone":      r.Zone,
-		//We shouldn't show credentials
-		//"tpp_password":      r.TPPPassword,
-		//"apikey":            r.Apikey,
-		"tpp_user":               r.TPPUser,
-		"trust_bundle_file":      r.TrustBundleFile,
+		"zone":                   r.Zone,
 		"fakemode":               r.Fakemode,
 		"store_by":               r.StoreBy,
 		"no_store":               r.NoStore,
@@ -674,6 +520,7 @@ func (r *roleEntry) ToResponseData() map[string]interface{} {
 		"max_ttl":                int64(r.MaxTTL.Seconds()),
 		"generate_lease":         r.GenerateLease,
 		"chain_option":           r.ChainOption,
+		"venafi_secret":          r.VenafiSecret,
 	}
 	return responseData
 }

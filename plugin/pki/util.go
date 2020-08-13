@@ -166,11 +166,20 @@ func storeAccessData(b *backend, ctx context.Context, req *logical.Request, role
 		return err
 	}
 
-	entry.RefreshToken = resp.Refresh_token
-	entry.AccessToken = resp.Access_token
+	if entry.VenafiSecret == "" {
+		return fmt.Errorf("Role " + roleName + " does not have any Venafi secret associated")
+	}
+
+	venafiEntry, err := b.getCredentials(ctx, req.Storage, entry.VenafiSecret)
+	if err != nil {
+		return err
+	}
+
+	venafiEntry.AccessToken = resp.Access_token
+	venafiEntry.RefreshToken = resp.Refresh_token
 
 	// Store it
-	jsonEntry, err := logical.StorageEntryJSON("role/"+roleName, entry)
+	jsonEntry, err := logical.StorageEntryJSON(CredentialsRootPath+entry.VenafiSecret, venafiEntry)
 	if err != nil {
 		return err
 	}
