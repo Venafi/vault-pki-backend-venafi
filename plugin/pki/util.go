@@ -144,7 +144,7 @@ func updateAccessToken(cfg *vcert.Config, b *backend, ctx context.Context, req *
 	resp, err := tppConnector.RefreshAccessToken(&endpoint.Authentication{
 		RefreshToken: cfg.Credentials.RefreshToken,
 		ClientId:     "hashicorp-vault-by-venafi",
-		Scope:        "certificate:revoke",
+		Scope:        "certificate:manage,revoke",
 	})
 	if resp.Access_token != "" && resp.Refresh_token != "" {
 
