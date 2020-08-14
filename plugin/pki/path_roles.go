@@ -337,7 +337,7 @@ func (b *backend) pathRoleUpdate(ctx context.Context, req *logical.Request, data
 
 	_, isSet = data.GetOk("store_by_cn")
 	store_by_cn := data.Get("store_by_cn").(bool)
-	if isSet && store_by_cn == true {
+	if isSet && store_by_cn {
 		entry.StoreBy = "cn"
 	}
 
