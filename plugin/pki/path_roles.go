@@ -116,7 +116,8 @@ attached to them. Defaults to "false".`,
 			},
 			"update_if_exist": {
 				Type:        framework.TypeBool,
-				Description: `If a role exist and this parameter is true then the role will be overridden`,
+				Description: `When true, settings of an existing role will be retained unless they are specified in the update.
+                              By default unspecified settings are returned to their default values`,
 			},
 		},
 
@@ -225,14 +226,14 @@ func (b *backend) pathRoleUpdate(ctx context.Context, req *logical.Request, data
 
 	_, isSet = data.GetOk("store_by_cn")
 	store_by_cn := data.Get("store_by_cn").(bool)
-	if isSet && (entry.StoreByCN != store_by_cn) {
-		entry.StoreByCN = store_by_cn
+	if isSet && store_by_cn {
+		entry.StoreBy = "cn"
 	}
 
 	_, isSet = data.GetOk("store_by_serial")
 	store_by_serial := data.Get("store_by_serial").(bool)
-	if isSet && (entry.StoreBySerial != store_by_serial) {
-		entry.StoreBySerial = store_by_serial
+	if isSet && store_by_serial {
+		entry.StoreBy = "serial"
 	}
 
 	_, isSet = data.GetOk("store_by")
