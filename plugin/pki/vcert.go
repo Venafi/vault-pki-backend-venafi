@@ -26,7 +26,7 @@ func (b *backend) ClientVenafi(ctx context.Context, s logical.Storage, data *fra
 		return nil, 0, fmt.Errorf("unknown role %v", role)
 	}
 
-	cfg, err := b.getConfig(ctx, req, roleName)
+	cfg, err := b.getConfig(ctx, req, roleName, false)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -40,7 +40,7 @@ func (b *backend) ClientVenafi(ctx context.Context, s logical.Storage, data *fra
 
 }
 
-func (b *backend) getConfig(ctx context.Context, req *logical.Request, roleName string) (*vcert.Config, error) {
+func (b *backend) getConfig(ctx context.Context, req *logical.Request, roleName string, includeRefreshToken bool) (*vcert.Config, error) {
 	var cfg *vcert.Config
 	b.Logger().Debug(fmt.Sprintf("Using role: %s", roleName))
 	if roleName == "" {
@@ -55,7 +55,7 @@ func (b *backend) getConfig(ctx context.Context, req *logical.Request, roleName 
 		return nil, fmt.Errorf("unknown role %v", role)
 	}
 
-	venafiSecret, err := b.getCredentials(ctx, req.Storage, role.VenafiSecret)
+	venafiSecret, err := b.getVenafiSecret(ctx, req.Storage, role.VenafiSecret)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +73,15 @@ func (b *backend) getConfig(ctx context.Context, req *logical.Request, roleName 
 		trustBundlePEM = string(trustBundle)
 	}
 
-	if role.Fakemode {
+	cfg = &vcert.Config{}
+	cfg.BaseUrl = venafiSecret.URL
+	cfg.Zone = venafiSecret.Zone
+	cfg.LogVerbose = true
+	if trustBundlePEM != "" {
+		cfg.ConnectionTrust = trustBundlePEM
+	}
+
+	if venafiSecret.Fakemode {
 		b.Logger().Debug("Using fakemode to issue certificate")
 		cfg = &vcert.Config{
 			ConnectorType: endpoint.ConnectorTypeFake,
@@ -82,46 +90,29 @@ func (b *backend) getConfig(ctx context.Context, req *logical.Request, roleName 
 
 	} else if venafiSecret.URL != "" && venafiSecret.TppUser != "" && venafiSecret.TppPassword != "" {
 		b.Logger().Debug("Using Venafi Platform with URL %s to issue certificate\n", venafiSecret.URL)
-		cfg = &vcert.Config{}
 		cfg.ConnectorType = endpoint.ConnectorTypeTPP
-		cfg.BaseUrl = venafiSecret.URL
-		cfg.Zone = role.Zone
-		cfg.LogVerbose = true
 		cfg.Credentials = &endpoint.Authentication{
 			User:     venafiSecret.TppUser,
 			Password: venafiSecret.TppPassword,
 		}
-		if trustBundlePEM != "" {
-			cfg.ConnectionTrust = trustBundlePEM
-		}
 
 	} else if venafiSecret.URL != "" && venafiSecret.AccessToken != "" {
 		b.Logger().Debug("Using Venafi Platform with URL %s to issue certificate\n", venafiSecret.URL)
-		cfg = &vcert.Config{}
 		cfg.ConnectorType = endpoint.ConnectorTypeTPP
-		cfg.BaseUrl = venafiSecret.URL
-		cfg.Zone = role.Zone
-		cfg.LogVerbose = true
-		cfg.Credentials = &endpoint.Authentication{
-			AccessToken: venafiSecret.AccessToken,
+		var refreshToken string
+		if includeRefreshToken {
+			refreshToken = venafiSecret.RefreshToken
 		}
-		if trustBundlePEM != "" {
-			cfg.ConnectionTrust = trustBundlePEM
+		cfg.Credentials = &endpoint.Authentication{
+			AccessToken:  venafiSecret.AccessToken,
+			RefreshToken: refreshToken,
 		}
 
 	} else if venafiSecret.Apikey != "" {
 		b.Logger().Debug("Using Venafi Cloud to issue certificate")
-		b.Logger().Debug("Using Venafi Cloud to issue certificate")
-		cfg = &vcert.Config{}
 		cfg.ConnectorType = endpoint.ConnectorTypeCloud
-		cfg.BaseUrl = venafiSecret.URL
-		cfg.Zone = role.Zone
-		cfg.LogVerbose = true
 		cfg.Credentials = &endpoint.Authentication{
 			APIKey: venafiSecret.Apikey,
-		}
-		if trustBundlePEM != "" {
-			cfg.ConnectionTrust = trustBundlePEM
 		}
 
 	} else {

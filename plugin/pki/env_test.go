@@ -26,6 +26,7 @@ type testEnv struct {
 	TestRandString    string
 	RoleName          string
 	CertificateSerial string
+	VenafiSecretName  string
 }
 
 type venafiConfigString string
@@ -49,10 +50,13 @@ type testData struct {
 const (
 	venafiConfigTPP                         venafiConfigString = "TPP"
 	venafiConfigTPPPredefined               venafiConfigString = "TPPPredefined"
-	venafiConfigCloudPredefined             venafiConfigString = "CloudPredefined"
 	venafiConfigTPPRestricted               venafiConfigString = "TPPRestricted"
 	venafiConfigCloud                       venafiConfigString = "Cloud"
+	venafiConfigCloudPredefined             venafiConfigString = "CloudPredefined"
 	venafiConfigCloudRestricted             venafiConfigString = "CloudRestricted"
+	venafiConfigToken                       venafiConfigString = "TppToken"
+	venafiConfigTokenPredefined             venafiConfigString = "TppTokenPredefined"
+	venafiConfigTokenRestricted             venafiConfigString = "TppTokenRestricted"
 	venafiConfigFake                        venafiConfigString = "Fake"
 	venafiConfigFakeDeprecatedStoreByCN     venafiConfigString = "FakeDeprecatedStoreByCN"
 	venafiConfigFakeDeprecatedStoreBySerial venafiConfigString = "venafiConfigFakeDeprecatedStoreBySerial"
@@ -60,11 +64,20 @@ const (
 	venafiConfigFakeStoreBySerial           venafiConfigString = "venafiConfigFakeStoreBySerial"
 	venafiConfigFakeNoStore                 venafiConfigString = "venafiConfigFakeNoStore"
 	venafiConfigFakeNoStorePKey             venafiConfigString = "venafiConfigFakeNoStorePKey"
-	venafiConfigMixed                       venafiConfigString = "Mixed"
+	venafiConfigMixedTppAndCloud            venafiConfigString = "MixedTppCloud"
+	venafiConfigMixedTppAndToken            venafiConfigString = "MixedTppToken"
+	venafiConfigMixedTokenAndCloud          venafiConfigString = "MixedTokenCloud"
+
+	venafiVenafiConfigFake venafiConfigString = "VenafiFake"
+	venafiRoleConfig       venafiConfigString = "Role"
 )
 
+var venafiTestRoleConfig = map[string]interface{}{
+	"venafi_secret": "",
+}
+
 var venafiTestTPPConfig = map[string]interface{}{
-	"tpp_url":           os.Getenv("TPP_URL"),
+	"url":               os.Getenv("TPP_URL"),
 	"tpp_user":          os.Getenv("TPP_USER"),
 	"tpp_password":      os.Getenv("TPP_PASSWORD"),
 	"zone":              os.Getenv("TPP_ZONE"),
@@ -72,7 +85,7 @@ var venafiTestTPPConfig = map[string]interface{}{
 }
 
 var venafiTestTPPConfigPredefined = map[string]interface{}{
-	"tpp_url":           "https://tpp.example.com/vedsdk",
+	"url":               "https://tpp.example.com/vedsdk",
 	"tpp_user":          "admin",
 	"tpp_password":      "strongPassword",
 	"zone":              "devops\\vcert",
@@ -80,7 +93,7 @@ var venafiTestTPPConfigPredefined = map[string]interface{}{
 }
 
 var venafiTestTPPConfigRestricted = map[string]interface{}{
-	"tpp_url":           os.Getenv("TPP_URL"),
+	"url":               os.Getenv("TPP_URL"),
 	"tpp_user":          os.Getenv("TPP_USER"),
 	"tpp_password":      os.Getenv("TPP_PASSWORD"),
 	"zone":              os.Getenv("TPP_ZONE_RESTRICTED"),
@@ -88,9 +101,9 @@ var venafiTestTPPConfigRestricted = map[string]interface{}{
 }
 
 var venafiTestCloudConfig = map[string]interface{}{
-	"cloud_url": os.Getenv("CLOUD_URL"),
-	"apikey":    os.Getenv("CLOUD_APIKEY"),
-	"zone":      os.Getenv("CLOUD_ZONE"),
+	"url":    os.Getenv("CLOUD_URL"),
+	"apikey": os.Getenv("CLOUD_APIKEY"),
+	"zone":   os.Getenv("CLOUD_ZONE"),
 }
 
 var venafiTestCloudConfigPredefined = map[string]interface{}{
@@ -99,60 +112,95 @@ var venafiTestCloudConfigPredefined = map[string]interface{}{
 }
 
 var venafiTestCloudConfigRestricted = map[string]interface{}{
-	"cloud_url": os.Getenv("CLOUD_URL"),
-	"apikey":    os.Getenv("CLOUD_APIKEY"),
-	"zone":      os.Getenv("CLOUD_ZONE_RESTRICTED"),
+	"url":    os.Getenv("CLOUD_URL"),
+	"apikey": os.Getenv("CLOUD_APIKEY"),
+	"zone":   os.Getenv("CLOUD_ZONE_RESTRICTED"),
+}
+
+var venafiTestTokenConfig = map[string]interface{}{
+	"url":               os.Getenv("TPP_URL"),
+	"access_token":      os.Getenv("TPP_ACCESS_TOKEN"),
+	"zone":              os.Getenv("TPP_ZONE"),
+	"trust_bundle_file": os.Getenv("TRUST_BUNDLE"),
+}
+
+var venafiTestTokenConfigPredefined = map[string]interface{}{
+	"url":               "https://tpp.example.com/vedsdk",
+	"access_token":      "admin",
+	"zone":              "devops\\vcert",
+	"trust_bundle_file": "/opt/venafi/bundle.pem",
+}
+
+var venafiTestTokenConfigRestricted = map[string]interface{}{
+	"url":               os.Getenv("TPP_URL"),
+	"access_token":      os.Getenv("TPP_ACCESS_TOKEN"),
+	"zone":              os.Getenv("TPP_ZONE_RESTRICTED"),
+	"trust_bundle_file": os.Getenv("TRUST_BUNDLE"),
 }
 
 var venafiTestFakeConfigDeprecatedStoreByCN = map[string]interface{}{
 	"generate_lease": true,
-	"fakemode":       true,
 	"store_by_cn":    true,
 	"store_pkey":     true,
 }
 
 var venafiTestFakeConfigDeprecatedStoreBySerial = map[string]interface{}{
 	"generate_lease":  true,
-	"fakemode":        true,
 	"store_by_serial": true,
 	"store_pkey":      true,
 }
 
 var venafiTestFakeConfigStoreByCN = map[string]interface{}{
 	"generate_lease": true,
-	"fakemode":       true,
 	"store_by":       "cn",
 	"store_pkey":     true,
 }
 
 var venafiTestFakeConfigStoreBySerial = map[string]interface{}{
 	"generate_lease": true,
-	"fakemode":       true,
 	"store_by":       "serial",
 	"store_pkey":     true,
 }
 
 var venafiTestFakeConfig = map[string]interface{}{
 	"generate_lease": true,
-	"fakemode":       true,
 	"store_pkey":     true,
 }
 
 var venafiTestFakeConfigNoStore = map[string]interface{}{
 	"generate_lease": true,
-	"fakemode":       true,
 	"no_store":       true,
 }
 
 var venafiTestFakeConfigNoStorePKey = map[string]interface{}{
 	"generate_lease": true,
-	"fakemode":       true,
 	"store_pkey":     false,
 }
 
-var venafiTestMixedConfig = map[string]interface{}{
-	"apikey":  "xxxxxxxxxxxxxxxx",
-	"tpp_url": "xxxxxxxxxxx",
+var venafiTestMixedTppAndCloudConfig = map[string]interface{}{
+	"url":      "xxxxxxxxxxx",
+	"apikey":   "xxxxxxxxxxxxxxxx",
+	"tpp_user": "admin",
+	"zone":     "devops\\vcert",
+}
+
+var venafiTestMixedTppAndTokenConfig = map[string]interface{}{
+	"url":          "xxxxxxxxxxx",
+	"tpp_user":     "admin",
+	"tpp_password": "weakPassword",
+	"access_token": "xxxxxxxxxx==",
+	"zone":         "devops\\vcert",
+}
+
+var venafiTestMixedTokenAndCloudConfig = map[string]interface{}{
+	"url":          "xxxxxxxxxxx",
+	"access_token": "xxxxxxxxxx==",
+	"apikey":       "xxxxxxxxxxxxxxxx",
+	"zone":         "devops\\vcert",
+}
+
+var venafiVenafiTestFakeConfig = map[string]interface{}{
+	"fakemode": true,
 }
 
 func (e *testEnv) writeRoleToBackend(t *testing.T, configString venafiConfigString) {
@@ -160,6 +208,9 @@ func (e *testEnv) writeRoleToBackend(t *testing.T, configString venafiConfigStri
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	//Adding Venafi secret reference to Role
+	roleData["venafi_secret"] = e.VenafiSecretName
 
 	resp, err := e.Backend.HandleRequest(e.Context, &logical.Request{
 		Operation: logical.UpdateOperation,
@@ -200,8 +251,8 @@ func (e *testEnv) failToWriteRoleToBackend(t *testing.T, configString venafiConf
 
 	errText := resp.Data["error"].(string)
 
-	if errText != errorTextTPPandCloudMixedCredentials {
-		t.Fatalf("Expecting error with text %s but got %s", errorTextTPPandCloudMixedCredentials, errText)
+	if errText != errorTextVenafiSecretEmpty {
+		t.Fatalf("Expecting error with text %s but got %s", errorTextVenafiSecretEmpty, errText)
 	}
 }
 
@@ -268,6 +319,120 @@ func (e *testEnv) readRolesInBackend(t *testing.T, config map[string]interface{}
 		}
 	}
 
+}
+
+func (e *testEnv) writeVenafiToBackend(t *testing.T, configString venafiConfigString) {
+	roleData, err := makeConfig(configString)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resp, err := e.Backend.HandleRequest(e.Context, &logical.Request{
+		Operation: logical.UpdateOperation,
+		Path:      "venafi/" + e.VenafiSecretName,
+		Storage:   e.Storage,
+		Data:      roleData,
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp != nil && resp.IsError() {
+		t.Fatalf("failed to create venafi, %#v", resp)
+	}
+}
+
+func (e *testEnv) failToWriteVenafiToBackend(t *testing.T, configString venafiConfigString, expectedError string) {
+	roleData, err := makeConfig(configString)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resp, err := e.Backend.HandleRequest(e.Context, &logical.Request{
+		Operation: logical.UpdateOperation,
+		Path:      "venafi/" + e.VenafiSecretName,
+		Storage:   e.Storage,
+		Data:      roleData,
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp != nil && !resp.IsError() {
+		t.Fatal("Venafi secret with mixed cloud api key and tpp url should fail to write")
+	}
+
+	errText := resp.Data["error"].(string)
+
+	if errText != expectedError {
+		t.Fatalf("Expecting error with text %s but got %s", expectedError, errText)
+	}
+}
+
+func (e *testEnv) listVenafiInBackend(t *testing.T) {
+
+	resp, err := e.Backend.HandleRequest(e.Context, &logical.Request{
+		Operation: logical.ListOperation,
+		Path:      "venafi",
+		Storage:   e.Storage,
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp != nil && resp.IsError() {
+		t.Fatalf("failed to list venafi secrets, %#v", resp)
+	}
+
+	if resp.Data["keys"] == nil {
+		t.Fatalf("Expected there will be venafi secrets in the keys list")
+	}
+
+	if !sliceContains(resp.Data["keys"].([]string), e.VenafiSecretName) {
+		t.Fatalf("expected venafi secret name %s in list %s", e.VenafiSecretName, resp.Data["keys"])
+	}
+}
+
+func (e *testEnv) readVenafiInBackend(t *testing.T, config map[string]interface{}) {
+
+	resp, err := e.Backend.HandleRequest(e.Context, &logical.Request{
+		Operation: logical.ReadOperation,
+		Path:      "venafi/" + e.VenafiSecretName,
+		Storage:   e.Storage,
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp == nil {
+		t.Fatalf("should be on output on reading the venafi secret %s, but response is nil: %#v", e.VenafiSecretName, resp)
+	}
+
+	if resp.IsError() {
+		t.Fatalf("failed to read venafi %s, %#v", e.VenafiSecretName, resp)
+	}
+
+	sensitiveData := []string{"tpp_password", "apikey", "access_token", "refresh_token"}
+
+	for k, v := range config {
+		if sliceContains(sensitiveData, k) {
+			if resp.Data[k] != "********" {
+				t.Fatalf("Sensitive data %s should be hidden", k)
+			}
+		} else {
+			if resp.Data[k] == nil {
+				t.Fatalf("Expected there will be value in %s field", k)
+			}
+
+			if resp.Data[k] != v {
+				t.Fatalf("Expected %#v will be %#v", k, v)
+			}
+		}
+	}
 }
 
 func (e *testEnv) IssueCertificateAndSaveSerial(t *testing.T, data testData, configString venafiConfigString) {
@@ -562,18 +727,32 @@ func makeConfig(configString venafiConfigString) (roleData map[string]interface{
 		roleData = venafiTestFakeConfigNoStorePKey
 	case venafiConfigTPP:
 		roleData = venafiTestTPPConfig
+	case venafiConfigTPPPredefined:
+		roleData = venafiTestTPPConfigPredefined
 	case venafiConfigTPPRestricted:
 		roleData = venafiTestTPPConfigRestricted
 	case venafiConfigCloud:
 		roleData = venafiTestCloudConfig
-	case venafiConfigCloudRestricted:
-		roleData = venafiTestCloudConfigRestricted
 	case venafiConfigCloudPredefined:
 		roleData = venafiTestCloudConfigPredefined
-	case venafiConfigMixed:
-		roleData = venafiTestMixedConfig
-	case venafiConfigTPPPredefined:
-		roleData = venafiTestTPPConfigPredefined
+	case venafiConfigCloudRestricted:
+		roleData = venafiTestCloudConfigRestricted
+	case venafiConfigToken:
+		roleData = venafiTestTokenConfig
+	case venafiConfigTokenPredefined:
+		roleData = venafiTestTokenConfigPredefined
+	case venafiConfigTokenRestricted:
+		roleData = venafiTestTokenConfigRestricted
+	case venafiConfigMixedTppAndCloud:
+		roleData = venafiTestMixedTppAndCloudConfig
+	case venafiConfigMixedTppAndToken:
+		roleData = venafiTestMixedTppAndTokenConfig
+	case venafiConfigMixedTokenAndCloud:
+		roleData = venafiTestMixedTokenAndCloudConfig
+	case venafiVenafiConfigFake:
+		roleData = venafiVenafiTestFakeConfig
+	case venafiRoleConfig:
+		roleData = venafiTestRoleConfig
 	default:
 		return roleData, fmt.Errorf("do not have config data for config %s", configString)
 	}
@@ -587,6 +766,11 @@ func (e *testEnv) FakeCreateRole(t *testing.T) {
 	var config = venafiConfigFake
 	e.writeRoleToBackend(t, config)
 
+}
+
+func (e *testEnv) FakeCreateVenafi(t *testing.T) {
+	var config = venafiVenafiConfigFake
+	e.writeVenafiToBackend(t, config)
 }
 
 func (e *testEnv) FakeCreateRoleDeprecatedStoreByCN(t *testing.T) {
@@ -631,25 +815,83 @@ func (e *testEnv) FakeCreateRoleNoStorePKey(t *testing.T) {
 
 }
 
-func (e *testEnv) TPPCreateRole(t *testing.T) {
+func (e *testEnv) CreateVenafiTPP(t *testing.T) {
 
 	var config = venafiConfigTPPPredefined
-	e.writeRoleToBackend(t, config)
+	e.writeVenafiToBackend(t, config)
 
 }
 
-func (e *testEnv) CloudCreateRole(t *testing.T) {
+func (e *testEnv) CreateVenafiCloud(t *testing.T) {
 
 	var config = venafiConfigCloudPredefined
-	e.writeRoleToBackend(t, config)
+	e.writeVenafiToBackend(t, config)
 
 }
 
-func (e *testEnv) CreateMixedRole(t *testing.T) {
+func (e *testEnv) CreateVenafiToken(t *testing.T) {
 
-	var config = venafiConfigMixed
+	var config = venafiConfigTokenPredefined
+	e.writeVenafiToBackend(t, config)
+}
+
+func (e *testEnv) CreateVenafiMixedTppAndCloud(t *testing.T) {
+
+	var config = venafiConfigMixedTppAndCloud
+	e.failToWriteVenafiToBackend(t, config, errorTextMixedTPPAndCloud)
+
+}
+
+func (e *testEnv) CreateVenafiMixedTppAndToken(t *testing.T) {
+
+	var config = venafiConfigMixedTppAndToken
+	e.failToWriteVenafiToBackend(t, config, errorTextMixedTPPAndToken)
+
+}
+
+func (e *testEnv) CreateVenafiMixedTokenAndCloud(t *testing.T) {
+
+	var config = venafiConfigMixedTokenAndCloud
+	e.failToWriteVenafiToBackend(t, config, errorTextMixedTokenAndCloud)
+
+}
+
+func (e *testEnv) DeleteVenafi(t *testing.T) {
+
+	resp, err := e.Backend.HandleRequest(e.Context, &logical.Request{
+		Operation: logical.DeleteOperation,
+		Path:      "venafi/" + e.VenafiSecretName,
+		Storage:   e.Storage,
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp != nil && resp.IsError() {
+		t.Fatal(resp)
+	}
+
+	resp, err = e.Backend.HandleRequest(e.Context, &logical.Request{
+		Operation: logical.ReadOperation,
+		Path:      "venafi/" + e.VenafiSecretName,
+		Storage:   e.Storage,
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp != nil {
+		t.Fatalf("should be no output on reading the deleted venafi secret %s, but response is: %#v", e.VenafiSecretName, resp)
+	}
+
+}
+
+func (e *testEnv) CreateRoleEmptyVenafi(t *testing.T) {
+
+	var config = venafiRoleConfig
 	e.failToWriteRoleToBackend(t, config)
-
 }
 
 func (e *testEnv) FakeCheckThatThereIsNoCertificate(t *testing.T) {
@@ -698,7 +940,7 @@ func (e *testEnv) DeleteRole(t *testing.T) {
 	}
 
 	if resp != nil {
-		t.Fatalf("should be no output on reading the delted role %s, but response is: %#v", e.RoleName, resp)
+		t.Fatalf("should be no output on reading the deleted role %s, but response is: %#v", e.RoleName, resp)
 	}
 
 }
@@ -714,15 +956,33 @@ func (e *testEnv) FakeReadRole(t *testing.T) {
 
 }
 
-func (e *testEnv) TPPReadRole(t *testing.T) {
+func (e *testEnv) FakeListVenafi(t *testing.T) {
 
-	e.readRolesInBackend(t, venafiTestTPPConfigPredefined)
+	e.listVenafiInBackend(t)
 
 }
 
-func (e *testEnv) CloudReadRole(t *testing.T) {
+func (e *testEnv) FakeReadVenafi(t *testing.T) {
 
-	e.readRolesInBackend(t, venafiTestCloudConfigPredefined)
+	e.readVenafiInBackend(t, venafiVenafiTestFakeConfig)
+
+}
+
+func (e *testEnv) ReadVenafiTPP(t *testing.T) {
+
+	e.readVenafiInBackend(t, venafiTestTPPConfigPredefined)
+
+}
+
+func (e *testEnv) ReadVenafiCloud(t *testing.T) {
+
+	e.readVenafiInBackend(t, venafiTestCloudConfigPredefined)
+
+}
+
+func (e *testEnv) ReadVenafiToken(t *testing.T) {
+
+	e.readVenafiInBackend(t, venafiTestTokenConfigPredefined)
 
 }
 
@@ -872,6 +1132,7 @@ func (e *testEnv) TPPIntegrationIssueCertificate(t *testing.T) {
 
 	var config = venafiConfigTPP
 
+	e.writeVenafiToBackend(t, config)
 	e.writeRoleToBackend(t, config)
 	e.IssueCertificateAndSaveSerial(t, data, config)
 
@@ -890,6 +1151,7 @@ func (e *testEnv) TPPIntegrationIssueCertificateWithPassword(t *testing.T) {
 
 	var config = venafiConfigTPP
 
+	e.writeVenafiToBackend(t, config)
 	e.writeRoleToBackend(t, config)
 	e.IssueCertificateAndSaveSerial(t, data, config)
 
@@ -907,6 +1169,7 @@ func (e *testEnv) TPPIntegrationIssueCertificateRestricted(t *testing.T) {
 
 	var config = venafiConfigTPPRestricted
 
+	e.writeVenafiToBackend(t, config)
 	e.writeRoleToBackend(t, config)
 	e.IssueCertificateAndSaveSerial(t, data, config)
 
@@ -925,6 +1188,7 @@ func (e *testEnv) TPPIntegrationSignCertificate(t *testing.T) {
 
 	var config = venafiConfigTPP
 
+	e.writeVenafiToBackend(t, config)
 	e.writeRoleToBackend(t, config)
 	e.SignCertificate(t, data, config)
 
@@ -941,6 +1205,7 @@ func (e *testEnv) CloudIntegrationSignCertificate(t *testing.T) {
 
 	var config = venafiConfigCloud
 
+	e.writeVenafiToBackend(t, config)
 	e.writeRoleToBackend(t, config)
 	e.SignCertificate(t, data, config)
 
@@ -956,6 +1221,7 @@ func (e *testEnv) CloudIntegrationIssueCertificate(t *testing.T) {
 
 	var config = venafiConfigCloud
 
+	e.writeVenafiToBackend(t, config)
 	e.writeRoleToBackend(t, config)
 	e.IssueCertificateAndSaveSerial(t, data, config)
 }
@@ -970,6 +1236,7 @@ func (e *testEnv) CloudIntegrationIssueCertificateRestricted(t *testing.T) {
 
 	var config = venafiConfigCloud
 
+	e.writeVenafiToBackend(t, config)
 	e.writeRoleToBackend(t, config)
 	e.IssueCertificateAndSaveSerial(t, data, config)
 }
@@ -985,8 +1252,83 @@ func (e *testEnv) CloudIntegrationIssueCertificateWithPassword(t *testing.T) {
 
 	var config = venafiConfigCloud
 
+	e.writeVenafiToBackend(t, config)
 	e.writeRoleToBackend(t, config)
 	e.IssueCertificateAndSaveSerial(t, data, config)
+}
+
+func (e *testEnv) TokenIntegrationIssueCertificate(t *testing.T) {
+
+	data := testData{}
+	randString := e.TestRandString
+	domain := "venafi.example.com"
+	data.cn = randString + "." + domain
+	data.dnsNS = "alt-" + data.cn
+	data.dnsIP = "192.168.1.1"
+	data.dnsEmail = "venafi@example.com"
+
+	var config = venafiConfigToken
+
+	e.writeVenafiToBackend(t, config)
+	e.writeRoleToBackend(t, config)
+	e.IssueCertificateAndSaveSerial(t, data, config)
+
+}
+
+func (e *testEnv) TokenIntegrationIssueCertificateWithPassword(t *testing.T) {
+
+	data := testData{}
+	randString := e.TestRandString
+	domain := "venafi.example.com"
+	data.cn = randString + "." + domain
+	data.dnsNS = "alt-" + data.cn
+	data.dnsIP = "192.168.1.1"
+	data.dnsEmail = "venafi@example.com"
+	data.keyPassword = "Pass0rd!"
+
+	var config = venafiConfigToken
+
+	e.writeVenafiToBackend(t, config)
+	e.writeRoleToBackend(t, config)
+	e.IssueCertificateAndSaveSerial(t, data, config)
+
+}
+
+func (e *testEnv) TokenIntegrationIssueCertificateRestricted(t *testing.T) {
+
+	data := testData{}
+	randString := e.TestRandString
+	domain := "vfidev.com"
+	data.cn = randString + "." + domain
+	data.dnsNS = "alt-" + data.cn
+	data.onlyIP = "192.168.1.1"
+	data.dnsEmail = "venafi@example.com"
+
+	var config = venafiConfigTokenRestricted
+
+	e.writeVenafiToBackend(t, config)
+	e.writeRoleToBackend(t, config)
+	e.IssueCertificateAndSaveSerial(t, data, config)
+
+}
+
+func (e *testEnv) TokenIntegrationSignCertificate(t *testing.T) {
+
+	data := testData{}
+	randString := e.TestRandString
+	domain := "vfidev.com"
+	data.cn = randString + "." + domain
+	data.dnsNS = "alt-" + data.cn
+	data.dnsIP = "127.0.0.1"
+	data.onlyIP = "192.168.0.1"
+	data.signCSR = true
+
+	var config = venafiConfigToken
+
+	e.writeVenafiToBackend(t, config)
+	e.writeRoleToBackend(t, config)
+	e.SignCertificate(t, data, config)
+
 }
 
 func checkStandartCert(t *testing.T, data testData) {
@@ -1073,11 +1415,12 @@ func newIntegrationTestEnv() (*testEnv, error) {
 	}
 
 	return &testEnv{
-		Backend:        b,
-		Context:        ctx,
-		Storage:        config.StorageView,
-		TestRandString: randSeq(9),
-		RoleName:       randSeq(9) + "-role",
+		Backend:          b,
+		Context:          ctx,
+		Storage:          config.StorageView,
+		TestRandString:   randSeq(9),
+		RoleName:         randSeq(9) + "-role",
+		VenafiSecretName: randSeq(9) + "-venafi",
 	}, nil
 }
 

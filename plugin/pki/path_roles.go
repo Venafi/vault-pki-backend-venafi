@@ -29,20 +29,8 @@ func pathRoles(b *backend) *framework.Path {
 			"name": {
 				Type:        framework.TypeString,
 				Description: "Name of the role",
+				Required:    true,
 			},
-			"zone": {
-				Type: framework.TypeString,
-				Description: `Name of Venafi Platfrom or Cloud policy. 
-Example for Platform: testpolicy\\vault
-Example for Venafi Cloud: e33f3e40-4e7e-11ea-8da3-b3c196ebeb0b`,
-				Required: true,
-			},
-			"fakemode": {
-				Type:        framework.TypeBool,
-				Description: `Set it to true to use face CA instead of Cloud or Platform to issue certificates. Useful for testing.`,
-				Default:     false,
-			},
-
 			"store_by_cn": {
 				Type:        framework.TypeBool,
 				Description: `Set it to true to store certificates by CN in certs/ path`,
@@ -124,6 +112,7 @@ attached to them. Defaults to "false".`,
 			"venafi_secret": {
 				Type:        framework.TypeString,
 				Description: `The name of the credentials object to be used for authentication`,
+				Required:    true,
 			},
 			"update_if_exist": {
 				Type:        framework.TypeBool,
@@ -155,14 +144,11 @@ const (
 	storeByCNString                              = "cn"
 	storeBySerialString                          = "serial"
 	errorTextValueMustBeLess                     = `"ttl" value must be less than "max_ttl" value`
-	errorTextTPPandCloudMixedCredentials         = `TPP credentials and Cloud API key can't be specified in one role`
 	errorTextStoreByAndStoreByCNOrSerialConflict = `Can't specify both story_by and store_by_cn or store_by_serial options '`
 	errorTextNoStoreAndStoreByCNOrSerialConflict = `Can't specify both no_store and store_by_cn or store_by_serial options '`
 	errorTextNoStoreAndStoreByConflict           = `Can't specify both no_store and store_by options '`
 	errTextStoreByWrongOption                    = "Option store_by can be %s or %s, not %s"
-	/* #nosec */
-	errorTextMixedURLAndTokenUrl = `tpp_url and url can't be specified in one role`
-	errorAccessTokenOrUrlEmpty   = `Access Token and URL should have a value`
+	errorTextVenafiSecretEmpty                   = `"venafi_secret" argument is required`
 )
 
 func (b *backend) getRole(ctx context.Context, s logical.Storage, n string) (*roleEntry, error) {
@@ -231,19 +217,7 @@ func (b *backend) pathRoleUpdate(ctx context.Context, req *logical.Request, data
 		return nil, fmt.Errorf("role %s does not exist", name)
 	}
 
-	_, isSet := data.GetOk("zone")
-	zone := data.Get("zone").(string)
-	if isSet && (entry.Zone != zone) {
-		entry.Zone = zone
-	}
-
-	_, isSet = data.GetOk("fakemode")
-	fakemode := data.Get("fakemode").(bool)
-	if isSet && (entry.Fakemode != fakemode) {
-		entry.Fakemode = fakemode
-	}
-
-	_, isSet = data.GetOk("chain_option")
+	_, isSet := data.GetOk("chain_option")
 	chain_option := data.Get("chain_option").(string)
 	if isSet && (entry.ChainOption != chain_option) {
 		entry.ChainOption = chain_option
@@ -333,7 +307,7 @@ func (b *backend) pathRoleUpdate(ctx context.Context, req *logical.Request, data
 		entry.VenafiSecret = venafiSecret
 	}
 
-	err = validateEntry(b, ctx, req.Storage, entry)
+	err = validateEntry(entry)
 	if err != nil {
 		return nil, err
 	}
@@ -357,8 +331,6 @@ func (b *backend) pathRoleCreate(ctx context.Context, req *logical.Request, data
 
 	} else {
 		entry = &roleEntry{
-			Zone:             data.Get("zone").(string),
-			Fakemode:         data.Get("fakemode").(bool),
 			ChainOption:      data.Get("chain_option").(string),
 			StoreByCN:        data.Get("store_by_cn").(bool),
 			StoreBySerial:    data.Get("store_by_serial").(bool),
@@ -377,7 +349,7 @@ func (b *backend) pathRoleCreate(ctx context.Context, req *logical.Request, data
 		}
 	}
 
-	err = validateEntry(b, ctx, req.Storage, entry)
+	err = validateEntry(entry)
 	if err != nil {
 		return logical.ErrorResponse(err.Error()), nil
 	}
@@ -410,24 +382,11 @@ func (b *backend) pathRoleCreate(ctx context.Context, req *logical.Request, data
 	return nil, nil
 }
 
-func validateEntry(b *backend, ctx context.Context, s logical.Storage, entry *roleEntry) (err error) {
+func validateEntry(entry *roleEntry) (err error) {
 
 	credName := entry.VenafiSecret
 	if credName == "" {
-		return fmt.Errorf("missing credentials object name")
-	}
-
-	cred, err := b.getCredentials(ctx, s, credName)
-	if err != nil {
-		return fmt.Errorf("credentials object error: " + err.Error())
-	}
-	if cred == nil {
-		return fmt.Errorf("credentials object error: Credentials object does not exist")
-	}
-
-	err = validateCredentialsEntry(cred)
-	if err != nil {
-		return fmt.Errorf("credentials object error: " + err.Error())
+		return fmt.Errorf(errorTextVenafiSecretEmpty)
 	}
 
 	if entry.MaxTTL > 0 && entry.TTL > entry.MaxTTL {
@@ -470,7 +429,7 @@ func getCredentialsWarnings(b *backend, ctx context.Context, s logical.Storage, 
 		return []string{}
 	}
 
-	cred, err := b.getCredentials(ctx, s, credentialsName)
+	cred, err := b.getVenafiSecret(ctx, s, credentialsName)
 	if err != nil || cred == nil {
 		return []string{}
 	}
@@ -483,8 +442,6 @@ func getCredentialsWarnings(b *backend, ctx context.Context, s logical.Storage, 
 type roleEntry struct {
 
 	//Venafi values
-	Zone             string        `json:"zone"`
-	Fakemode         bool          `json:"fakemode"`
 	ChainOption      string        `json:"chain_option"`
 	StoreByCN        bool          `json:"store_by_cn"`
 	StoreBySerial    bool          `json:"store_by_serial"`
@@ -508,8 +465,7 @@ type roleEntry struct {
 
 func (r *roleEntry) ToResponseData() map[string]interface{} {
 	responseData := map[string]interface{}{
-		"zone":                   r.Zone,
-		"fakemode":               r.Fakemode,
+		"venafi_secret":          r.VenafiSecret,
 		"store_by":               r.StoreBy,
 		"no_store":               r.NoStore,
 		"store_by_cn":            r.StoreByCN,
@@ -520,7 +476,6 @@ func (r *roleEntry) ToResponseData() map[string]interface{} {
 		"max_ttl":                int64(r.MaxTTL.Seconds()),
 		"generate_lease":         r.GenerateLease,
 		"chain_option":           r.ChainOption,
-		"venafi_secret":          r.VenafiSecret,
 	}
 	return responseData
 }

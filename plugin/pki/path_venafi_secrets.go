@@ -31,6 +31,13 @@ func pathCredentials(b *backend) *framework.Path {
 				Description: "Name of the authentication object",
 				Required:    true,
 			},
+			"zone": {
+				Type: framework.TypeString,
+				Description: `Name of Venafi Platform or Cloud policy. 
+Example for Platform: testpolicy\\vault
+Example for Venafi Cloud: e33f3e40-4e7e-11ea-8da3-b3c196ebeb0b`,
+				Required: true,
+			},
 			"tpp_url": {
 				Type:        framework.TypeString,
 				Description: `URL of Venafi Platform. Example: https://tpp.venafi.example/vedsdk`,
@@ -45,6 +52,7 @@ func pathCredentials(b *backend) *framework.Path {
 			"cloud_url": {
 				Type:        framework.TypeString,
 				Description: `URL for Venafi Cloud. Set it only if you want to use non production Cloud`,
+				Deprecated:  true,
 			},
 			"tpp_user": {
 				Type:        framework.TypeString,
@@ -64,15 +72,20 @@ func pathCredentials(b *backend) *framework.Path {
 				Type:        framework.TypeString,
 				Description: `Refresh token for updating access TPP token`,
 			},
+			"apikey": {
+				Type:        framework.TypeString,
+				Description: `API key for Venafi Cloud. Example: 142231b7-cvb0-412e-886b-6aeght0bc93d`,
+			},
 			"trust_bundle_file": {
 				Type: framework.TypeString,
 				Description: `Use to specify a PEM formatted file with certificates to be used as trust anchors when communicating with the remote server.
 								Example:
   									trust_bundle_file = "/full/path/to/bundle.pem""`,
 			},
-			"apikey": {
-				Type:        framework.TypeString,
-				Description: `API key for Venafi Cloud. Example: 142231b7-cvb0-412e-886b-6aeght0bc93d`,
+			"fakemode": {
+				Type:        framework.TypeBool,
+				Description: `Set it to true to use face CA instead of Cloud or Platform to issue certificates. Useful for testing.`,
+				Default:     false,
 			},
 		},
 		Operations: map[logical.Operation]framework.OperationHandler{
@@ -96,12 +109,13 @@ func pathCredentials(b *backend) *framework.Path {
 
 const (
 	CredentialsRootPath   = `venafi/`
-	tokenMode             = `TPP Token (access_token, refresh_token)`
+	tokenMode             = `TPP Token (access_token, refresh_token)` // #nosec G101
 	tppMode               = `TPP Credentials (tpp_user, tpp_password)`
 	cloudMode             = `Cloud API Key (apikey)`
 	errorMultiModeMessage = `can't specify both: %s and %s modes in the same venafi secret`
-	errorTextURLEmpty     = `url argument required`
-	errorTextInvalidMode  = "invalid mode. fakemode or apikey or tpp credentials or tpp access token required"
+	errorTextURLEmpty     = `"url" argument is required`
+	errorTextZoneEmpty    = `"zone" argument is required`
+	errorTextInvalidMode  = "invalid mode: fakemode or apikey or tpp credentials or tpp access token required"
 )
 
 var (
@@ -125,7 +139,7 @@ func (b *backend) pathVenafiSecretRead(ctx context.Context, req *logical.Request
 		return logical.ErrorResponse("missing policy name"), nil
 	}
 
-	cred, err := b.getCredentials(ctx, req.Storage, policyName)
+	cred, err := b.getVenafiSecret(ctx, req.Storage, policyName)
 	if err != nil {
 		return nil, err
 	}
@@ -152,24 +166,32 @@ func (b *backend) pathVenafiSecretCreate(ctx context.Context, req *logical.Reque
 	name := data.Get("name").(string)
 
 	url := data.Get("url").(string)
+	var tppUrl, cloudUrl string
+
 	if url == "" {
-		url = data.Get("tpp_url").(string)
+		tppUrl = data.Get("tpp_url").(string)
+		url = tppUrl
 	}
 	if url == "" {
-		url = data.Get("cloud_url").(string)
+		cloudUrl = data.Get("cloud_url").(string)
+		url = cloudUrl
 	}
 
-	entry := &credentialsEntry{
+	entry := &venafiSecretEntry{
+		URL:             url,
+		Zone:            data.Get("zone").(string),
+		TppURL:          tppUrl,
 		TppUser:         data.Get("tpp_user").(string),
 		TppPassword:     data.Get("tpp_password").(string),
-		URL:             url,
 		AccessToken:     data.Get("access_token").(string),
 		RefreshToken:    data.Get("refresh_token").(string),
+		CloudURL:        cloudUrl,
 		Apikey:          data.Get("apikey").(string),
 		TrustBundleFile: data.Get("trust_bundle_file").(string),
+		Fakemode:        data.Get("fakemode").(bool),
 	}
 
-	err = validateCredentialsEntry(entry)
+	err = validateVenafiSecretEntry(entry)
 	if err != nil {
 		return logical.ErrorResponse(err.Error()), nil
 	}
@@ -204,7 +226,7 @@ func (b *backend) pathVenafiSecretCreate(ctx context.Context, req *logical.Reque
 	return nil, nil
 }
 
-func (b *backend) getCredentials(ctx context.Context, s logical.Storage, name string) (*credentialsEntry, error) {
+func (b *backend) getVenafiSecret(ctx context.Context, s logical.Storage, name string) (*venafiSecretEntry, error) {
 	entry, err := s.Get(ctx, CredentialsRootPath+name)
 	if err != nil {
 		return nil, err
@@ -213,7 +235,7 @@ func (b *backend) getCredentials(ctx context.Context, s logical.Storage, name st
 		return nil, nil
 	}
 
-	var result credentialsEntry
+	var result venafiSecretEntry
 	err = entry.DecodeJSON(&result)
 	if err != nil {
 		return nil, err
@@ -222,55 +244,75 @@ func (b *backend) getCredentials(ctx context.Context, s logical.Storage, name st
 	return &result, nil
 }
 
-func validateCredentialsEntry(entry *credentialsEntry) error {
-	if entry.Apikey == "" && (entry.TppUser == "" || entry.TppPassword == "") && entry.AccessToken == "" {
+func validateVenafiSecretEntry(entry *venafiSecretEntry) error {
+	if !entry.Fakemode && entry.Apikey == "" && (entry.TppUser == "" || entry.TppPassword == "") && entry.AccessToken == "" {
 		return fmt.Errorf(errorTextInvalidMode)
 	}
 
-	if entry.URL == "" {
-		return fmt.Errorf(errorTextURLEmpty)
-	}
+	//Only validate other fields if mode is not fakemode
+	if !entry.Fakemode {
+		//When api key is null, that means
+		if entry.URL == "" && entry.Apikey == "" {
+			return fmt.Errorf(errorTextURLEmpty)
+		}
 
-	if entry.TppUser != "" && entry.Apikey != "" {
-		return fmt.Errorf(errorTextMixedTPPAndCloud)
-	}
+		if entry.Zone == "" {
+			return fmt.Errorf(errorTextZoneEmpty)
+		}
 
-	if entry.TppUser != "" && entry.AccessToken != "" {
-		return fmt.Errorf(errorTextMixedTPPAndToken)
-	}
+		if entry.TppUser != "" && entry.Apikey != "" {
+			return fmt.Errorf(errorTextMixedTPPAndCloud)
+		}
 
-	if entry.AccessToken != "" && entry.Apikey != "" {
-		return fmt.Errorf(errorTextMixedTokenAndCloud)
-	}
+		if entry.TppUser != "" && entry.AccessToken != "" {
+			return fmt.Errorf(errorTextMixedTPPAndToken)
+		}
 
+		if entry.AccessToken != "" && entry.Apikey != "" {
+			return fmt.Errorf(errorTextMixedTokenAndCloud)
+		}
+	}
 	return nil
 }
 
-func getWarnings(entry *credentialsEntry, name string) []string {
+func getWarnings(entry *venafiSecretEntry, name string) []string {
 
 	warnings := []string{}
 
+	if entry.TppURL != "" {
+		warnings = append(warnings, "tpp_url is deprecated, please use url instead")
+	}
+	if entry.CloudURL != "" {
+		warnings = append(warnings, "cloud_url is deprecated, please use url instead")
+	}
 	if entry.TppUser != "" {
-		warnings = append(warnings, "Role: "+name+", saved successfully, but tpp_user is deprecated, please use access_token token instead")
+		warnings = append(warnings, "tpp_user is deprecated, please use access_token token instead")
 	}
 	if entry.TppPassword != "" {
-		warnings = append(warnings, "Role: "+name+", saved successfully, but tpp_password is deprecated, please use access_token instead")
+		warnings = append(warnings, "tpp_password is deprecated, please use access_token instead")
 	}
-
+	//Include success message in warnings
+	if len(warnings) > 0 {
+		warnings = append(warnings, "Venafi secret "+name+" saved successfully")
+	}
 	return warnings
 }
 
-type credentialsEntry struct {
+type venafiSecretEntry struct {
+	URL             string `json:"url"`
+	Zone            string `json:"zone"`
+	TppURL          string `json:"tpp_url"`
 	TppUser         string `json:"tpp_user"`
 	TppPassword     string `json:"tpp_password"`
-	URL             string `json:"url"`
 	AccessToken     string `json:"access_token"`
 	RefreshToken    string `json:"refresh_token"`
+	CloudURL        string `json:"cloud_url"`
 	Apikey          string `json:"apikey"`
 	TrustBundleFile string `json:"trust_bundle_file"`
+	Fakemode        bool   `json:"fakemode"`
 }
 
-func (p *credentialsEntry) ToResponseData() map[string]interface{} {
+func (p *venafiSecretEntry) ToResponseData() map[string]interface{} {
 	var tppPass, accessToken, refreshToken, apiKey string
 	if p.TppPassword != "" {
 		tppPass = "********"
@@ -290,12 +332,14 @@ func (p *credentialsEntry) ToResponseData() map[string]interface{} {
 		//tpp_password, api_key, access_token, refresh_token
 
 		"url":               p.URL,
+		"zone":              p.Zone,
 		"tpp_user":          p.TppUser,
 		"tpp_password":      tppPass,
 		"access_token":      accessToken,
 		"refresh_token":     refreshToken,
-		"api_key":           apiKey,
+		"apikey":            apiKey,
 		"trust_bundle_file": p.TrustBundleFile,
+		"fakemode":          p.Fakemode,
 	}
 	return responseData
 }
