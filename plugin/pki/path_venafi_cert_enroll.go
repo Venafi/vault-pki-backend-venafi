@@ -6,9 +6,11 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"
+	"github.com/Venafi/vcert/pkg/endpoint"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/vault/helper/consts"
 	"net"
+	"regexp"
 	"strings"
 	"time"
 
@@ -168,8 +170,46 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 
 	b.Logger().Debug("Making certificate request")
 	err = cl.GenerateRequest(nil, certReq)
-	if err != nil {
-		return logical.ErrorResponse(err.Error()), nil
+	if (err != nil) && (cl.GetType() == endpoint.ConnectorTypeTPP) {
+		msg := err.Error()
+
+		//catch the scenario when token is expired and deleted.
+		var regex = regexp.MustCompile("(Token).*(not found)")
+
+		//validate if the error is related to a expired accces token, at this moment the only way can validate this is using the error message
+		//and verify if that message describes errors related to expired access token.
+		if (strings.Contains(msg, "\"error\":\"expired_token\"") && strings.Contains(msg, "\"error_description\":\"Access token expired\"")) || regex.MatchString(msg) {
+			cfg, err := b.getConfig(ctx, req.Storage, data, req, roleName)
+
+			if err != nil {
+				return logical.ErrorResponse(err.Error()), nil
+			}
+
+			if cfg.Credentials.RefreshToken != "" {
+				err = updateAccessToken(cfg, b, ctx, req, roleName)
+
+				if err != nil {
+					return logical.ErrorResponse(err.Error()), nil
+				}
+
+				//everything went fine so get the new client with the new refreshed acces token
+				cl, timeout, err = b.ClientVenafi(ctx, req.Storage, data, req, roleName)
+				if err != nil {
+					return logical.ErrorResponse(err.Error()), nil
+				}
+
+				b.Logger().Debug("Making certificate request again")
+
+				err = cl.GenerateRequest(nil, certReq)
+				if err != nil {
+					return logical.ErrorResponse(err.Error()), nil
+				}
+			} else {
+				return logical.ErrorResponse("Tried to get new access token, but refresh token is empty"), nil
+			}
+		} else {
+			return logical.ErrorResponse(err.Error()), nil
+		}
 	}
 
 	b.Logger().Debug("Running enroll request")

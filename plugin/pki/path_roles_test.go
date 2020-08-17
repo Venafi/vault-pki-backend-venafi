@@ -158,4 +158,17 @@ func TestRoleValidate(t *testing.T) {
 	if entry.StoreBy != storeByCNString {
 		t.Fatalf("Expecting store_by parameter will be set to %s", storeBySerialString)
 	}
+
+	entry = &roleEntry{
+		URL:         "https://qa-tpp.exmple.com/vedsdk",
+		AccessToken: "abcderffsdsdsd",
+		RefreshToken: "wxyz",
+	}
+
+	err = validateEntry(entry)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
 }
