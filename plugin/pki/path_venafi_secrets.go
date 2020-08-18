@@ -45,7 +45,7 @@ Example for Venafi Cloud: e33f3e40-4e7e-11ea-8da3-b3c196ebeb0b`,
 			},
 			"url": {
 				Type:        framework.TypeString,
-				Description: `URL of Venafi Platform. Example: https://tpp.venafi.example/vedsdk, is replacing tpp_url`,
+				Description: `URL of Venafi Platform. It replaces tpp_url and cloud_url. Example: https://tpp.venafi.example`,
 				Required:    true,
 			},
 
@@ -208,8 +208,6 @@ func (b *backend) pathVenafiSecretCreate(ctx context.Context, req *logical.Reque
 	}
 
 	var logResp *logical.Response
-
-	//respData := map[string]interface{}{}
 
 	warnings := getWarnings(entry, name)
 

@@ -121,8 +121,8 @@ test_go:
 		)
 
 test_e2e:
-	sed -i -e "s#image:.*$(IMAGE_NAME).*#image: $(DOCKER_IMAGE):$(BUILD_TAG)#" docker-compose.yaml
-	cd plugin/pki/e2e && ~/go/bin/ginkgo -v
+	sed -i "s#image:.*$(IMAGE_NAME).*#image: $(DOCKER_IMAGE):$(BUILD_TAG)#" docker-compose.yaml
+	cd plugin/pki/e2e && ginkgo -v
 
 test_tpp:
 	go test -run  ^TestTPPIntegration$ -v github.com/Venafi/vault-pki-backend-venafi/plugin/pki
