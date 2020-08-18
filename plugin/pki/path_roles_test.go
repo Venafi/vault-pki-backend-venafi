@@ -135,6 +135,6 @@ func TestRoleValidate(t *testing.T) {
 	}
 
 	if entry.StoreBy != storeByCNString {
-		t.Fatalf("Expecting store_by parameter will be set to %s", storeBySerialString)
+		t.Fatalf("Expecting store_by parameter will be set to %s", storeByCNString)
 	}
 }

@@ -40,18 +40,18 @@ Example for Venafi Cloud: e33f3e40-4e7e-11ea-8da3-b3c196ebeb0b`,
 			},
 			"tpp_url": {
 				Type:        framework.TypeString,
-				Description: `URL of Venafi Platform. Example: https://tpp.venafi.example/vedsdk`,
+				Description: `URL of Venafi Platform. Example: https://tpp.venafi.example/vedsdk. Deprecated, use 'url' instead`,
 				Deprecated:  true,
 			},
 			"url": {
 				Type:        framework.TypeString,
-				Description: `URL of Venafi Platform. It replaces tpp_url and cloud_url. Example: https://tpp.venafi.example`,
+				Description: `URL of Venafi API Endpoint. Example: https://tpp.venafi.example`,
 				Required:    true,
 			},
 
 			"cloud_url": {
 				Type:        framework.TypeString,
-				Description: `URL for Venafi Cloud. Set it only if you want to use non production Cloud`,
+				Description: `URL for Venafi Cloud. Set it only if you want to use non production Cloud. Deprecated, use 'url' instead`,
 				Deprecated:  true,
 			},
 			"tpp_user": {
