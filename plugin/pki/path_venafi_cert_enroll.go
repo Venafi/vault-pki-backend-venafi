@@ -118,7 +118,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 	// a storage call is made after the API calls to issue the certificate.  This prevents the certificate from being
 	// issued twice in this scenario.
 	if !role.NoStore && b.System().ReplicationState().
-		HasState(consts.ReplicationPerformanceStandby | consts.ReplicationPerformanceSecondary) {
+		HasState(consts.ReplicationPerformanceStandby|consts.ReplicationPerformanceSecondary) {
 		return nil, logical.ErrReadOnly
 	}
 
@@ -179,7 +179,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 		//validate if the error is related to a expired accces token, at this moment the only way can validate this is using the error message
 		//and verify if that message describes errors related to expired access token.
 		if (strings.Contains(msg, "\"error\":\"expired_token\"") && strings.Contains(msg, "\"error_description\":\"Access token expired\"")) || regex.MatchString(msg) {
-			cfg, err := b.getConfig(ctx, req.Storage, data, req, roleName)
+			cfg, err := b.getConfig(ctx, req, roleName, true)
 
 			if err != nil {
 				return logical.ErrorResponse(err.Error()), nil
@@ -192,7 +192,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 					return logical.ErrorResponse(err.Error()), nil
 				}
 
-				//everything went fine so get the new client with the new refreshed acces token
+				//everything went fine so get the new client with the new refreshed access token
 				cl, timeout, err = b.ClientVenafi(ctx, req.Storage, data, req, roleName)
 				if err != nil {
 					return logical.ErrorResponse(err.Error()), nil

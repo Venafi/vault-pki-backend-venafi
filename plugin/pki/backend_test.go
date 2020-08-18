@@ -9,13 +9,37 @@ func TestFakeRolesConfigurations(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Run("create wrong role", integrationTestEnv.CreateMixedRole)
-	t.Run("delete role", integrationTestEnv.DeleteRole)
-	t.Run("tpp create role", integrationTestEnv.TPPCreateRole)
-	t.Run("tpp read role", integrationTestEnv.TPPReadRole)
-	t.Run("delete role", integrationTestEnv.DeleteRole)
-	t.Run("cloud create role", integrationTestEnv.CloudCreateRole)
-	t.Run("cloud read role", integrationTestEnv.CloudReadRole)
+
+	t.Run("create role with no venafi secret", integrationTestEnv.CreateRoleEmptyVenafi)
+
+}
+
+func TestFakeVenafiSecretsConfigurations(t *testing.T) {
+	integrationTestEnv, err := newIntegrationTestEnv()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Run("create wrong venafi secret (TPP/Cloud)", integrationTestEnv.CreateVenafiMixedTppAndCloud)
+	t.Run("delete venafi secret", integrationTestEnv.DeleteVenafi)
+
+	t.Run("create wrong venafi secret (TPP/Token)", integrationTestEnv.CreateVenafiMixedTppAndToken)
+	t.Run("delete venafi secret", integrationTestEnv.DeleteVenafi)
+
+	t.Run("create wrong venafi secret (Token/Cloud)", integrationTestEnv.CreateVenafiMixedTokenAndCloud)
+	t.Run("delete venafi secret", integrationTestEnv.DeleteVenafi)
+
+	t.Run("create venafi secret TPP", integrationTestEnv.CreateVenafiTPP)
+	t.Run("read venafi secret TPP", integrationTestEnv.ReadVenafiTPP)
+	t.Run("delete venafi secret", integrationTestEnv.DeleteVenafi)
+
+	t.Run("create venafi secret Cloud", integrationTestEnv.CreateVenafiCloud)
+	t.Run("read venafi secret Cloud", integrationTestEnv.ReadVenafiCloud)
+	t.Run("delete venafi secret", integrationTestEnv.DeleteVenafi)
+
+	t.Run("create venafi secret TPP Token", integrationTestEnv.CreateVenafiToken)
+	t.Run("read venafi secret TPP Token", integrationTestEnv.ReadVenafiToken)
+	t.Run("delete venafi secret", integrationTestEnv.DeleteVenafi)
 }
 
 //Testing all endpoints with fake vcert CA
@@ -25,6 +49,9 @@ func TestFakeEndpoints(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	t.Run("fake create venafi secret", integrationTestEnv.FakeCreateVenafi)
+	t.Run("fake list venafi secrets", integrationTestEnv.FakeListVenafi)
+	t.Run("fake read venafi secrets", integrationTestEnv.FakeReadVenafi)
 	t.Run("fake create role", integrationTestEnv.FakeCreateRole)
 	t.Run("fake list roles", integrationTestEnv.FakeListRole)
 	t.Run("fake read roles", integrationTestEnv.FakeReadRole)
@@ -44,40 +71,53 @@ func TestFakeStoreByOptions(t *testing.T) {
 	}
 
 	//test store_by_serial deprecated option
+	t.Run("create venafi secret", integrationTestEnv.FakeCreateVenafi)
 	t.Run("create role deprecated store_by_serial", integrationTestEnv.FakeCreateRoleDeprecatedStoreBySerial)
 	t.Run("issue", integrationTestEnv.FakeIssueCertificateAndSaveSerial)
 	t.Run("read certificate by serial", integrationTestEnv.FakeReadCertificateBySerial)
 	t.Run("delete role", integrationTestEnv.DeleteRole)
+	t.Run("delete venafi", integrationTestEnv.DeleteVenafi)
 
 	//test store_by_cn deprecated option
+	t.Run("create venafi secret", integrationTestEnv.FakeCreateVenafi)
 	t.Run("create role deprecated store_by_cn", integrationTestEnv.FakeCreateRoleDeprecatedStoreByCN)
 	t.Run("issue", integrationTestEnv.FakeIssueCertificateAndSaveSerial)
 	t.Run("read certificate by cn", integrationTestEnv.FakeReadCertificateByCN)
 	t.Run("delete role", integrationTestEnv.DeleteRole)
+	t.Run("delete venafi", integrationTestEnv.DeleteVenafi)
 
 	//test store_by cn
+	t.Run("create venafi secret", integrationTestEnv.FakeCreateVenafi)
 	t.Run("create role store_by cn", integrationTestEnv.FakeCreateRoleStoreByCN)
 	t.Run("issue", integrationTestEnv.FakeIssueCertificateAndSaveSerial)
 	t.Run("read certificate by cn", integrationTestEnv.FakeReadCertificateByCN)
 	t.Run("delete role", integrationTestEnv.DeleteRole)
+	t.Run("delete venafi", integrationTestEnv.DeleteVenafi)
 
 	//test store_by default
+	t.Run("create venafi secret", integrationTestEnv.FakeCreateVenafi)
 	t.Run("create role store_by serial", integrationTestEnv.FakeCreateRoleStoreBySerial)
 	t.Run("issue", integrationTestEnv.FakeIssueCertificateAndSaveSerial)
 	t.Run("read certificate by serial", integrationTestEnv.FakeReadCertificateBySerial)
 	t.Run("delete role", integrationTestEnv.DeleteRole)
+	t.Run("delete venafi", integrationTestEnv.DeleteVenafi)
 
 	//test no_store
+	t.Run("create venafi secret", integrationTestEnv.FakeCreateVenafi)
 	t.Run("create role no_store true", integrationTestEnv.FakeCreateRoleNoStore)
 	t.Run("issue", integrationTestEnv.FakeIssueCertificateAndSaveSerial)
 	t.Run("check that there is no certificate", integrationTestEnv.FakeCheckThatThereIsNoCertificate)
 	t.Run("delete role", integrationTestEnv.DeleteRole)
+	t.Run("delete venafi", integrationTestEnv.DeleteVenafi)
 
 	//test store_pkey false
+	t.Run("create venafi secret", integrationTestEnv.FakeCreateVenafi)
 	t.Run("create role store_pkey false", integrationTestEnv.FakeCreateRoleNoStorePKey)
 	t.Run("issue", integrationTestEnv.FakeIssueCertificateAndSaveSerial)
 	t.Run("check that there is no private key", integrationTestEnv.FakeCheckThatThereIsNoPKey)
 	t.Run("delete role", integrationTestEnv.DeleteRole)
+	t.Run("delete venafi", integrationTestEnv.DeleteVenafi)
+
 }
 
 //Testing Venafi Platform integration
@@ -107,4 +147,20 @@ func TestCloudIntegration(t *testing.T) {
 	t.Run("Cloud restricted enroll", integrationTestEnv.CloudIntegrationIssueCertificateRestricted)
 	t.Run("Cloud issue certificate with password", integrationTestEnv.CloudIntegrationIssueCertificateWithPassword)
 	t.Run("Cloud sign certificate", integrationTestEnv.CloudIntegrationSignCertificate)
+
+}
+
+//Testing Venafi TPP Token integration
+func TestTokenIntegration(t *testing.T) {
+
+	integrationTestEnv, err := newIntegrationTestEnv()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Run("TPP Token base enroll", integrationTestEnv.TokenIntegrationIssueCertificate)
+	t.Run("TPP Token base enroll with password", integrationTestEnv.TokenIntegrationIssueCertificateWithPassword)
+	t.Run("TPP Token restricted enroll", integrationTestEnv.TokenIntegrationIssueCertificateRestricted)
+	t.Run("TPP Token sign certificate", integrationTestEnv.TokenIntegrationSignCertificate)
+
 }

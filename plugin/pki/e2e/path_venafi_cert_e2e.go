@@ -30,14 +30,17 @@ var _ = Describe("Vault PKI Venafi backend e2e tests	", func() {
 		tpp endpointConnectionId = iota
 		cloud
 		fake
+		tppToken
+		roleOpts = "venafi_secret=%s %s"
 	)
 
 	type endpointConnection struct {
-		id       endpointConnectionId
-		name     string
-		roleOpt  string
-		enabled  bool
-		issuerCN string
+		id        endpointConnectionId
+		name      string
+		roleOpt   string
+		enabled   bool
+		issuerCN  string
+		venafiOpt string
 	}
 
 	ctx := pki.GetContext()
@@ -47,19 +50,32 @@ var _ = Describe("Vault PKI Venafi backend e2e tests	", func() {
 	var endpoints = []endpointConnection{
 		{fake,
 			"fake",
-			fmt.Sprintf("fakemode=true %s", defaultOpts),
+			fmt.Sprintf(roleOpts, "fakeVenafi", defaultOpts),
 			ctx.FakeTestingEnabled,
-			ctx.FakeIssuerCN},
+			ctx.FakeIssuerCN,
+			"fakemode=true",
+		},
 		{tpp,
 			"tpp",
-			fmt.Sprintf("tpp_url=%s tpp_user=%s tpp_password=%s zone=%s trust_bundle_file=/opt/venafi/bundle.pem %s", ctx.TPPurl, ctx.TPPuser, ctx.TPPPassword, ctx.TPPZone, defaultOpts),
+			fmt.Sprintf(roleOpts, "tppVenafi", defaultOpts),
 			ctx.TPPTestingEnabled,
-			ctx.TPPIssuerCN},
+			ctx.TPPIssuerCN,
+			fmt.Sprintf("tpp_url=%s tpp_user=%s tpp_password=%s zone=%s trust_bundle_file=/opt/venafi/bundle.pem", ctx.TPPurl, ctx.TPPuser, ctx.TPPPassword, ctx.TPPZone),
+		},
 		{cloud,
 			"cloud",
-			fmt.Sprintf("cloud_url=%s zone=%s apikey=%s %s", ctx.CloudUrl, ctx.CloudZone, ctx.CloudAPIkey, defaultOpts),
+			fmt.Sprintf(roleOpts, "cloudVenafi", defaultOpts),
 			ctx.CloudTestingEnabled,
-			ctx.CloudIssuerCN},
+			ctx.CloudIssuerCN,
+			fmt.Sprintf("cloud_url=%s zone=%s apikey=%s", ctx.CloudUrl, ctx.CloudZone, ctx.CloudAPIkey),
+		},
+		{tppToken,
+			"tpp_token",
+			fmt.Sprintf(roleOpts, "tokenVenafi", defaultOpts),
+			ctx.TPPTestingEnabled,
+			ctx.TPPIssuerCN,
+			fmt.Sprintf("url=%s access_token=%s zone=%s trust_bundle_file=/opt/venafi/bundle.pem", ctx.TokenUrl, ctx.AccessToken, ctx.TPPZone),
+		},
 	}
 
 	Describe("Checking vault status	", func() {
@@ -83,6 +99,13 @@ var _ = Describe("Vault PKI Venafi backend e2e tests	", func() {
 					continue
 				}
 				Context("with "+endpoint.name, func() {
+					It("Writing venafi secret configuration", func() {
+						cmd = fmt.Sprintf(`docker exec %s vault write venafi-pki/venafi/%s `+endpoint.venafiOpt, vaultContainerName, endpoint.name+"Venafi")
+						By("Running " + cmd)
+						out, err, code = testRun(cmd)
+						Expect(code).To(BeZero())
+						Expect(out).To(MatchRegexp("Success! Data written to: venafi-pki/venafi/" + endpoint.name + "Venafi"))
+					})
 					It("Writing role configuration", func() {
 						cmd = fmt.Sprintf(
 							`docker exec %s vault write venafi-pki/roles/%s

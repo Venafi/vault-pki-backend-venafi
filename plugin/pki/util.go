@@ -53,9 +53,12 @@ type RunContext struct {
 	CloudUrl            string
 	CloudAPIkey         string
 	CloudZone           string
+	TokenUrl            string
+	AccessToken         string
 	TPPTestingEnabled   bool
 	CloudTestingEnabled bool
 	FakeTestingEnabled  bool
+	TokenTestingEnabled bool
 	TPPIssuerCN         string
 	CloudIssuerCN       string
 	FakeIssuerCN        string
@@ -73,9 +76,15 @@ func GetContext() *RunContext {
 	c.CloudUrl = os.Getenv("CLOUD_URL")
 	c.CloudAPIkey = os.Getenv("CLOUD_APIKEY")
 	c.CloudZone = os.Getenv("CLOUD_ZONE")
+
+	c.TokenUrl = os.Getenv("TPP_TOKEN_URL")
+	c.AccessToken = os.Getenv("ACCESS_TOKEN")
+
 	c.TPPTestingEnabled, _ = strconv.ParseBool(os.Getenv("VENAFI_TPP_TESTING"))
 	c.CloudTestingEnabled, _ = strconv.ParseBool(os.Getenv("VENAFI_CLOUD_TESTING"))
 	c.FakeTestingEnabled, _ = strconv.ParseBool(os.Getenv("VENAFI_FAKE_TESTING"))
+	c.TokenTestingEnabled, _ = strconv.ParseBool(os.Getenv("VENAFI_TPP_TOKEN_TESTING"))
+
 	c.TPPIssuerCN = os.Getenv("TPP_ISSUER_CN")
 	c.CloudIssuerCN = os.Getenv("CLOUD_ISSUER_CN")
 	c.FakeIssuerCN = os.Getenv("FAKE_ISSUER_CN")
@@ -166,11 +175,20 @@ func storeAccessData(b *backend, ctx context.Context, req *logical.Request, role
 		return err
 	}
 
-	entry.RefreshToken = resp.Refresh_token
-	entry.AccessToken = resp.Access_token
+	if entry.VenafiSecret == "" {
+		return fmt.Errorf("Role " + roleName + " does not have any Venafi secret associated")
+	}
+
+	venafiEntry, err := b.getVenafiSecret(ctx, req.Storage, entry.VenafiSecret)
+	if err != nil {
+		return err
+	}
+
+	venafiEntry.AccessToken = resp.Access_token
+	venafiEntry.RefreshToken = resp.Refresh_token
 
 	// Store it
-	jsonEntry, err := logical.StorageEntryJSON("role/"+roleName, entry)
+	jsonEntry, err := logical.StorageEntryJSON(CredentialsRootPath+entry.VenafiSecret, venafiEntry)
 	if err != nil {
 		return err
 	}
