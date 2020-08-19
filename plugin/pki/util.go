@@ -130,6 +130,62 @@ func SameStringSlice(x, y []string) bool {
 	return true
 }
 
+func areDNSNamesCorrect(actualAltNames []string, expectedCNNames []string, expectedAltNames []string) bool {
+
+	//There is no cn names. Check expectedAltNames only. Is it possible?
+	if len(expectedCNNames) == 0 {
+		if len(actualAltNames) != len(expectedAltNames) {
+			return false
+
+		} else if !SameStringSlice(actualAltNames, expectedAltNames) {
+			return false
+		}
+	} else {
+
+		//Checking expectedAltNames are in actualAltNames
+		if len(actualAltNames) < len(expectedAltNames) {
+			return false
+		}
+
+		for i := range expectedAltNames {
+			expectedName := expectedAltNames[i]
+			found := false
+
+			for j := range actualAltNames {
+
+				if actualAltNames[j] == expectedName {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return false
+			}
+		}
+
+		//Checking expectedCNNames
+		allNames := append(expectedAltNames, expectedCNNames...)
+		for i := range actualAltNames {
+			name := actualAltNames[i]
+			found := false
+
+			for j := range allNames {
+
+				if allNames[j] == name {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return false
+			}
+		}
+
+	}
+
+	return true
+}
+
 func getTppConnector(cfg *vcert.Config) (*tpp.Connector, error) {
 
 	var connectionTrustBundle *x509.CertPool

@@ -501,7 +501,7 @@ func (e *testEnv) IssueCertificateAndSaveSerial(t *testing.T, data testData, con
 	//it is need to determine if we're checking cloud signed certificate in checkStandartCert
 	data.provider = configString
 
-	checkStandartCert(t, data)
+	checkStandardCert(t, data)
 
 	//save certificate serial for the next test
 	e.CertificateSerial = resp.Data["serial_number"].(string)
@@ -585,7 +585,7 @@ func (e *testEnv) SignCertificate(t *testing.T, data testData, configString vena
 	data.cert = resp.Data["certificate"].(string)
 	data.provider = configString
 
-	checkStandartCert(t, data)
+	checkStandardCert(t, data)
 }
 
 func (e *testEnv) ReadCertificate(t *testing.T, data testData, configString venafiConfigString, certId string) {
@@ -618,7 +618,7 @@ func (e *testEnv) ReadCertificate(t *testing.T, data testData, configString vena
 
 	data.cert = resp.Data["certificate"].(string)
 	data.privateKey = resp.Data["private_key"].(string)
-	checkStandartCert(t, data)
+	checkStandardCert(t, data)
 
 }
 
@@ -1331,7 +1331,7 @@ func (e *testEnv) TokenIntegrationSignCertificate(t *testing.T) {
 
 }
 
-func checkStandartCert(t *testing.T, data testData) {
+func checkStandardCert(t *testing.T, data testData) {
 	var err error
 	log.Println("Testing certificate:", data.cert)
 	certPEMBlock, _ := pem.Decode([]byte(data.cert))
@@ -1365,7 +1365,7 @@ func checkStandartCert(t *testing.T, data testData) {
 		t.Fatalf("Certificate common name expected to be %s but actualy it is %s", parsedCertificate.Subject.CommonName, data.cn)
 	}
 
-	wantDNSNames := []string{data.cn, data.dnsNS}
+	wantDNSNames := []string{data.dnsNS}
 
 	if data.dnsIP != "" {
 		wantDNSNames = append(wantDNSNames, data.dnsIP)
@@ -1385,7 +1385,7 @@ func checkStandartCert(t *testing.T, data testData) {
 		parsedCertificate.DNSNames = unique(parsedCertificate.DNSNames)
 	}
 
-	if !SameStringSlice(parsedCertificate.DNSNames, wantDNSNames) {
+	if !areDNSNamesCorrect(parsedCertificate.DNSNames, []string{data.cn}, wantDNSNames) {
 		t.Fatalf("Certificate Subject Alternative Names %v doesn't match to requested %v", parsedCertificate.DNSNames, wantDNSNames)
 	}
 
