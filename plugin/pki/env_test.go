@@ -1379,12 +1379,6 @@ func checkStandardCert(t *testing.T, data testData) {
 		ips = append(ips, net.ParseIP(data.dnsIP))
 	}
 
-	if data.provider == venafiConfigCloud {
-		//This is a workaround since in cloud used Vault 1.0 as internal CA which is duplicating DNSNames
-		//After test cloud update to Vault > 1.3 we can remove this
-		parsedCertificate.DNSNames = unique(parsedCertificate.DNSNames)
-	}
-
 	if !areDNSNamesCorrect(parsedCertificate.DNSNames, []string{data.cn}, wantDNSNames) {
 		t.Fatalf("Certificate Subject Alternative Names %v doesn't match to requested %v", parsedCertificate.DNSNames, wantDNSNames)
 	}
