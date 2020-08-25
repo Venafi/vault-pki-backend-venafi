@@ -288,7 +288,7 @@ registered the new version of the plugin):
 ```text
 curl --request PUT \
      --header "X-Vault-Token: s.32K0lvvzWqFssLOCPtKN4AQo" \
-     --data '{ "mounts": "venafi-pki/" }' \
+     --data '{ "plugin": "venafi-pki-backend" }' \
      https://vault.example.com:8200/v1/sys/plugins/reload/backend
 ```
 
