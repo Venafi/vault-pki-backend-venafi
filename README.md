@@ -76,7 +76,7 @@ and any other dependencies that appear in the Venafi Cloud documentation.
 Before certificates can be issued, you must complete these steps to configure the
 Venafi secrets engine:
 
-1. Create the [directory](/docs/internals/plugins#plugin-directory)
+1. Create the [directory](https://www.vaultproject.io/docs/internals/plugins#plugin-directory)
    where your Vault server will look for plugins (e.g. /etc/vault/vault_plugins).
    The directory must not be a symbolic link. On macOS, for example, /etc is a
    link to /private/etc. To avoid errors, choose an alternative directory such
@@ -94,14 +94,14 @@ Venafi secrets engine:
    $ mv venafi-pki-backend /etc/vault/vault_plugins
    ```
 
-1. Update the Vault [server configuration](/docs/configuration/)
+1. Update the Vault [server configuration](https://www.vaultproject.io/docs/configuration/)
    to specify the plugin directory:
 
    ```text
    plugin_directory = "/etc/vault/vault_plugins"
    ```
 
-1. Start your Vault using the [server command](/docs/commands/server).
+1. Start your Vault using the [server command](https://www.vaultproject.io/docs/commands/server).
 
 1. Get the SHA-256 checksum of the `vault-pki-backend-venafi` plugin binary:
 
@@ -110,7 +110,7 @@ Venafi secrets engine:
    ```
 
 1. Register the `vault-pki-backend-venafi` plugin in the Vault
-   [system catalog](/docs/internals/plugins#plugin-catalog):
+   [system catalog](https://www.vaultproject.io/docs/internals/plugins#plugin-catalog):
 
    ```text
    $ vault write sys/plugins/catalog/secret/venafi-pki-backend \
@@ -261,6 +261,6 @@ token with the proper permission, it can enroll certificates using Venafi.
 ## API
 
 Venafi Machine Identity Secrets Engine uses the same
-[Vault API](/api/secret/pki)
+[Vault API](https://www.vaultproject.io/api/secret/pki)
 as the built-in PKI secrets engine. Some methods, such as those for
 managing certificate authorities, do not apply.
