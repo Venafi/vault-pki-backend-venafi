@@ -156,6 +156,10 @@ Venafi secrets engine:
    Success! Data written to: venafi-pki/venafi/tpp
    ```
 
+   :pushpin: **NOTE**: Supplying a `refresh_token` allows the secrets engine to
+   automatically obtain new tokens and operate without interruption whenever the
+   `access_token` expires.
+
    **Venafi Cloud**:
 
    ```
