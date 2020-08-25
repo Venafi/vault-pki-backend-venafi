@@ -10,7 +10,7 @@ import (
 	"github.com/Venafi/vcert"
 	"github.com/Venafi/vcert/pkg/certificate"
 	"github.com/Venafi/vcert/pkg/endpoint"
-	"github.com/hashicorp/vault/logical"
+	"github.com/hashicorp/vault/sdk/logical"
 	"log"
 	"strings"
 	"testing"

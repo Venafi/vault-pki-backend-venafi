@@ -1,7 +1,7 @@
 package pki
 
 import (
-	"github.com/hashicorp/vault/logical/framework"
+	"github.com/hashicorp/vault/sdk/framework"
 )
 
 // SecretCertsType is the name used to identify this type

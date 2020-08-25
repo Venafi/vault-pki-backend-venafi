@@ -16,7 +16,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hashicorp/vault/logical"
+	"github.com/hashicorp/vault/sdk/logical"
 )
 
 type testEnv struct {
