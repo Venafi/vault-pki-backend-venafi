@@ -264,3 +264,22 @@ Venafi Machine Identity Secrets Engine uses the same
 [Vault API](https://www.vaultproject.io/api/secret/pki)
 as the built-in PKI secrets engine. Some methods, such as those for
 managing certificate authorities, do not apply.
+
+## Upgrading
+
+To upgrade to a new version of this plugin, follow the 
+[standard procedure](https://www.vaultproject.io/docs/upgrading/plugins).
+There is no CLI for reloading plugins but you can use cURL to invoke it
+from the command line like this (after you've deployed and successfully
+registered the new version of the plugin):
+
+```text
+curl --request PUT \
+     --header "X-Vault-Token: s.32K0lvvzWqFssLOCPtKN4AQo" \
+     --data '{ "mounts": "venafi-pki/" }' \
+     https://vault.example.com:8200/v1/sys/plugins/reload/backend
+```
+
+:warning: **Important:** Every member of a Vault cluster must be running
+with the same version of the plugin to avoid inconsistent, unexpected, and
+possibly erroneous results.
