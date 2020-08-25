@@ -140,7 +140,8 @@ Venafi secrets engine:
 1. Configure a Venafi secret that maps a name in Vault to connection and authentication
    settings for enrolling certificate using Venafi. The zone is a policy folder for Trust
    Protection Platform or a DevOps project zone for Venafi Cloud. Obtain the `access_token`
-   and `refresh_token` for Trust Protection Platform using the the VCert CLI `getcred`
+   and `refresh_token` for Trust Protection Platform using the 
+   [VCert CLI `getcred`](https://github.com/Venafi/vcert/blob/master/README-CLI-PLATFORM.md#obtaining-an-authorization-token)
    action or the Platform's Authorize REST API method. To see other available options for
    the role after it is created, use `vault path-help venafi-pki/venafi/:name`.
 
