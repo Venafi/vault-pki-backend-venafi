@@ -7,24 +7,20 @@ import (
 
 func TestRoleValidate(t *testing.T) {
 
-	entry := &roleEntry{
-		TPPURL: "https://ha-tpp12.sqlha.com:5008/vedsdk",
-	}
+	entry := &roleEntry{}
 
 	err := validateEntry(entry)
 	if err == nil {
 		t.Fatalf("Expecting error")
 	}
-	if err.Error() != errorTextInvalidMode {
+	if err.Error() != errorTextVenafiSecretEmpty {
 		t.Fatalf("Expecting error %s but got %s", errorTextInvalidMode, err)
 	}
 
 	entry = &roleEntry{
-		TPPURL:      "https://qa-tpp.exmple.com/vedsdk",
-		TPPUser:     "admin",
-		TPPPassword: "xxxx",
-		TTL:         120,
-		MaxTTL:      100,
+		VenafiSecret: "testSecret",
+		TTL:          120,
+		MaxTTL:       100,
 	}
 
 	err = validateEntry(entry)
@@ -36,24 +32,9 @@ func TestRoleValidate(t *testing.T) {
 	}
 
 	entry = &roleEntry{
-		TPPURL:      "https://qa-tpp.exmple.com/vedsdk",
-		Apikey:      "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-		TPPUser:     "admin",
-		TPPPassword: "xxxx",
-	}
-
-	err = validateEntry(entry)
-	if err == nil {
-		t.Fatalf("Expecting error")
-	}
-	if err.Error() != errorTextTPPandCloudMixedCredentials {
-		t.Fatalf("Expecting error %s but got %s", errorTextTPPandCloudMixedCredentials, err)
-	}
-
-	entry = &roleEntry{
-		Apikey:    "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-		StoreByCN: true,
-		StoreBy:   "cn",
+		VenafiSecret: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+		StoreByCN:    true,
+		StoreBy:      "cn",
 	}
 	err = validateEntry(entry)
 	if err == nil {
@@ -64,7 +45,7 @@ func TestRoleValidate(t *testing.T) {
 	}
 
 	entry = &roleEntry{
-		Apikey:        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+		VenafiSecret:  "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
 		StoreBySerial: true,
 		StoreBy:       "cn",
 	}
@@ -77,7 +58,7 @@ func TestRoleValidate(t *testing.T) {
 	}
 
 	entry = &roleEntry{
-		Apikey:        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+		VenafiSecret:  "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
 		StoreBySerial: true,
 		StoreByCN:     true,
 		StoreBy:       "cn",
@@ -91,7 +72,7 @@ func TestRoleValidate(t *testing.T) {
 	}
 
 	entry = &roleEntry{
-		Apikey:        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+		VenafiSecret:  "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
 		StoreBySerial: true,
 		StoreByCN:     true,
 		NoStore:       true,
@@ -105,9 +86,9 @@ func TestRoleValidate(t *testing.T) {
 	}
 
 	entry = &roleEntry{
-		Apikey:  "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-		StoreBy: "serial",
-		NoStore: true,
+		VenafiSecret: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+		StoreBy:      "serial",
+		NoStore:      true,
 	}
 	err = validateEntry(entry)
 	if err == nil {
@@ -118,8 +99,8 @@ func TestRoleValidate(t *testing.T) {
 	}
 
 	entry = &roleEntry{
-		Apikey:  "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-		StoreBy: "sebial",
+		VenafiSecret: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+		StoreBy:      "sebial",
 	}
 	err = validateEntry(entry)
 	if err == nil {
@@ -131,10 +112,9 @@ func TestRoleValidate(t *testing.T) {
 	}
 
 	entry = &roleEntry{
-		Apikey:        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+		VenafiSecret:  "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
 		StoreBySerial: true,
 		StoreByCN:     true,
-
 	}
 	err = validateEntry(entry)
 	if err != nil {
@@ -146,9 +126,8 @@ func TestRoleValidate(t *testing.T) {
 	}
 
 	entry = &roleEntry{
-		Apikey:        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-		StoreByCN:     true,
-
+		VenafiSecret: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+		StoreByCN:    true,
 	}
 	err = validateEntry(entry)
 	if err != nil {
@@ -156,6 +135,6 @@ func TestRoleValidate(t *testing.T) {
 	}
 
 	if entry.StoreBy != storeByCNString {
-		t.Fatalf("Expecting store_by parameter will be set to %s", storeBySerialString)
+		t.Fatalf("Expecting store_by parameter will be set to %s", storeByCNString)
 	}
 }

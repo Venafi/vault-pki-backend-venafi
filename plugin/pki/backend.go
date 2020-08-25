@@ -31,6 +31,8 @@ func Backend(conf *logical.BackendConfig) *backend {
 		Paths: []*framework.Path{
 			pathListRoles(&b),
 			pathRoles(&b),
+			pathCredentialsList(&b),
+			pathCredentials(&b),
 			pathVenafiCertEnroll(&b),
 			pathVenafiCertSign(&b),
 			pathVenafiCertRead(&b),

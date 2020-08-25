@@ -85,6 +85,7 @@ func TestPKIVcertConfig(t *testing.T) {
 		"store_by_cn":     "true",
 		"store_pkey":      "true",
 		"store_by_serial": "true",
+		"venafi_secret":   "venafi",
 	}
 
 	roleReq := &logical.Request{

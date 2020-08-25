@@ -26,7 +26,7 @@ VERSION=$(RELEASE_VERSION)
 endif
 endif
 
-###Demo scripts parameteres
+###Demo scripts parameters
 VAULT_VERSION := $(shell vault --version|awk '{print $$2}')
 VAULT_CONT := $$(docker-compose ps |grep Up|grep vault_1|awk '{print $$1}')
 DOCKER_CMD := docker exec -it $(VAULT_CONT)
@@ -34,9 +34,16 @@ VAULT_CMD := $(DOCKER_CMD) vault
 CT_CMD := consul-template
 
 MOUNT := venafi-pki
+FAKE_VENAFI := fakeVenafi
+TPP_VENAFI := tppVenafi
+CLOUD_VENAFI := cloudVenafi
+TOKEN_VENAFI := tppTokenVenafi
+
 FAKE_ROLE := fake
 TPP_ROLE := tpp
 CLOUD_ROLE := cloud
+TOKEN_ROLE := tppToken
+
 ROLE_OPTIONS := generate_lease=true store_by="cn" store_pkey="true" ttl=1h max_ttl=1h
 
 SHA256 := $$(shasum -a 256 "$(PLUGIN_PATH)" | cut -d' ' -f1)
@@ -126,6 +133,9 @@ test_cloud:
 test_fake:
 	go test -run  ^TestFake -v github.com/Venafi/vault-pki-backend-venafi/plugin/pki
 
+test_token:
+	go test -run ^TestTokenIntegration$ -v github.com/Venafi/vault-pki-backend-venafi/plugin/pki
+
 push: build build_docker test_e2e
 	docker push $(DOCKER_IMAGE):$(BUILD_TAG)
 
@@ -200,11 +210,12 @@ mount_prod:
 	$(VAULT_CMD) secrets disable $(MOUNT) || echo "Secrets already disabled"
 	$(VAULT_CMD) secrets enable -path=$(MOUNT) -plugin-name=$(PLUGIN_NAME) plugin
 
-
 #Fake role tasks
 fake_config_write:
-	vault write $(MOUNT)/roles/$(FAKE_ROLE) fakemode="true" $(ROLE_OPTIONS)
+	vault write $(MOUNT)/venafi/$(FAKE_VENAFI) fakemode="true"
+	vault write $(MOUNT)/roles/$(FAKE_ROLE) venafi_secret=$(FAKE_VENAFI) $(ROLE_OPTIONS)
 fake_config_read:
+	vault read $(MOUNT)/venafi/$(FAKE_VENAFI)
 	vault read $(MOUNT)/roles/$(FAKE_ROLE)
 
 fake_cert_write:
@@ -223,11 +234,12 @@ fake_cert_read_pkey:
 
 fake: fake_config_write fake_cert_write fake_cert_read_certificate fake_cert_read_pkey
 
-
 #Cloud role tasks
 cloud_config_write:
-	vault write $(MOUNT)/roles/$(CLOUD_ROLE) cloud_url=$(CLOUD_URL) zone="$(CLOUD_ZONE)" apikey=$(CLOUD_APIKEY) $(ROLE_OPTIONS)
+	vault write $(MOUNT)/venafi/$(CLOUD_VENAFI) cloud_url=$(CLOUD_URL) zone="$(CLOUD_ZONE)" apikey=$(CLOUD_APIKEY)
+	vault write $(MOUNT)/roles/$(CLOUD_ROLE) venafi_secret=$(CLOUD_VENAFI) $(ROLE_OPTIONS)
 cloud_config_read:
+	vault read $(MOUNT)/venafi/$(CLOUD_VENAFI)
 	vault read $(MOUNT)/roles/$(CLOUD_ROLE)
 
 cloud_cert_write:
@@ -246,10 +258,13 @@ cloud_cert_read_pkey:
 
 cloud: cloud_config_write cloud_cert_write cloud_cert_read_certificate cloud_cert_read_pkey
 
+
 #TPP role tasks
 tpp_config_write:
-	vault write $(MOUNT)/roles/$(TPP_ROLE) tpp_url=$(TPP_URL) tpp_user=$(TPP_USER) tpp_password=$(TPP_PASSWORD) zone="$(TPP_ZONE)" trust_bundle_file=$(TRUST_BUNDLE) $(ROLE_OPTIONS)
+	vault write $(MOUNT)/venafi/$(TPP_VENAFI) tpp_url=$(TPP_URL) tpp_user=$(TPP_USER) tpp_password=$(TPP_PASSWORD) zone="$(TPP_ZONE)" trust_bundle_file=$(TRUST_BUNDLE)
+	vault write $(MOUNT)/roles/$(TPP_ROLE) venafi_secret=$(TPP_VENAFI) $(ROLE_OPTIONS)
 tpp_config_read:
+	vault read $(MOUNT)/venafi/$(TPP_VENAFI)
 	vault read $(MOUNT)/roles/$(TPP_ROLE)
 
 tpp_cert_write:
@@ -267,6 +282,29 @@ tpp_cert_read_pkey:
 
 
 tpp: tpp_config_write tpp_cert_write tpp_cert_read_certificate tpp_cert_read_pkey
+
+
+#TPP Token tasks
+token_config_write:
+	vault write $(MOUNT)/venafi/$(TOKEN_VENAFI) url=$(TPP_TOKEN_URL) access_token=$(TPP_ACCESS_TOKEN) zone="$(TPP_ZONE)" trust_bundle_file=$(TRUST_BUNDLE)
+	vault write $(MOUNT)/roles/$(TOKEN_ROLE) venafi_secret=$(TOKEN_VENAFI) $(ROLE_OPTIONS)
+token_config_read:
+	vault read $(MOUNT)/venafi/$(TOKEN_VENAFI)
+	vault read $(MOUNT)/roles/$(TOKEN_ROLE)
+token_cert_write:
+	$(eval RANDOM_SITE := $(shell echo $(RANDOM_SITE_EXP)))
+	@echo "Issuing tpp-$(RANDOM_SITE).$(TPP_DOMAIN)"
+	vault write $(MOUNT)/issue/$(TOKEN_ROLE) common_name="tppToken-$(RANDOM_SITE).$(TPP_DOMAIN)" alt_names="alt-$(RANDOM_SITE).$(TPP_DOMAIN),alt2-$(RANDOM_SITE).$(TPP_DOMAIN)"
+token_cert_read_certificate:
+	vault read -field=certificate $(MOUNT)/cert/tppToken-$(RANDOM_SITE).$(TPP_DOMAIN) > $(CERT_TMP_FILE)
+	$(CHECK_CERT_CMD) $(CERT_TMP_FILE)
+token_cert_read_pkey:
+	vault read -field=private_key $(MOUNT)/cert/tppToken-$(RANDOM_SITE).$(TPP_DOMAIN)|tee /tmp/privateKey.key
+	@echo "\nChecking modulus for certificate and key:\n"
+	@openssl pkey -in /tmp/privateKey.key -pubout -outform pem| sha256sum
+	@openssl x509 -in $(CERT_TMP_FILE) -pubkey -noout -outform pem | sha256sum
+
+tpp_token: token_config_write token_cert_write token_cert_read_certificate token_cert_read_pkey
 
 
 #Consul template tasks
