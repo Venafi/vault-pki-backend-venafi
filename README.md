@@ -122,7 +122,7 @@ Venafi secrets engine:
    ```text
    $ vault write sys/plugins/catalog/secret/venafi-pki-backend \
        sha_256="${SHA256}" command="venafi-pki-backend"
-   Success! Data written to: sys/plugins/catalog/secret/pki-backend-venafi
+   Success! Data written to: sys/plugins/catalog/secret/venafi-pki-backend
    ```
 
     :pushpin: **NOTE**: If you get an error that says "can not execute files
