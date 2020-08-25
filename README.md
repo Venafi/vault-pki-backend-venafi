@@ -101,6 +101,13 @@ Venafi secrets engine:
    plugin_directory = "/etc/vault/vault_plugins"
    ```
 
+   :pushpin: **NOTE**: If plugin directory is a symbolic link, Vault responds
+   with an error[:bookmark:](https://groups.google.com/forum/#!topic/vault-tool/IVYLA3aH72M).
+   If you're configuring on a MacBook, /etc is default symlinked to /private/etc. To
+   prevent the error from occurring, change the `plugin_directory` to a non-symlinked
+   directory. For example "/private/etc/vault/vault_plugins". If you make this change,
+   keep it in mind as you go through the remaining steps.
+
 1. Start your Vault using the [server command](https://www.vaultproject.io/docs/commands/server).
 
 1. Get the SHA-256 checksum of the `vault-pki-backend-venafi` plugin binary:
@@ -117,6 +124,11 @@ Venafi secrets engine:
        sha_256="${SHA256}" command="venafi-pki-backend"
    Success! Data written to: sys/plugins/catalog/secret/pki-backend-venafi
    ```
+
+    :pushpin: **NOTE**: If you get an error that says "can not execute files
+    outside of configured plugin directory", it's probably because you didn't set the
+    plugin directory correctly with a non-symlinked directory as mentioned earlier. Also,
+    make sure this change is reflected when calling for the SHA-256 checksum.
 
 1. Enable the Venafi secrets engine:
 
@@ -280,6 +292,6 @@ curl --request PUT \
      https://vault.example.com:8200/v1/sys/plugins/reload/backend
 ```
 
-:warning: **Important:** Every member of a Vault cluster must be running
+:warning: **IMPORTANT:** Every member of a Vault cluster must be running
 with the same version of the plugin to avoid inconsistent, unexpected, and
 possibly erroneous results.
