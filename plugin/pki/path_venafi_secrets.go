@@ -3,8 +3,8 @@ package pki
 import (
 	"context"
 	"fmt"
-	"github.com/hashicorp/vault/logical"
-	"github.com/hashicorp/vault/logical/framework"
+        "github.com/hashicorp/vault/sdk/logical"
+        "github.com/hashicorp/vault/sdk/framework"
 )
 
 func pathCredentialsList(b *backend) *framework.Path {
@@ -17,8 +17,8 @@ func pathCredentialsList(b *backend) *framework.Path {
 				Summary:  "List all venafi secrets",
 			},
 		},
-		HelpSynopsis:    "",
-		HelpDescription: "",
+		HelpSynopsis:    pathListVenafiSecretsHelpSyn,
+		HelpDescription: pathListVenafiSecretsHelpDesc,
 	}
 }
 
@@ -33,7 +33,7 @@ func pathCredentials(b *backend) *framework.Path {
 			},
 			"zone": {
 				Type: framework.TypeString,
-				Description: `Name of Venafi Platform or Cloud policy. 
+				Description: `Name of Venafi Platform policy or Venafi Cloud project zone. 
 Example for Platform: testpolicy\\vault
 Example for Venafi Cloud: e33f3e40-4e7e-11ea-8da3-b3c196ebeb0b`,
 				Required: true,
@@ -56,12 +56,12 @@ Example for Venafi Cloud: e33f3e40-4e7e-11ea-8da3-b3c196ebeb0b`,
 			},
 			"tpp_user": {
 				Type:        framework.TypeString,
-				Description: `web API user for Venafi Platform Example: admin`,
+				Description: `WebSDK username for Venafi Platform API`,
 				Deprecated:  true,
 			},
 			"tpp_password": {
 				Type:        framework.TypeString,
-				Description: `Password for web API user Example: password`,
+				Description: `Password for WebSDK user`,
 				Deprecated:  true,
 			},
 			"access_token": {
@@ -70,7 +70,7 @@ Example for Venafi Cloud: e33f3e40-4e7e-11ea-8da3-b3c196ebeb0b`,
 			},
 			"refresh_token": {
 				Type:        framework.TypeString,
-				Description: `Refresh token for updating access TPP token`,
+				Description: `Refresh token for updating TPP access token when it expires`,
 			},
 			"apikey": {
 				Type:        framework.TypeString,
@@ -79,12 +79,11 @@ Example for Venafi Cloud: e33f3e40-4e7e-11ea-8da3-b3c196ebeb0b`,
 			"trust_bundle_file": {
 				Type: framework.TypeString,
 				Description: `Use to specify a PEM formatted file with certificates to be used as trust anchors when communicating with the remote server.
-								Example:
-  									trust_bundle_file = "/full/path/to/bundle.pem""`,
+Example: trust_bundle_file="/path-to/bundle.pem""`,
 			},
 			"fakemode": {
 				Type:        framework.TypeBool,
-				Description: `Set it to true to use face CA instead of Cloud or Platform to issue certificates. Useful for testing.`,
+				Description: `Set it to true to use fake CA instead of Cloud or Platform to issue certificates. Useful for testing.`,
 				Default:     false,
 			},
 		},
@@ -102,8 +101,8 @@ Example for Venafi Cloud: e33f3e40-4e7e-11ea-8da3-b3c196ebeb0b`,
 				Summary:  "Delete a venafi secret",
 			},
 		},
-		HelpSynopsis:    "",
-		HelpDescription: "",
+		HelpSynopsis:    pathVenafiSecretsHelpSyn,
+		HelpDescription: pathVenafiSecretsHelpDesc,
 	}
 }
 
@@ -341,3 +340,10 @@ func (p *venafiSecretEntry) ToResponseData() map[string]interface{} {
 	}
 	return responseData
 }
+
+const (
+	pathListVenafiSecretsHelpSyn  = `List the existing Venafi Secrets in this backend`
+	pathListVenafiSecretsHelpDesc = `Venafi Secrets will be listed by the secret name.`
+	pathVenafiSecretsHelpSyn      = `Manage the Venafi Secrets that can be created with this backend.`
+	pathVenafiSecretsHelpDesc     = `This path lets you manage the Venafi Secrets that can be created with this backend.`
+)
