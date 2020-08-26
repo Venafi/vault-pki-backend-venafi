@@ -21,7 +21,10 @@ requirements.
 Within Trust Protection Platform, configure these settings. For more
 information see the _Venafi Administration Guide_.
 
-- A user account that has been granted REST API (WebSDK) access.
+- A user account that has an authentication token for the "Venafi Secrets
+  Engine for HashiCorp Vault" (ID "hashicorp-vault-by-venafi") API Application
+  as of 20.1 (or scope "certificate:manage" for 19.2 through 19.4) or has been
+  granted WebSDK Access (deprecated)
 - A Policy folder where the user has the following permissions: View, Read,
   Write, Create.
 - Enterprise compliant policies applied to the folder including:
