@@ -144,9 +144,11 @@ Venafi secrets engine:
    settings for enrolling certificate using Venafi. The zone is a policy folder for Trust
    Protection Platform or a DevOps project zone for Venafi Cloud. Obtain the `access_token`
    and `refresh_token` for Trust Protection Platform using the 
-   [VCert CLI `getcred`](https://github.com/Venafi/vcert/blob/master/README-CLI-PLATFORM.md#obtaining-an-authorization-token)
-   action or the Platform's Authorize REST API method. To see other available options for
-   the role after it is created, use `vault path-help venafi-pki/venafi/:name`.
+   [VCert CLI](https://github.com/Venafi/vcert/blob/master/README-CLI-PLATFORM.md#obtaining-an-authorization-token)
+   (`getcred` action with `--client-id "hashicorp-vault-by-venafi"` and
+   `--scope "certificate:manage"`) or the Platform's Authorize REST API method. To see
+   other available options for the role after it is created, use
+   `vault path-help venafi-pki/venafi/:name`.
 
    **Trust Protection Platform**:
 
@@ -162,7 +164,10 @@ Venafi secrets engine:
 
    :pushpin: **NOTE**: Supplying a `refresh_token` allows the secrets engine to
    automatically obtain new tokens and operate without interruption whenever the
-   `access_token` expires.
+   `access_token` expires. This behavior is important to understand because it 
+   may require you to provide a new `access_token` and `refresh_token` if you need
+   to modify the Venafi secret in the future (i.e. depending upon whether the
+   original set of tokens has been refreshed by the secrets engine plugin).
 
    **Venafi Cloud**:
 
@@ -205,7 +210,8 @@ After the Venafi secrets engine is configured and a user/machine has a Vault
 token with the proper permission, it can enroll certificates using Venafi.
 
 1. Generate a certificate by writing to the `/issue` endpoint with the name of
-   the role:
+   the role (add the `key_password` parameter to get a password encrypted
+   private key in the output):
 
    **Trust Protection Platform**:
 
