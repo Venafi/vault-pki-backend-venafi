@@ -270,7 +270,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 	if !role.NoStore {
 		if role.StoreBy == storeByCNString {
 			//Writing certificate to the storage with CN
-			b.Logger().Debug(fmt.Sprintf("Putting certificate to the certs/" + reqData.commonName))
+			b.Logger().Debug("Writing certificate to the certs/" + reqData.commonName)
 			entry.Key = "certs/" + reqData.commonName
 
 			if err := req.Storage.Put(ctx, entry); err != nil {
