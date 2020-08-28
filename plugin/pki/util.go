@@ -295,7 +295,6 @@ func getHTTPClient(trustBundlePem string) (*http.Client, error) {
 	}
 
 	tlsConfig.Renegotiation = tls.RenegotiateFreelyAsClient
-	tlsConfig.InsecureSkipVerify = true
 	netTransport.TLSClientConfig = tlsConfig
 
 	client := &http.Client{

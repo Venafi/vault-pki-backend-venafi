@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"github.com/Venafi/vcert"
 	"github.com/Venafi/vcert/pkg/endpoint"
-	"github.com/hashicorp/vault/sdk/logical"
 	"github.com/hashicorp/vault/sdk/framework"
+	"github.com/hashicorp/vault/sdk/logical"
 	"io/ioutil"
 	"time"
 )
@@ -65,7 +65,7 @@ func (b *backend) getConfig(ctx context.Context, req *logical.Request, roleName 
 
 	var trustBundlePEM string
 	if venafiSecret.TrustBundleFile != "" {
-		b.Logger().Debug("Reading trust bundle from file %s\n", venafiSecret.TrustBundleFile)
+		b.Logger().Debug(fmt.Sprintf("Reading trust bundle from file: " + venafiSecret.TrustBundleFile))
 		trustBundle, err := ioutil.ReadFile(venafiSecret.TrustBundleFile)
 		if err != nil {
 			return cfg, err
@@ -89,7 +89,7 @@ func (b *backend) getConfig(ctx context.Context, req *logical.Request, roleName 
 		}
 
 	} else if venafiSecret.URL != "" && venafiSecret.TppUser != "" && venafiSecret.TppPassword != "" {
-		b.Logger().Debug("Using Venafi Platform with URL %s to issue certificate\n", venafiSecret.URL)
+		b.Logger().Debug(fmt.Sprintf("Using Venafi Platform with URL %s to issue certificate", venafiSecret.URL))
 		cfg.ConnectorType = endpoint.ConnectorTypeTPP
 		cfg.Credentials = &endpoint.Authentication{
 			User:     venafiSecret.TppUser,
@@ -97,7 +97,7 @@ func (b *backend) getConfig(ctx context.Context, req *logical.Request, roleName 
 		}
 
 	} else if venafiSecret.URL != "" && venafiSecret.AccessToken != "" {
-		b.Logger().Debug("Using Venafi Platform with URL %s to issue certificate\n", venafiSecret.URL)
+		b.Logger().Debug(fmt.Sprintf("Using Venafi Platform with URL %s to issue certificate", venafiSecret.URL))
 		cfg.ConnectorType = endpoint.ConnectorTypeTPP
 		var refreshToken string
 		if includeRefreshToken {
