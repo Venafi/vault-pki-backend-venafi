@@ -3,8 +3,8 @@ package pki
 import (
 	"context"
 	"fmt"
-        "github.com/hashicorp/vault/sdk/logical"
-        "github.com/hashicorp/vault/sdk/framework"
+	"github.com/hashicorp/vault/sdk/framework"
+	"github.com/hashicorp/vault/sdk/logical"
 )
 
 func pathCredentialsList(b *backend) *framework.Path {
@@ -342,8 +342,8 @@ func (p *venafiSecretEntry) ToResponseData() map[string]interface{} {
 }
 
 const (
-	pathListVenafiSecretsHelpSyn  = `List the existing Venafi Secrets in this backend`
-	pathListVenafiSecretsHelpDesc = `Venafi Secrets will be listed by the secret name.`
-	pathVenafiSecretsHelpSyn      = `Manage the Venafi Secrets that can be created with this backend.`
-	pathVenafiSecretsHelpDesc     = `This path lets you manage the Venafi Secrets that can be created with this backend.`
+	pathListVenafiSecretsHelpSyn  = `List the existing Venafi Secrets in this backend`                                    // #nosec
+	pathListVenafiSecretsHelpDesc = `Venafi Secrets will be listed by the secret name.`                                   // #nosec
+	pathVenafiSecretsHelpSyn      = `Manage the Venafi Secrets that can be created with this backend.`                    // #nosec
+	pathVenafiSecretsHelpDesc     = `This path lets you manage the Venafi Secrets that can be created with this backend.` // #nosec
 )

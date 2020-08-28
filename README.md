@@ -85,8 +85,7 @@ Venafi secrets engine:
    link to /private/etc. To avoid errors, choose an alternative directory such
    as /private/etc/vault/vault_plugins.
 
-1. Download the latest `vault-pki-backend-venafi`
-   [release package](https://github.com/Venafi/vault-pki-backend-venafi/releases/latest)
+1. Download the latest `vault-pki-backend-venafi` [release package](../../releases/latest)
    for your operating system. Unzip the binary to the plugin directory. Note
    that the URL for the zip file, referenced below, changes as new versions of the
    plugin are released.
@@ -113,13 +112,13 @@ Venafi secrets engine:
 
 1. Start your Vault using the [server command](https://www.vaultproject.io/docs/commands/server).
 
-1. Get the SHA-256 checksum of the `vault-pki-backend-venafi` plugin binary:
+1. Get the SHA-256 checksum of the `venafi-pki-backend` plugin binary:
 
    ```text
    $ SHA256=$(sha256sum /etc/vault/vault_plugins/venafi-pki-backend| cut -d' ' -f1)
    ```
 
-1. Register the `vault-pki-backend-venafi` plugin in the Vault
+1. Register the `venafi-pki-backend` plugin in the Vault
    [system catalog](https://www.vaultproject.io/docs/internals/plugins#plugin-catalog):
 
    ```text
@@ -293,7 +292,8 @@ managing certificate authorities, do not apply.
 
 ## Upgrading
 
-To upgrade to a new version of this plugin, follow the 
+To upgrade to a new version of this plugin, review the
+[release notes](../../releases) to understand the impact and then follow the 
 [standard procedure](https://www.vaultproject.io/docs/upgrading/plugins).
 There is no CLI for reloading plugins but you can use cURL to invoke it
 from the command line like this (after you've deployed and successfully

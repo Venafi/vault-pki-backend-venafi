@@ -3,8 +3,8 @@ package pki
 import (
 	"context"
 	"fmt"
-	"github.com/hashicorp/vault/sdk/logical"
 	"github.com/hashicorp/vault/sdk/framework"
+	"github.com/hashicorp/vault/sdk/logical"
 )
 
 func pathVenafiCertRead(b *backend) *framework.Path {
@@ -51,8 +51,8 @@ func (b *backend) pathVenafiCertRead(ctx context.Context, req *logical.Request, 
 		b.Logger().Error("error reading venafi configuration: %s", err)
 		return nil, err
 	}
-	b.Logger().Debug("certificate is:", cert.Certificate)
-	b.Logger().Debug("chain is:", cert.CertificateChain)
+	b.Logger().Debug("certificate is:" + cert.Certificate)
+	b.Logger().Debug("chain is:" + cert.CertificateChain)
 
 	respData := map[string]interface{}{
 		"certificate_uid":   certUID,

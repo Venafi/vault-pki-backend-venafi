@@ -118,21 +118,21 @@ var venafiTestCloudConfigRestricted = map[string]interface{}{
 }
 
 var venafiTestTokenConfig = map[string]interface{}{
-	"url":               os.Getenv("TPP_URL"),
+	"url":               os.Getenv("TPP_TOKEN_URL"),
 	"access_token":      os.Getenv("TPP_ACCESS_TOKEN"),
 	"zone":              os.Getenv("TPP_ZONE"),
 	"trust_bundle_file": os.Getenv("TRUST_BUNDLE"),
 }
 
 var venafiTestTokenConfigPredefined = map[string]interface{}{
-	"url":               "https://tpp.example.com/vedsdk",
+	"url":               "https://tpp.example.com",
 	"access_token":      "admin",
 	"zone":              "devops\\vcert",
 	"trust_bundle_file": "/opt/venafi/bundle.pem",
 }
 
 var venafiTestTokenConfigRestricted = map[string]interface{}{
-	"url":               os.Getenv("TPP_URL"),
+	"url":               os.Getenv("TPP_TOKEN_URL"),
 	"access_token":      os.Getenv("TPP_ACCESS_TOKEN"),
 	"zone":              os.Getenv("TPP_ZONE_RESTRICTED"),
 	"trust_bundle_file": os.Getenv("TRUST_BUNDLE"),

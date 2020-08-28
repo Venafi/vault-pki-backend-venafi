@@ -15,8 +15,8 @@ import (
 	"time"
 
 	"github.com/Venafi/vcert/pkg/certificate"
-	"github.com/hashicorp/vault/sdk/logical"
 	"github.com/hashicorp/vault/sdk/framework"
+	"github.com/hashicorp/vault/sdk/logical"
 )
 
 func pathVenafiCertEnroll(b *backend) *framework.Path {
@@ -270,7 +270,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 	if !role.NoStore {
 		if role.StoreBy == storeByCNString {
 			//Writing certificate to the storage with CN
-			b.Logger().Debug("Putting certificate to the certs/" + reqData.commonName)
+			b.Logger().Debug("Writing certificate to the certs/" + reqData.commonName)
 			entry.Key = "certs/" + reqData.commonName
 
 			if err := req.Storage.Put(ctx, entry); err != nil {
@@ -279,7 +279,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 			}
 		} else {
 			//Writing certificate to the storage with Serial Number
-			b.Logger().Debug("Putting certificate to the certs/", normalizeSerial(serialNumber))
+			b.Logger().Debug("Putting certificate to the certs: " + normalizeSerial(serialNumber))
 			entry.Key = "certs/" + normalizeSerial(serialNumber)
 
 			if err := req.Storage.Put(ctx, entry); err != nil {
@@ -323,7 +323,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 				"serial_number": serialNumber,
 			})
 		TTL := time.Until(parsedCertificate.NotAfter)
-		b.Logger().Debug("Setting up secret lease duration to: ", TTL.String())
+		b.Logger().Debug("Setting up secret lease duration to: " + TTL.String())
 		logResp.Secret.TTL = TTL
 	}
 
