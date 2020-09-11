@@ -309,3 +309,11 @@ curl --request PUT \
 :warning: **IMPORTANT:** Every member of a Vault cluster must be running
 with the same version of the plugin to avoid inconsistent, unexpected, and
 possibly erroneous results.
+
+## License
+
+Copyright &copy; Venafi, Inc. All rights reserved.
+
+This solution is licensed under the Mozilla Public License, Version 2.0. See `LICENSE` for the full license text.
+
+Please direct questions/comments to opensource@venafi.com.
