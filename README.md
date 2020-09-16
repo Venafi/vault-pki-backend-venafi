@@ -295,15 +295,14 @@ managing certificate authorities, do not apply.
 To upgrade to a new version of this plugin, review the
 [release notes](../../releases) to understand the impact and then follow the 
 [standard procedure](https://www.vaultproject.io/docs/upgrading/plugins).
-There is no CLI for reloading plugins but you can use cURL to invoke it
-from the command line like this (after you've deployed and successfully
-registered the new version of the plugin):
+The following command will trigger a plugin reload globally:
 
 ```text
-curl --request PUT \
-     --header "X-Vault-Token: s.32K0lvvzWqFssLOCPtKN4AQo" \
-     --data '{ "plugin": "venafi-pki-backend" }' \
-     https://vault.example.com:8200/v1/sys/plugins/reload/backend
+$ vault write sys/plugins/reload/backend plugin=venafi-pki-backend scope=global
+
+Key          Value
+---          -----
+reload_id    d8180af4-01e0-d4d8-10ce-0daf69fbb6ed
 ```
 
 :warning: **IMPORTANT:** Every member of a Vault cluster must be running
