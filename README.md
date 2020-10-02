@@ -154,7 +154,7 @@ Venafi secrets engine:
    ```
    $ vault write venafi-pki/venafi/tpp \
        url="https://tpp.venafi.example" \
-       access_token="tn1PwE1QTZorXmvnTowSyA=="
+       access_token="tn1PwE1QTZorXmvnTowSyA==" \
        refresh_token="MGxV7DzNnclQi9CkJMCXCg==" \
        zone="DevOps\\HashiCorp Vault" \
        trust_bundle_file="/opt/venafi/bundle.pem"
