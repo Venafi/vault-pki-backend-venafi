@@ -30,10 +30,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Venafi/vcert/pkg/verror"
+	"github.com/Venafi/vcert/v4/pkg/verror"
 
-	"github.com/Venafi/vcert/pkg/certificate"
-	"github.com/Venafi/vcert/pkg/endpoint"
+	"github.com/Venafi/vcert/v4/pkg/certificate"
+	"github.com/Venafi/vcert/v4/pkg/endpoint"
 )
 
 type apiKey struct {
@@ -84,6 +84,7 @@ type certificateRequest struct {
 	ExistingManagedCertificateId string                       `json:"existingManagedCertificateId,omitempty"`
 	ReuseCSR                     bool                         `json:"reuseCSR,omitempty"`
 	ApiClientInformation         certificateRequestClientInfo `json:"apiClientInformation,omitempty"`
+	ValidityPeriod               string                       `json:"validityPeriod,omitempty"`
 }
 
 type certificateStatus struct {
