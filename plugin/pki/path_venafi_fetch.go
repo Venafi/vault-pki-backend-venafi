@@ -3,8 +3,8 @@ package pki
 import (
 	"context"
 
-	"github.com/hashicorp/vault/sdk/logical"
 	"github.com/hashicorp/vault/sdk/framework"
+	"github.com/hashicorp/vault/sdk/logical"
 )
 
 func pathVenafiFetchListCerts(b *backend) *framework.Path {
