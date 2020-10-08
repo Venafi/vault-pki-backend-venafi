@@ -40,11 +40,12 @@ type testData struct {
 	dnsIP string
 	dnsNS string
 	//onlyIP added IP Address x509 field
-	onlyIP      string
-	keyPassword string
-	privateKey  string
-	provider    venafiConfigString
-	signCSR     bool
+	onlyIP       string
+	keyPassword  string
+	privateKey   string
+	provider     venafiConfigString
+	signCSR      bool
+	customFields []string
 }
 
 const (
@@ -464,6 +465,10 @@ func (e *testEnv) IssueCertificateAndSaveSerial(t *testing.T, data testData, con
 			"alt_names":   strings.Join(altNames, ","),
 			"ip_sans":     []string{data.onlyIP},
 		}
+	}
+
+	if data.customFields != nil {
+		issueData["custom_fields"] = strings.Join(data.customFields, ",")
 	}
 
 	resp, err := e.Backend.HandleRequest(e.Context, &logical.Request{
@@ -1331,6 +1336,24 @@ func (e *testEnv) TokenIntegrationSignCertificate(t *testing.T) {
 
 }
 
+func (e *testEnv) TokenIntegrationIssueCertificateWithCustomFields(t *testing.T) {
+	data := testData{}
+	randString := e.TestRandString
+	domain := "venafi.example.com"
+	data.cn = randString + "." + domain
+	data.dnsNS = "alt-" + data.cn
+	data.dnsIP = "192.168.1.1"
+	data.dnsEmail = "venafi@example.com"
+	data.keyPassword = "Pass0rd!"
+	data.customFields = []string{"custom=Venafi,cfList=item2,cfListMulti=tier1,cfListMulti=tier4"}
+
+	var config = venafiConfigToken
+
+	e.writeVenafiToBackend(t, config)
+	e.writeRoleToBackend(t, config)
+	e.IssueCertificateAndSaveSerial(t, data, config)
+}
+
 func checkStandardCert(t *testing.T, data testData) {
 	var err error
 	log.Println("Testing certificate:", data.cert)
@@ -1395,6 +1418,7 @@ func checkStandardCert(t *testing.T, data testData) {
 	}
 
 }
+
 func newIntegrationTestEnv() (*testEnv, error) {
 	ctx := context.Background()
 
