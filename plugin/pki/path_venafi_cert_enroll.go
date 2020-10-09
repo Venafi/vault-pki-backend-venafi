@@ -456,7 +456,7 @@ func formRequest(reqData requestData, role *roleEntry, signCSR bool, logger hclo
 		return certReq, fmt.Errorf("invalid custom fields. Custom fields must use 'key=value' format and be separated by comma")
 	}
 	for _, f := range reqData.customFields {
-		tuple := strings.Split(f, ",")
+		tuple := strings.Split(f, "=")
 		if len(tuple) == 2 {
 			name := tuple[0]
 			value := tuple[1]
@@ -469,7 +469,7 @@ func formRequest(reqData requestData, role *roleEntry, signCSR bool, logger hclo
 
 func isValidCustomFields(customFields []string) bool {
 	//Any character is accepted as key, any character is accepted as value
-	regex, err := regexp.Compile("^(.+=.+)$")
+	regex, err := regexp.Compile("^([^=]+=[^=]+)$")
 	if err != nil {
 		return false
 	}

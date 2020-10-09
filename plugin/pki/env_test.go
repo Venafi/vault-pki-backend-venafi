@@ -1345,7 +1345,7 @@ func (e *testEnv) TokenIntegrationIssueCertificateWithCustomFields(t *testing.T)
 	data.dnsIP = "192.168.1.1"
 	data.dnsEmail = "venafi@example.com"
 	data.keyPassword = "Pass0rd!"
-	data.customFields = []string{"custom=Venafi,cfList=item2,cfListMulti=tier1,cfListMulti=tier4"}
+	data.customFields = []string{"custom=vaultTest", "cfList=item2", "cfListMulti=tier1", "cfListMulti=tier4"}
 
 	var config = venafiConfigToken
 
