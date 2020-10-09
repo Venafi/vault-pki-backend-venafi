@@ -458,8 +458,8 @@ func formRequest(reqData requestData, role *roleEntry, signCSR bool, logger hclo
 	for _, f := range reqData.customFields {
 		tuple := strings.Split(f, "=")
 		if len(tuple) == 2 {
-			name := tuple[0]
-			value := tuple[1]
+			name := strings.TrimSpace(tuple[0])
+			value := strings.TrimSpace(tuple[1])
 			certReq.CustomFields = append(certReq.CustomFields, certificate.CustomField{Name: name, Value: value})
 		}
 	}
