@@ -10,7 +10,6 @@ import (
 	"github.com/Venafi/vcert/v4/pkg/util"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/vault/sdk/helper/consts"
-	"math"
 	"net"
 	"regexp"
 	"strings"
@@ -441,8 +440,6 @@ func formRequest(reqData requestData, role *roleEntry, signCSR bool, logger hclo
 	}
 
 	if role.TTL > 0 {
-		days := float64(role.TTL.Hours()) / 24
-		roundedDays := math.Round(float64(days)) //round days to convert them on the nearest days, based on the hours
 
 		issuerHint := ""
 
@@ -463,7 +460,7 @@ func formRequest(reqData requestData, role *roleEntry, signCSR bool, logger hclo
 		}
 
 		certReq.IssuerHint = issuerHint
-		certReq.ValidityHours = int(roundedDays) * 24
+		certReq.ValidityHours = int(role.TTL)
 	}
 
 	//Adding origin custom field with utility name to certificate metadata

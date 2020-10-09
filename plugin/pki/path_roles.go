@@ -94,7 +94,7 @@ the value of max_ttl.`,
 			},
 			"issuer_hint": {
 				Type:        framework.TypeString,
-				Description: `Indicate the target issuer values could be DigiCert, Entrust, or Microsoft`,
+				Description: `Indicate the target issuer to enable ttl with Venafi Platform; "DigiCert", "Entrust", and "Microsoft" are supported values.`,
 			},
 			"max_ttl": {
 				Type:        framework.TypeDurationSecond,
