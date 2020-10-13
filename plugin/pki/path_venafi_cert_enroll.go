@@ -453,7 +453,7 @@ func formRequest(reqData requestData, role *roleEntry, signCSR bool, logger hclo
 
 	//Adding custom fields to certificate
 	if !isValidCustomFields(reqData.customFields) {
-		return certReq, fmt.Errorf("invalid custom fields. Custom fields must use 'key=value' format and be separated by comma")
+		return certReq, fmt.Errorf("invalid custom fields; must be 'key=value' using commas to separate multiple key-value pairs")
 	}
 	for _, f := range reqData.customFields {
 		tuple := strings.Split(f, "=")
