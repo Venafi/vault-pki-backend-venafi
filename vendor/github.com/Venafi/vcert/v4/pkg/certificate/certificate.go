@@ -26,7 +26,7 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"
-	"github.com/Venafi/vcert/pkg/verror"
+	"github.com/Venafi/vcert/v4/pkg/verror"
 	"net"
 	"net/url"
 	"strings"
@@ -193,10 +193,12 @@ type Request struct {
 	FetchPrivateKey bool
 	/*	Thumbprint is here because *Request is used in RetrieveCertificate().
 		Code should be refactored so that RetrieveCertificate() uses some abstract search object, instead of *Request{PickupID} */
-	Thumbprint   string
-	Timeout      time.Duration
-	CustomFields []CustomField
-	Location     *Location
+	Thumbprint    string
+	Timeout       time.Duration
+	CustomFields  []CustomField
+	Location      *Location
+	ValidityHours int
+	IssuerHint    string
 }
 
 type RevocationRequest struct {

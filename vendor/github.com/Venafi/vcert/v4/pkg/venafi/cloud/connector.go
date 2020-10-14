@@ -24,13 +24,14 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
-	"github.com/Venafi/vcert/pkg/verror"
+	"github.com/Venafi/vcert/v4/pkg/verror"
 
-	"github.com/Venafi/vcert/pkg/certificate"
-	"github.com/Venafi/vcert/pkg/endpoint"
+	"github.com/Venafi/vcert/v4/pkg/certificate"
+	"github.com/Venafi/vcert/v4/pkg/endpoint"
 )
 
 const apiURL = "api.venafi.cloud/v1/"
@@ -196,6 +197,12 @@ func (c *Connector) RequestCertificate(req *certificate.Request) (requestID stri
 			Type:       origin,
 			Identifier: ipAddr,
 		},
+	}
+
+	if req.ValidityHours > 0 {
+		hoursStr := strconv.Itoa(req.ValidityHours)
+		validityHoursStr := "PT" + hoursStr + "H"
+		cloudReq.ValidityPeriod = validityHoursStr
 	}
 
 	statusCode, status, body, err := c.request("POST", url, cloudReq)
