@@ -44,6 +44,10 @@ func pathVenafiCertEnroll(b *backend) *framework.Path {
 				Type:        framework.TypeString,
 				Description: "Password for encrypting private key",
 			},
+			"custom_fields": {
+				Type:        framework.TypeCommaStringSlice,
+				Description: "Use to specify custom fields in format 'key=value'. Use comma to separate multiple values: 'key1=value1,key2=value2'",
+			},
 		},
 		Callbacks: map[logical.Operation]framework.OperationFunc{
 			logical.UpdateOperation: b.pathVenafiIssue,
@@ -162,6 +166,11 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 	csrStringRaw, ok := data.GetOk("csr")
 	if ok {
 		reqData.csrString = csrStringRaw.(string)
+	}
+
+	customFields, ok := data.GetOk("custom_fields")
+	if ok {
+		reqData.customFields = customFields.([]string)
 	}
 
 	certReq, err = formRequest(reqData, role, signCSR, b.Logger())
@@ -335,11 +344,12 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 }
 
 type requestData struct {
-	commonName  string
-	altNames    []string
-	ipSANs      []string
-	keyPassword string
-	csrString   string
+	commonName   string
+	altNames     []string
+	ipSANs       []string
+	keyPassword  string
+	csrString    string
+	customFields []string
 }
 
 func formRequest(reqData requestData, role *roleEntry, signCSR bool, logger hclog.Logger) (certReq *certificate.Request, err error) {
@@ -468,7 +478,37 @@ func formRequest(reqData requestData, role *roleEntry, signCSR bool, logger hclo
 	//Adding origin custom field with utility name to certificate metadata
 	certReq.CustomFields = []certificate.CustomField{{Type: certificate.CustomFieldOrigin, Value: utilityName}}
 
+	//Adding custom fields to certificate
+	if !isValidCustomFields(reqData.customFields) {
+		return certReq, fmt.Errorf("invalid custom fields; must be 'key=value' using commas to separate multiple key-value pairs")
+	}
+	for _, f := range reqData.customFields {
+		tuple := strings.Split(f, "=")
+		if len(tuple) == 2 {
+			name := strings.TrimSpace(tuple[0])
+			value := strings.TrimSpace(tuple[1])
+			certReq.CustomFields = append(certReq.CustomFields, certificate.CustomField{Name: name, Value: value})
+		}
+	}
+
 	return certReq, nil
+}
+
+func isValidCustomFields(customFields []string) bool {
+	//Any character is accepted as key, any character is accepted as value
+	regex, err := regexp.Compile("^([^=]+=[^=]+)$")
+	if err != nil {
+		return false
+	}
+	if len(customFields) > 0 {
+		for _, data := range customFields {
+			if !regex.MatchString(data) {
+				return false
+			}
+		}
+	}
+
+	return true
 }
 
 type VenafiCert struct {
