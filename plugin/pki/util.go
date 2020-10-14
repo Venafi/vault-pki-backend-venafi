@@ -19,6 +19,10 @@ import (
 	"time"
 )
 
+const (
+	ttl_test_property = int(96)
+)
+
 func sliceContains(slice []string, item string) bool {
 	set := make(map[string]struct{}, len(slice))
 	for _, s := range slice {

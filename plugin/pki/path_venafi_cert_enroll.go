@@ -460,7 +460,9 @@ func formRequest(reqData requestData, role *roleEntry, signCSR bool, logger hclo
 		}
 
 		certReq.IssuerHint = issuerHint
-		certReq.ValidityHours = int(role.TTL)
+
+		ttl := int(role.TTL.Hours())
+		certReq.ValidityHours = ttl
 	}
 
 	//Adding origin custom field with utility name to certificate metadata
