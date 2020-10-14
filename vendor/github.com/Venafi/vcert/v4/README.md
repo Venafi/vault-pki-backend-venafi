@@ -9,7 +9,7 @@ We welcome and appreciate all contributions._
 
 # VCert
 
-[![GoDoc](https://godoc.org/github.com/Venafi/vcert?status.svg)](https://godoc.org/github.com/Venafi/vcert)  [![Go Report Card](https://goreportcard.com/badge/github.com/Venafi/vcert)](https://goreportcard.com/report/github.com/Venafi/vcert)
+[![GoDoc](https://godoc.org/github.com/Venafi/vcert?status.svg)](https://pkg.go.dev/github.com/Venafi/vcert)  [![Go Report Card](https://goreportcard.com/badge/github.com/Venafi/vcert)](https://goreportcard.com/report/github.com/Venafi/vcert)
 [![Used By](https://sourcegraph.com/github.com/Venafi/vcert/-/badge.svg)](https://sourcegraph.com/github.com/Venafi/vcert?badge)
 
 VCert is a Go library, SDK, and command line utility designed to simplify key generation and enrollment of machine identities
@@ -32,14 +32,21 @@ Custom Fields and Instance Tracking require TPP 18.2 or higher, and Token Authen
 3. Download the source code:
 
 ```sh
-go get github.com/Venafi/vcert
+go get github.com/Venafi/vcert/v4
 ```
 
 or
 
+Pre Go 1.13
 ```sh
-git clone https://github.com/Venafi/vcert.git $GOPATH/src/github.com/Venafi/vcert
+git clone https://github.com/Venafi/vcert.git $GOPATH/src/github.com/Venafi/vcert/v4
 ```
+
+Go 1.11 with go modules enabled or go 1.13 and up make sure to clone outside of `$GOPATH/src`
+```sh
+git clone https://github.com/Venafi/vcert.git
+```
+
 4. Build the command line utilities for Linux, MacOS, and Windows:
 
 ```sh
@@ -51,7 +58,7 @@ make build
 For code samples of programmatic use, please review the files in [/examples](/examples/).
 
 ### Common part
-1. In your main.go file, make the following import declarations:  `github.com/Venafi/vcert`, `github.com/Venafi/vcert/pkg/certificate`, and `github.com/Venafi/vcert/pkg/endpoint`.
+1. In your main.go file, make the following import declarations:  `github.com/Venafi/vcert/v4`, `github.com/Venafi/vcert/v4/pkg/certificate`, and `github.com/Venafi/vcert/v4/pkg/endpoint`.
 1. Create a configuration object of type `&vcert.Config` that specifies the Venafi connection details.  Solutions are typically designed to get those details from a secrets vault, .ini file, environment variables, or command line parameters.
 
 ### Enroll certificate
@@ -80,7 +87,7 @@ go test -v ./example -run TestRequestCertificate
     1. CA Template that Trust Protection Platform will use to enroll certificate requests submitted by VCert
     2. Subject DN values for Organizational Unit (OU), Organization (O), City (L), State (ST) and Country (C)
     3. Management Type not locked or locked to 'Enrollment'
-    4. Certificate Signing Request (CSR) Generation not locked or locked to 'Service Generated CSR'
+    4. Certificate Signing Request (CSR) Generation unlocked or not locked to 'Service Generated CSR'
     5. Generate Key/CSR on Application not locked or locked to 'No'
     6. (Recommended) Disable Automatic Renewal set to 'Yes'
     7. (Recommended) Key Bit Strength set to 2048 or higher
@@ -102,7 +109,9 @@ Integration tests for Trust Protection Platform and Cloud products require endpo
 export TPP_URL=https://tpp.venafi.example/vedsdk
 export TPP_USER=tpp-user
 export TPP_PASSWORD=tpp-password
-export TPP_ZONE='some\policy'
+export TPP_ZONE='some\suggested_policy'
+export TPP_ZONE_RESTRICTED='some\locked_policy'
+export TPP_ZONE_ECDSA='some\ecdsa_policy'
 
 make tpp_test
 ```
@@ -111,6 +120,7 @@ make tpp_test
 export CLOUD_URL=https://api.venafi.cloud/v1
 export CLOUD_APIKEY=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 export CLOUD_ZONE=zzzzzzzz-zzzz-zzzz-zzzz-zzzzzzzzzzzz
+export CLOUD_ZONE_RESTRICTED=yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy
 
 make cloud_test
 ```

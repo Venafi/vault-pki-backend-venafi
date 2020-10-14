@@ -92,7 +92,10 @@ requested. The lease duration controls the expiration
 of certificates issued by this backend. Defaults to
 the value of max_ttl.`,
 			},
-
+			"issuer_hint": {
+				Type:        framework.TypeString,
+				Description: `Indicate the target issuer to enable ttl with Venafi Platform; "DigiCert", "Entrust", and "Microsoft" are supported values.`,
+			},
 			"max_ttl": {
 				Type:        framework.TypeDurationSecond,
 				Description: "The maximum allowed lease duration",
@@ -344,6 +347,7 @@ func (b *backend) pathRoleCreate(ctx context.Context, req *logical.Request, data
 			KeyCurve:         data.Get("key_curve").(string),
 			MaxTTL:           time.Duration(data.Get("max_ttl").(int)) * time.Second,
 			TTL:              time.Duration(data.Get("ttl").(int)) * time.Second,
+			IssuerHint:       data.Get("issuer_hint").(string),
 			GenerateLease:    data.Get("generate_lease").(bool),
 			ServerTimeout:    time.Duration(data.Get("server_timeout").(int)) * time.Second,
 			VenafiSecret:     data.Get("venafi_secret").(string),
@@ -457,6 +461,7 @@ type roleEntry struct {
 	Lease            string        `json:"lease"`
 	TTL              time.Duration `json:"ttl_duration"`
 	MaxTTL           time.Duration `json:"max_ttl_duration"`
+	IssuerHint       string        `json:"issuer_hint"`
 	GenerateLease    bool          `json:"generate_lease,omitempty"`
 	DeprecatedMaxTTL string        `json:"max_ttl"`
 	DeprecatedTTL    string        `json:"ttl"`
@@ -469,11 +474,10 @@ func (r *roleEntry) ToResponseData() map[string]interface{} {
 		"venafi_secret":          r.VenafiSecret,
 		"store_by":               r.StoreBy,
 		"no_store":               r.NoStore,
-		"store_by_cn":            r.StoreByCN,
-		"store_by_serial":        r.StoreBySerial,
 		"service_generated_cert": r.ServiceGenerated,
 		"store_pkey":             r.StorePrivateKey,
 		"ttl":                    int64(r.TTL.Seconds()),
+		"issuer_hint":            r.IssuerHint,
 		"max_ttl":                int64(r.MaxTTL.Seconds()),
 		"generate_lease":         r.GenerateLease,
 		"chain_option":           r.ChainOption,
