@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/hashicorp/vault/sdk/logical"
 	"github.com/hashicorp/vault/sdk/framework"
+	"github.com/hashicorp/vault/sdk/logical"
 )
 
 func pathListRoles(b *backend) *framework.Path {
@@ -118,7 +118,7 @@ attached to them. Defaults to "false".`,
 				Required:    true,
 			},
 			"update_if_exist": {
-				Type:        framework.TypeBool,
+				Type: framework.TypeBool,
 				Description: `When true, settings of an existing role will be retained unless they are specified in the update.
                               By default unspecified settings are returned to their default values`,
 			},
@@ -474,11 +474,10 @@ func (r *roleEntry) ToResponseData() map[string]interface{} {
 		"venafi_secret":          r.VenafiSecret,
 		"store_by":               r.StoreBy,
 		"no_store":               r.NoStore,
-		"store_by_cn":            r.StoreByCN,
-		"store_by_serial":        r.StoreBySerial,
 		"service_generated_cert": r.ServiceGenerated,
 		"store_pkey":             r.StorePrivateKey,
 		"ttl":                    int64(r.TTL.Seconds()),
+		"issuer_hint":            r.IssuerHint,
 		"max_ttl":                int64(r.MaxTTL.Seconds()),
 		"generate_lease":         r.GenerateLease,
 		"chain_option":           r.ChainOption,

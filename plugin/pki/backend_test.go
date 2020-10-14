@@ -159,6 +159,7 @@ func TestTokenIntegration(t *testing.T) {
 	}
 
 	t.Run("TPP Token base enroll", integrationTestEnv.TokenIntegrationIssueCertificate)
+	t.Run("TPP Token base enroll and verify ttl", integrationTestEnv.TokenIntegrationIssueCertificateAndValidateTTL)
 	t.Run("TPP Token base enroll with password", integrationTestEnv.TokenIntegrationIssueCertificateWithPassword)
 	t.Run("TPP Token restricted enroll", integrationTestEnv.TokenIntegrationIssueCertificateRestricted)
 	t.Run("TPP Token sign certificate", integrationTestEnv.TokenIntegrationSignCertificate)
