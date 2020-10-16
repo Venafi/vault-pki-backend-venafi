@@ -48,6 +48,13 @@ func pathVenafiCertEnroll(b *backend) *framework.Path {
 				Type:        framework.TypeCommaStringSlice,
 				Description: "Use to specify custom fields in format 'key=value'. Use comma to separate multiple values: 'key1=value1,key2=value2'",
 			},
+			"ttl": {
+				Type: framework.TypeDurationSecond,
+				Description: `The lease duration if no specific lease duration is
+requested. The lease duration controls the expiration
+of certificates issued by this backend. Defaults to
+the value of max_ttl.`,
+			},
 		},
 		Callbacks: map[logical.Operation]framework.OperationFunc{
 			logical.UpdateOperation: b.pathVenafiIssue,
@@ -65,6 +72,13 @@ func pathVenafiCertSign(b *backend) *framework.Path {
 			"csr": {
 				Type:        framework.TypeString,
 				Description: `PEM-format CSR to be signed.`,
+			},
+			"ttl": {
+				Type: framework.TypeDurationSecond,
+				Description: `The lease duration if no specific lease duration is
+requested. The lease duration controls the expiration
+of certificates issued by this backend. Defaults to
+the value of max_ttl.`,
 			},
 			"role": {
 				Type:        framework.TypeString,
@@ -96,6 +110,13 @@ func (b *backend) pathVenafiIssue(ctx context.Context, req *logical.Request, dat
 		return logical.ErrorResponse("role key type \"any\" not allowed for issuing certificates, only signing"), nil
 	}
 
+	ttl := time.Duration(data.Get("ttl").(int)) * time.Second
+	if role.MaxTTL > 0 && ttl > role.MaxTTL {
+
+		return logical.ErrorResponse(errorTextValueMustBeLess), nil
+
+	}
+
 	return b.pathVenafiCertObtain(ctx, req, data, role, false)
 }
 
@@ -111,6 +132,13 @@ func (b *backend) pathVenafiSign(ctx context.Context, req *logical.Request, data
 	}
 	if role == nil {
 		return logical.ErrorResponse(fmt.Sprintf("unknown role: %s", roleName)), nil
+	}
+
+	ttl := time.Duration(data.Get("ttl").(int)) * time.Second
+	if role.MaxTTL > 0 && ttl > role.MaxTTL {
+
+		return logical.ErrorResponse(errorTextValueMustBeLess), nil
+
 	}
 
 	return b.pathVenafiCertObtain(ctx, req, data, role, true)
@@ -171,6 +199,12 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 	customFields, ok := data.GetOk("custom_fields")
 	if ok {
 		reqData.customFields = customFields.([]string)
+	}
+
+	if ttl, ok := data.GetOk("ttl"); ok {
+
+		reqData.ttl = time.Duration(ttl.(int)) * time.Second
+
 	}
 
 	certReq, err = formRequest(reqData, role, signCSR, b.Logger())
@@ -350,6 +384,7 @@ type requestData struct {
 	keyPassword  string
 	csrString    string
 	customFields []string
+	ttl          time.Duration
 }
 
 func formRequest(reqData requestData, role *roleEntry, signCSR bool, logger hclog.Logger) (certReq *certificate.Request, err error) {
@@ -449,27 +484,16 @@ func formRequest(reqData requestData, role *roleEntry, signCSR bool, logger hclo
 		return certReq, fmt.Errorf("Invalid chain option %s", role.ChainOption)
 	}
 
-	if role.TTL > 0 {
+	if reqData.ttl > 0 {
 
-		issuerHint := ""
+		certReq.IssuerHint = getIssuerHint(role.IssuerHint)
 
-		if role.IssuerHint != "" {
-			issrOpt := string(role.IssuerHint[0])
-			issrOpt = strings.ToLower(issrOpt)
+		ttl := int(reqData.ttl.Hours())
+		certReq.ValidityHours = ttl
 
-			switch issrOpt {
-			case "m":
-				issuerHint = util.IssuerHintMicrosoft
-			case "d":
-				issuerHint = util.IssuerHintDigicert
-			case "e":
-				issuerHint = util.IssuerHintEntrust
+	} else if role.TTL > 0 {
 
-			}
-
-		}
-
-		certReq.IssuerHint = issuerHint
+		certReq.IssuerHint = getIssuerHint(role.IssuerHint)
 
 		ttl := int(role.TTL.Hours())
 		certReq.ValidityHours = ttl
@@ -492,6 +516,31 @@ func formRequest(reqData requestData, role *roleEntry, signCSR bool, logger hclo
 	}
 
 	return certReq, nil
+}
+
+func getIssuerHint(is string) string {
+
+	issuerHint := ""
+
+	if is != "" {
+
+		issrOpt := string(is[0])
+		issrOpt = strings.ToLower(issrOpt)
+
+		switch issrOpt {
+
+		case "m":
+			issuerHint = util.IssuerHintMicrosoft
+		case "d":
+			issuerHint = util.IssuerHintDigicert
+		case "e":
+			issuerHint = util.IssuerHintEntrust
+		}
+
+	}
+
+	return issuerHint
+
 }
 
 func isValidCustomFields(customFields []string) bool {

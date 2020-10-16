@@ -20,7 +20,8 @@ import (
 )
 
 const (
-	ttl_test_property = int(96)
+	role_ttl_test_property = int(120)
+	ttl_test_property      = int(48)
 )
 
 func sliceContains(slice []string, item string) bool {

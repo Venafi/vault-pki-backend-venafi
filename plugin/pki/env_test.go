@@ -48,6 +48,7 @@ type testData struct {
 	provider     venafiConfigString
 	signCSR      bool
 	customFields []string
+	ttl          time.Duration
 }
 
 const (
@@ -215,7 +216,7 @@ func (e *testEnv) writeRoleToBackend(t *testing.T, configString venafiConfigStri
 	//Adding Venafi secret reference to Role
 	roleData["venafi_secret"] = e.VenafiSecretName
 
-	ttl := strconv.Itoa(ttl_test_property) + "h"
+	ttl := strconv.Itoa(role_ttl_test_property) + "h"
 	roleData["ttl"] = ttl
 	roleData["issuer_hint"] = util.IssuerHintMicrosoft
 
@@ -319,12 +320,12 @@ func (e *testEnv) readRolesInBackend(t *testing.T, config map[string]interface{}
 			if resp.Data[k] == nil {
 				t.Fatalf("Expected there will be value in %s field", k)
 			}
-			if(k == "ttl"){
+			if k == "ttl" {
 				timeInSeconds := resp.Data[k].(int64)
 				duration := time.Duration(timeInSeconds) * time.Second
 				hours := int(duration.Hours())
 				hoursStr := strconv.Itoa(hours) + "h"
-				if  hoursStr != v {
+				if hoursStr != v {
 					t.Fatalf("Expected %#v will be %#v", k, v)
 				}
 
@@ -526,7 +527,7 @@ func (e *testEnv) IssueCertificateAndSaveSerial(t *testing.T, data testData, con
 	e.CertificateSerial = resp.Data["serial_number"].(string)
 }
 
-func (e *testEnv) IssueCertificateAndValidateTTL(t *testing.T, data testData, configString venafiConfigString) {
+func (e *testEnv) IssueCertificateAndValidateTTL(t *testing.T, data testData) {
 
 	var issueData map[string]interface{}
 
@@ -555,6 +556,11 @@ func (e *testEnv) IssueCertificateAndValidateTTL(t *testing.T, data testData, co
 			"alt_names":   strings.Join(altNames, ","),
 			"ip_sans":     []string{data.onlyIP},
 		}
+	}
+	expectedTTL := role_ttl_test_property
+	if data.ttl > 0 {
+		issueData["ttl"] = strconv.Itoa(int(data.ttl.Hours())) + "h"
+		expectedTTL = ttl_test_property
 	}
 
 	resp, err := e.Backend.HandleRequest(e.Context, &logical.Request{
@@ -591,7 +597,7 @@ func (e *testEnv) IssueCertificateAndValidateTTL(t *testing.T, data testData, co
 	//so for comparing them we need to have both dates on utc.
 	loc, _ := time.LoadLocation("UTC")
 	utcNow := time.Now().In(loc)
-	expectedValidDate := utcNow.AddDate(0, 0, ttl_test_property/24).Format("2006-01-02")
+	expectedValidDate := utcNow.AddDate(0, 0, expectedTTL/24).Format("2006-01-02")
 
 	if expectedValidDate != certValidUntil {
 		t.Fatalf("Expiration date is different than expected, expected: %s, but got %s: ", expectedValidDate, certValidUntil)
@@ -677,6 +683,112 @@ func (e *testEnv) SignCertificate(t *testing.T, data testData, configString vena
 	data.provider = configString
 
 	checkStandardCert(t, data)
+}
+
+func (e *testEnv) SignCertificateWithTTL(t *testing.T, data testData, configString venafiConfigString) {
+
+	//Generating CSR for test
+	certificateRequest := x509.CertificateRequest{}
+	certificateRequest.Subject.CommonName = data.cn
+	if data.dnsNS != "" {
+		certificateRequest.DNSNames = append(certificateRequest.DNSNames, data.dnsNS)
+	}
+
+	if data.dnsIP != "" {
+		certificateRequest.DNSNames = append(certificateRequest.DNSNames, data.dnsIP)
+	}
+
+	if configString == venafiConfigFakeDeprecatedStoreByCN {
+		certificateRequest.DNSNames = append(certificateRequest.DNSNames, data.cn)
+	}
+
+	if data.onlyIP != "" {
+		certificateRequest.IPAddresses = []net.IP{net.ParseIP(data.onlyIP)}
+	}
+
+	if data.dnsIP != "" {
+		certificateRequest.IPAddresses = append(certificateRequest.IPAddresses, net.ParseIP(data.dnsIP))
+	}
+
+	if data.dnsEmail != "" {
+		certificateRequest.EmailAddresses = []string{data.dnsEmail}
+	}
+
+	//Generating pk for test
+	priv, err := rsa.GenerateKey(r.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data.csrPK = pem.EncodeToMemory(
+		&pem.Block{
+			Type:  "RSA PRIVATE KEY",
+			Bytes: x509.MarshalPKCS1PrivateKey(priv),
+		},
+	)
+
+	csr, err := x509.CreateCertificateRequest(r.Reader, &certificateRequest, priv)
+	if err != nil {
+		csr = nil
+	}
+	pemCSR := strings.TrimSpace(string(pem.EncodeToMemory(&pem.Block{
+		Type:  "CERTIFICATE REQUEST",
+		Bytes: csr,
+	})))
+
+	issueData := map[string]interface{}{
+		"csr": pemCSR,
+	}
+
+	if data.ttl > 0 {
+
+		issueData["ttl"] = strconv.Itoa(int(data.ttl.Hours())) + "h"
+
+	}
+
+	resp, err := e.Backend.HandleRequest(e.Context, &logical.Request{
+		Operation: logical.UpdateOperation,
+		Path:      "sign/" + e.RoleName,
+		Storage:   e.Storage,
+		Data:      issueData,
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp != nil && resp.IsError() {
+		t.Fatalf("failed to issue certificate, %#v", resp.Data["error"])
+	}
+
+	if resp == nil {
+		t.Fatalf("should be on output on issue certificate, but response is nil: %#v", resp)
+	}
+
+	if resp.Data["certificate"] == "" {
+		t.Fatalf("expected a cert to be generated")
+	}
+
+	data.cert = resp.Data["certificate"].(string)
+
+	//it is need to determine if we're checking cloud signed certificate in checkStandartCert
+	p, _ := pem.Decode([]byte(data.cert))
+	cert, err := x509.ParseCertificate(p.Bytes)
+	if err != nil {
+		t.Fatalf("%s", err)
+	}
+
+	certValidUntil := cert.NotAfter.Format("2006-01-02")
+
+	//need to convert local date on utc, since the certificate' NotAfter value we got on previous step, is on utc
+	//so for comparing them we need to have both dates on utc.
+	loc, _ := time.LoadLocation("UTC")
+	utcNow := time.Now().In(loc)
+	expectedValidDate := utcNow.AddDate(0, 0, ttl_test_property/24).Format("2006-01-02")
+
+	if expectedValidDate != certValidUntil {
+		t.Fatalf("Expiration date is different than expected, expected: %s, but got %s: ", expectedValidDate, certValidUntil)
+	}
+
 }
 
 func (e *testEnv) ReadCertificate(t *testing.T, data testData, configString venafiConfigString, certId string) {
@@ -1317,6 +1429,21 @@ func (e *testEnv) CloudIntegrationIssueCertificate(t *testing.T) {
 	e.IssueCertificateAndSaveSerial(t, data, config)
 }
 
+func (e *testEnv) CloudIntegrationIssueCertificateAndVerifyTTL(t *testing.T) {
+
+	data := testData{}
+	randString := e.TestRandString
+	domain := "venafi.example.com"
+	data.cn = randString + "." + domain
+	data.dnsNS = "www." + data.cn
+
+	var config = venafiConfigCloud
+
+	e.writeVenafiToBackend(t, config)
+	e.writeRoleToBackend(t, config)
+	e.IssueCertificateAndValidateTTL(t, data)
+}
+
 func (e *testEnv) CloudIntegrationIssueCertificateRestricted(t *testing.T) {
 
 	data := testData{}
@@ -1380,7 +1507,7 @@ func (e *testEnv) TokenIntegrationIssueCertificateAndValidateTTL(t *testing.T) {
 
 	e.writeVenafiToBackend(t, config)
 	e.writeRoleToBackend(t, config)
-	e.IssueCertificateAndValidateTTL(t, data, config)
+	e.IssueCertificateAndValidateTTL(t, data)
 
 }
 
@@ -1440,6 +1567,26 @@ func (e *testEnv) TokenIntegrationSignCertificate(t *testing.T) {
 
 }
 
+func (e *testEnv) TokenIntegrationSignWithTTLCertificate(t *testing.T) {
+
+	data := testData{}
+	randString := e.TestRandString
+	domain := "vfidev.com"
+	data.cn = randString + "." + domain
+	data.dnsNS = "alt-" + data.cn
+	data.dnsIP = "127.0.0.1"
+	data.onlyIP = "192.168.0.1"
+	data.signCSR = true
+	data.ttl = time.Duration(ttl_test_property) * time.Hour
+
+	var config = venafiConfigToken
+
+	e.writeVenafiToBackend(t, config)
+	e.writeRoleToBackend(t, config)
+	e.SignCertificateWithTTL(t, data, config)
+
+}
+
 func (e *testEnv) TokenIntegrationIssueCertificateWithCustomFields(t *testing.T) {
 	data := testData{}
 	randString := e.TestRandString
@@ -1456,6 +1603,24 @@ func (e *testEnv) TokenIntegrationIssueCertificateWithCustomFields(t *testing.T)
 	e.writeVenafiToBackend(t, config)
 	e.writeRoleToBackend(t, config)
 	e.IssueCertificateAndSaveSerial(t, data, config)
+}
+
+func (e *testEnv) TokenIntegrationIssueCertificateWithTTLOnIssueData(t *testing.T) {
+	data := testData{}
+	randString := e.TestRandString
+	domain := "venafi.example.com"
+	data.cn = randString + "." + domain
+	data.dnsNS = "alt-" + data.cn
+	data.dnsIP = "192.168.1.1"
+	data.dnsEmail = "venafi@example.com"
+	data.keyPassword = "Pass0rd!"
+	data.ttl = time.Duration(ttl_test_property) * time.Hour
+
+	var config = venafiConfigToken
+
+	e.writeVenafiToBackend(t, config)
+	e.writeRoleToBackend(t, config)
+	e.IssueCertificateAndValidateTTL(t, data)
 }
 
 func checkStandardCert(t *testing.T, data testData) {
