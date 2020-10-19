@@ -50,10 +50,8 @@ func pathVenafiCertEnroll(b *backend) *framework.Path {
 			},
 			"ttl": {
 				Type: framework.TypeDurationSecond,
-				Description: `The lease duration if no specific lease duration is
-requested. The lease duration controls the expiration
-of certificates issued by this backend. Defaults to
-the value of max_ttl.`,
+				Description: `The requested Time To Live for the certificate; sets the expiration date.
+If not specified the role default is used. Cannot be larger than the role max TTL.`,
 			},
 		},
 		Callbacks: map[logical.Operation]framework.OperationFunc{
@@ -75,10 +73,8 @@ func pathVenafiCertSign(b *backend) *framework.Path {
 			},
 			"ttl": {
 				Type: framework.TypeDurationSecond,
-				Description: `The lease duration if no specific lease duration is
-requested. The lease duration controls the expiration
-of certificates issued by this backend. Defaults to
-the value of max_ttl.`,
+				Description: `The requested Time To Live for the certificate; sets the expiration date.
+If not specified the role default is used. Cannot be larger than the role max TTL.`,
 			},
 			"role": {
 				Type:        framework.TypeString,
@@ -110,13 +106,6 @@ func (b *backend) pathVenafiIssue(ctx context.Context, req *logical.Request, dat
 		return logical.ErrorResponse("role key type \"any\" not allowed for issuing certificates, only signing"), nil
 	}
 
-	ttl := time.Duration(data.Get("ttl").(int)) * time.Second
-	if role.MaxTTL > 0 && ttl > role.MaxTTL {
-
-		return logical.ErrorResponse(errorTextValueMustBeLess), nil
-
-	}
-
 	return b.pathVenafiCertObtain(ctx, req, data, role, false)
 }
 
@@ -132,13 +121,6 @@ func (b *backend) pathVenafiSign(ctx context.Context, req *logical.Request, data
 	}
 	if role == nil {
 		return logical.ErrorResponse(fmt.Sprintf("unknown role: %s", roleName)), nil
-	}
-
-	ttl := time.Duration(data.Get("ttl").(int)) * time.Second
-	if role.MaxTTL > 0 && ttl > role.MaxTTL {
-
-		return logical.ErrorResponse(errorTextValueMustBeLess), nil
-
 	}
 
 	return b.pathVenafiCertObtain(ctx, req, data, role, true)
@@ -203,7 +185,16 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 
 	if ttl, ok := data.GetOk("ttl"); ok {
 
-		reqData.ttl = time.Duration(ttl.(int)) * time.Second
+		currentTTL := time.Duration(ttl.(int)) * time.Second
+		//if specified role is greater than role's max ttl, then
+		//role's max ttl will be used.
+		if role.MaxTTL > 0 && currentTTL > role.MaxTTL {
+
+			currentTTL = role.MaxTTL
+
+		}
+
+		reqData.ttl = currentTTL
 
 	}
 

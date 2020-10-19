@@ -87,10 +87,7 @@ the key_type. Default: 2048`,
 			},
 			"ttl": {
 				Type: framework.TypeDurationSecond,
-				Description: `The lease duration if no specific lease duration is
-requested. The lease duration controls the expiration
-of certificates issued by this backend. Defaults to
-the value of max_ttl.`,
+				Description: `The maximum allowed certificate validity`,
 			},
 			"issuer_hint": {
 				Type:        framework.TypeString,
