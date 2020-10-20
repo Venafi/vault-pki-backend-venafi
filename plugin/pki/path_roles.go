@@ -87,7 +87,7 @@ the key_type. Default: 2048`,
 			},
 			"ttl": {
 				Type: framework.TypeDurationSecond,
-				Description: `The maximum allowed certificate validity`,
+				Description: `The certificate validity if no specific certificate validity is requested.`,
 			},
 			"issuer_hint": {
 				Type:        framework.TypeString,
@@ -95,7 +95,7 @@ the key_type. Default: 2048`,
 			},
 			"max_ttl": {
 				Type:        framework.TypeDurationSecond,
-				Description: "The maximum allowed lease duration",
+				Description: "The maximum allowed certificate validity",
 			},
 
 			"generate_lease": {
