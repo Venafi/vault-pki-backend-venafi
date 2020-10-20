@@ -144,6 +144,7 @@ func TestCloudIntegration(t *testing.T) {
 	}
 
 	t.Run("Cloud base enroll", integrationTestEnv.CloudIntegrationIssueCertificate)
+	t.Run("Cloud base enroll and verify ttl", integrationTestEnv.CloudIntegrationIssueCertificateAndVerifyTTL)
 	t.Run("Cloud restricted enroll", integrationTestEnv.CloudIntegrationIssueCertificateRestricted)
 	t.Run("Cloud issue certificate with password", integrationTestEnv.CloudIntegrationIssueCertificateWithPassword)
 	t.Run("Cloud sign certificate", integrationTestEnv.CloudIntegrationSignCertificate)
@@ -161,8 +162,10 @@ func TestTokenIntegration(t *testing.T) {
 	t.Run("TPP Token base enroll", integrationTestEnv.TokenIntegrationIssueCertificate)
 	t.Run("TPP Token base enroll with custom fields", integrationTestEnv.TokenIntegrationIssueCertificateWithCustomFields)
 	t.Run("TPP Token base enroll and verify ttl", integrationTestEnv.TokenIntegrationIssueCertificateAndValidateTTL)
+	t.Run("TPP Token base enroll with ttl on request", integrationTestEnv.TokenIntegrationIssueCertificateWithTTLOnIssueData)
 	t.Run("TPP Token base enroll with password", integrationTestEnv.TokenIntegrationIssueCertificateWithPassword)
 	t.Run("TPP Token restricted enroll", integrationTestEnv.TokenIntegrationIssueCertificateRestricted)
 	t.Run("TPP Token sign certificate", integrationTestEnv.TokenIntegrationSignCertificate)
+	t.Run("TPP Token sign certificate and ttl attribute", integrationTestEnv.TokenIntegrationSignWithTTLCertificate)
 
 }

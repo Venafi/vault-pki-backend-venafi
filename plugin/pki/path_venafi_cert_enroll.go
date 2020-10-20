@@ -48,6 +48,11 @@ func pathVenafiCertEnroll(b *backend) *framework.Path {
 				Type:        framework.TypeCommaStringSlice,
 				Description: "Use to specify custom fields in format 'key=value'. Use comma to separate multiple values: 'key1=value1,key2=value2'",
 			},
+			"ttl": {
+				Type: framework.TypeDurationSecond,
+				Description: `The requested Time To Live for the certificate; sets the expiration date.
+If not specified the role default is used. Cannot be larger than the role max TTL.`,
+			},
 		},
 		Callbacks: map[logical.Operation]framework.OperationFunc{
 			logical.UpdateOperation: b.pathVenafiIssue,
@@ -65,6 +70,11 @@ func pathVenafiCertSign(b *backend) *framework.Path {
 			"csr": {
 				Type:        framework.TypeString,
 				Description: `PEM-format CSR to be signed.`,
+			},
+			"ttl": {
+				Type: framework.TypeDurationSecond,
+				Description: `The requested Time To Live for the certificate; sets the expiration date.
+If not specified the role default is used. Cannot be larger than the role max TTL.`,
 			},
 			"role": {
 				Type:        framework.TypeString,
@@ -171,6 +181,21 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 	customFields, ok := data.GetOk("custom_fields")
 	if ok {
 		reqData.customFields = customFields.([]string)
+	}
+
+	if ttl, ok := data.GetOk("ttl"); ok {
+
+		currentTTL := time.Duration(ttl.(int)) * time.Second
+		//if specified role is greater than role's max ttl, then
+		//role's max ttl will be used.
+		if role.MaxTTL > 0 && currentTTL > role.MaxTTL {
+
+			currentTTL = role.MaxTTL
+
+		}
+
+		reqData.ttl = currentTTL
+
 	}
 
 	certReq, err = formRequest(reqData, role, signCSR, b.Logger())
@@ -350,6 +375,7 @@ type requestData struct {
 	keyPassword  string
 	csrString    string
 	customFields []string
+	ttl          time.Duration
 }
 
 func formRequest(reqData requestData, role *roleEntry, signCSR bool, logger hclog.Logger) (certReq *certificate.Request, err error) {
@@ -449,27 +475,16 @@ func formRequest(reqData requestData, role *roleEntry, signCSR bool, logger hclo
 		return certReq, fmt.Errorf("Invalid chain option %s", role.ChainOption)
 	}
 
-	if role.TTL > 0 {
+	if reqData.ttl > 0 {
 
-		issuerHint := ""
+		certReq.IssuerHint = getIssuerHint(role.IssuerHint)
 
-		if role.IssuerHint != "" {
-			issrOpt := string(role.IssuerHint[0])
-			issrOpt = strings.ToLower(issrOpt)
+		ttl := int(reqData.ttl.Hours())
+		certReq.ValidityHours = ttl
 
-			switch issrOpt {
-			case "m":
-				issuerHint = util.IssuerHintMicrosoft
-			case "d":
-				issuerHint = util.IssuerHintDigicert
-			case "e":
-				issuerHint = util.IssuerHintEntrust
+	} else if role.TTL > 0 {
 
-			}
-
-		}
-
-		certReq.IssuerHint = issuerHint
+		certReq.IssuerHint = getIssuerHint(role.IssuerHint)
 
 		ttl := int(role.TTL.Hours())
 		certReq.ValidityHours = ttl
@@ -492,6 +507,31 @@ func formRequest(reqData requestData, role *roleEntry, signCSR bool, logger hclo
 	}
 
 	return certReq, nil
+}
+
+func getIssuerHint(is string) string {
+
+	issuerHint := ""
+
+	if is != "" {
+
+		issrOpt := string(is[0])
+		issrOpt = strings.ToLower(issrOpt)
+
+		switch issrOpt {
+
+		case "m":
+			issuerHint = util.IssuerHintMicrosoft
+		case "d":
+			issuerHint = util.IssuerHintDigicert
+		case "e":
+			issuerHint = util.IssuerHintEntrust
+		}
+
+	}
+
+	return issuerHint
+
 }
 
 func isValidCustomFields(customFields []string) bool {
