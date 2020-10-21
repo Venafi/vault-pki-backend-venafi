@@ -1567,6 +1567,25 @@ func (e *testEnv) TokenIntegrationSignCertificate(t *testing.T) {
 
 }
 
+func (e *testEnv) TokenIntegrationSignCertificateWithCustomFields(t *testing.T) {
+
+	data := testData{}
+	randString := e.TestRandString
+	domain := "vfidev.com"
+	data.cn = randString + "." + domain
+	data.dnsNS = "alt-" + data.cn
+	data.dnsIP = "127.0.0.1"
+	data.onlyIP = "192.168.0.1"
+	data.signCSR = true
+	data.customFields = []string{"custom=vaultTest", "cfList=item2", "cfListMulti=tier1", "cfListMulti=tier4"}
+
+	var config = venafiConfigToken
+
+	e.writeVenafiToBackend(t, config)
+	e.writeRoleToBackend(t, config)
+	e.SignCertificate(t, data, config)
+}
+
 func (e *testEnv) TokenIntegrationSignWithTTLCertificate(t *testing.T) {
 
 	data := testData{}
@@ -1709,18 +1728,6 @@ func newIntegrationTestEnv() (*testEnv, error) {
 		RoleName:         randSeq(9) + "-role",
 		VenafiSecretName: randSeq(9) + "-venafi",
 	}, nil
-}
-
-func unique(intSlice []string) []string {
-	keys := make(map[string]bool)
-	var list []string
-	for _, entry := range intSlice {
-		if _, value := keys[entry]; !value {
-			keys[entry] = true
-			list = append(list, entry)
-		}
-	}
-	return list
 }
 
 func randSeq(n int) string {
