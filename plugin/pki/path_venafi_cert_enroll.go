@@ -54,8 +54,11 @@ func pathVenafiCertEnroll(b *backend) *framework.Path {
 If not specified the role default is used. Cannot be larger than the role max TTL.`,
 			},
 		},
-		Callbacks: map[logical.Operation]framework.OperationFunc{
-			logical.UpdateOperation: b.pathVenafiIssue,
+		Operations: map[logical.Operation]framework.OperationHandler{
+			logical.UpdateOperation: &framework.PathOperation{
+				Callback: b.pathVenafiIssue,
+				Summary:  "",
+			},
 		},
 
 		HelpSynopsis:    pathVenafiCertEnrollHelp,
@@ -80,9 +83,16 @@ If not specified the role default is used. Cannot be larger than the role max TT
 				Type:        framework.TypeString,
 				Description: `The desired role with configuration for this request`,
 			},
+			"custom_fields": {
+				Type:        framework.TypeCommaStringSlice,
+				Description: "Use to specify custom fields in format 'key=value'. Use comma to separate multiple values: 'key1=value1,key2=value2'",
+			},
 		},
-		Callbacks: map[logical.Operation]framework.OperationFunc{
-			logical.UpdateOperation: b.pathVenafiSign,
+		Operations: map[logical.Operation]framework.OperationHandler{
+			logical.UpdateOperation: &framework.PathOperation{
+				Callback: b.pathVenafiSign,
+				Summary:  "",
+			},
 		},
 
 		HelpSynopsis:    pathVenafiCertSignHelp,
@@ -211,7 +221,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 		//catch the scenario when token is expired and deleted.
 		var regex = regexp.MustCompile("(Token).*(not found)")
 
-		//validate if the error is related to a expired accces token, at this moment the only way can validate this is using the error message
+		//validate if the error is related to a expired access token, at this moment the only way can validate this is using the error message
 		//and verify if that message describes errors related to expired access token.
 		if (strings.Contains(msg, "\"error\":\"expired_token\"") && strings.Contains(msg, "\"error_description\":\"Access token expired\"")) || regex.MatchString(msg) {
 			cfg, err := b.getConfig(ctx, req, roleName, true)
@@ -472,7 +482,7 @@ func formRequest(reqData requestData, role *roleEntry, signCSR bool, logger hclo
 	} else if role.ChainOption == "last" {
 		certReq.ChainOption = certificate.ChainOptionRootLast
 	} else {
-		return certReq, fmt.Errorf("Invalid chain option %s", role.ChainOption)
+		return certReq, fmt.Errorf("invalid chain option %s", role.ChainOption)
 	}
 
 	if reqData.ttl > 0 {
@@ -515,10 +525,10 @@ func getIssuerHint(is string) string {
 
 	if is != "" {
 
-		issrOpt := string(is[0])
-		issrOpt = strings.ToLower(issrOpt)
+		issuerOpt := string(is[0])
+		issuerOpt = strings.ToLower(issuerOpt)
 
-		switch issrOpt {
+		switch issuerOpt {
 
 		case "m":
 			issuerHint = util.IssuerHintMicrosoft
