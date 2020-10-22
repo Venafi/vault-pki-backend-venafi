@@ -147,7 +147,7 @@ Venafi secrets engine:
    [VCert CLI](https://github.com/Venafi/vcert/blob/master/README-CLI-PLATFORM.md#obtaining-an-authorization-token)
    (`getcred` action with `--client-id "hashicorp-vault-by-venafi"` and
    `--scope "certificate:manage"`) or the Platform's Authorize REST API method. To see
-   other available options for the role after it is created, use
+   other available options for the Venafi secret after it is created, use
    `vault path-help venafi-pki/venafi/:name`.
 
    **Trust Protection Platform**:
