@@ -204,6 +204,14 @@ Venafi secrets engine:
    Success! Data written to: venafi-pki/roles/cloud
    ```
 
+   :pushpin: **NOTE**: The `ttl` and `max_ttl` role parameters can be used specify the
+   default and maximum allowed validity for certificate requests if the Venafi CA template
+   supports flexible validity periods.  If the CA is DigiCert, Entrust, or Microsoft with
+   Trust Protection Platform, the `issuer_hint` parameter is also required for `ttl`
+   functionality (e.g. `issuer_hint="m"` for Microsoft).  When issue or sign operations
+   include the `ttl` parameter it overrides the role default `ttl` and will be constrained
+   by the role `max_ttl`.
+
 ## Usage
 
 After the Venafi secrets engine is configured and a user/machine has a Vault
@@ -283,6 +291,10 @@ token with the proper permission, it can enroll certificates using Venafi.
    common_name          common-name.example.com
    serial_number        76:55:e2:14:de:c8:3f:e1:64:4a:fa:37:d4:6e:f5:ef:5e:4c:16:5b
    ```
+
+Custom Fields can be set when requesting certificates from Trust Protection
+Platform using the `custom_fields` parameter (e.g.
+`custom_fields="field1_name=valueX,field2_name=valueY,field2_name=valueZ"`).
 
 ## API
 
