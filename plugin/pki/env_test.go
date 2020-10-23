@@ -78,6 +78,7 @@ const (
 
 var venafiTestRoleConfig = map[string]interface{}{
 	"venafi_secret": "",
+	"zone":          "",
 }
 
 var venafiTestTPPConfig = map[string]interface{}{
@@ -92,7 +93,6 @@ var venafiTestTPPConfigPredefined = map[string]interface{}{
 	"url":               "https://tpp.example.com/vedsdk",
 	"tpp_user":          "admin",
 	"tpp_password":      "strongPassword",
-	"zone":              "devops\\vcert",
 	"trust_bundle_file": "/opt/venafi/bundle.pem",
 }
 
@@ -112,7 +112,6 @@ var venafiTestCloudConfig = map[string]interface{}{
 
 var venafiTestCloudConfigPredefined = map[string]interface{}{
 	"apikey": "xxxx-xxxxx-xxxxxx-xxxxxx",
-	"zone":   "xxxxx-xxxxx-xxxxxx-xxxxxx-xxxx",
 }
 
 var venafiTestCloudConfigRestricted = map[string]interface{}{
@@ -131,7 +130,6 @@ var venafiTestTokenConfig = map[string]interface{}{
 var venafiTestTokenConfigPredefined = map[string]interface{}{
 	"url":               "https://tpp.example.com",
 	"access_token":      "admin",
-	"zone":              "devops\\vcert",
 	"trust_bundle_file": "/opt/venafi/bundle.pem",
 }
 
@@ -146,39 +144,46 @@ var venafiTestFakeConfigDeprecatedStoreByCN = map[string]interface{}{
 	"generate_lease": true,
 	"store_by_cn":    true,
 	"store_pkey":     true,
+	"zone":           "fakeZone",
 }
 
 var venafiTestFakeConfigDeprecatedStoreBySerial = map[string]interface{}{
 	"generate_lease":  true,
 	"store_by_serial": true,
 	"store_pkey":      true,
+	"zone":            "fakeZone",
 }
 
 var venafiTestFakeConfigStoreByCN = map[string]interface{}{
 	"generate_lease": true,
 	"store_by":       "cn",
 	"store_pkey":     true,
+	"zone":           "fakeZone",
 }
 
 var venafiTestFakeConfigStoreBySerial = map[string]interface{}{
 	"generate_lease": true,
 	"store_by":       "serial",
 	"store_pkey":     true,
+	"zone":           "fakeZone",
 }
 
 var venafiTestFakeConfig = map[string]interface{}{
 	"generate_lease": true,
 	"store_pkey":     true,
+	"zone":           "fakeZone",
 }
 
 var venafiTestFakeConfigNoStore = map[string]interface{}{
 	"generate_lease": true,
 	"no_store":       true,
+	"zone":           "fakeZone",
 }
 
 var venafiTestFakeConfigNoStorePKey = map[string]interface{}{
 	"generate_lease": true,
 	"store_pkey":     false,
+	"zone":           "fakeZone",
 }
 
 var venafiTestMixedTppAndCloudConfig = map[string]interface{}{

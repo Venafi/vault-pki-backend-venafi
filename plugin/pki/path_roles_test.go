@@ -19,6 +19,19 @@ func TestRoleValidate(t *testing.T) {
 
 	entry = &roleEntry{
 		VenafiSecret: "testSecret",
+	}
+
+	err = validateEntry(entry)
+	if err == nil {
+		t.Fatalf("Expecting error")
+	}
+	if err.Error() != errorTextZoneEmpty {
+		t.Fatalf("Expecting error %s but got %s", errorTextZoneEmpty, err)
+	}
+
+	entry = &roleEntry{
+		VenafiSecret: "testSecret",
+		Zone:         "devops\\vcert",
 		TTL:          120,
 		MaxTTL:       100,
 	}
@@ -33,6 +46,7 @@ func TestRoleValidate(t *testing.T) {
 
 	entry = &roleEntry{
 		VenafiSecret: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+		Zone:         "devops\\vcert",
 		StoreByCN:    true,
 		StoreBy:      "cn",
 	}
@@ -46,6 +60,7 @@ func TestRoleValidate(t *testing.T) {
 
 	entry = &roleEntry{
 		VenafiSecret:  "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+		Zone:          "devops\\vcert",
 		StoreBySerial: true,
 		StoreBy:       "cn",
 	}
@@ -59,6 +74,7 @@ func TestRoleValidate(t *testing.T) {
 
 	entry = &roleEntry{
 		VenafiSecret:  "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+		Zone:          "devops\\vcert",
 		StoreBySerial: true,
 		StoreByCN:     true,
 		StoreBy:       "cn",
@@ -73,6 +89,7 @@ func TestRoleValidate(t *testing.T) {
 
 	entry = &roleEntry{
 		VenafiSecret:  "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+		Zone:          "devops\\vcert",
 		StoreBySerial: true,
 		StoreByCN:     true,
 		NoStore:       true,
@@ -87,6 +104,7 @@ func TestRoleValidate(t *testing.T) {
 
 	entry = &roleEntry{
 		VenafiSecret: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+		Zone:         "devops\\vcert",
 		StoreBy:      "serial",
 		NoStore:      true,
 	}
@@ -100,6 +118,7 @@ func TestRoleValidate(t *testing.T) {
 
 	entry = &roleEntry{
 		VenafiSecret: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+		Zone:         "devops\\vcert",
 		StoreBy:      "sebial",
 	}
 	err = validateEntry(entry)
@@ -113,6 +132,7 @@ func TestRoleValidate(t *testing.T) {
 
 	entry = &roleEntry{
 		VenafiSecret:  "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+		Zone:          "devops\\vcert",
 		StoreBySerial: true,
 		StoreByCN:     true,
 	}
@@ -127,6 +147,7 @@ func TestRoleValidate(t *testing.T) {
 
 	entry = &roleEntry{
 		VenafiSecret: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+		Zone:         "devops\\vcert",
 		StoreByCN:    true,
 	}
 	err = validateEntry(entry)

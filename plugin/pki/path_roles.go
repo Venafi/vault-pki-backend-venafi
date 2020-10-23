@@ -31,6 +31,13 @@ func pathRoles(b *backend) *framework.Path {
 				Description: "Name of the role",
 				Required:    true,
 			},
+			"zone": {
+				Type: framework.TypeString,
+				Description: `Name of Venafi Platform policy or Venafi Cloud project zone. 
+Example for Platform: testpolicy\\vault
+Example for Venafi Cloud: e33f3e40-4e7e-11ea-8da3-b3c196ebeb0b`,
+				Required: true,
+			},
 			"store_by_cn": {
 				Type:        framework.TypeBool,
 				Description: `Set it to true to store certificates by CN in certs/ path`,
@@ -86,7 +93,7 @@ the key_type. Default: 2048`,
 				Description: `Key curve for EC key type. Valid values are: "P256","P384","P521"`,
 			},
 			"ttl": {
-				Type: framework.TypeDurationSecond,
+				Type:        framework.TypeDurationSecond,
 				Description: `The certificate validity if no specific certificate validity is requested.`,
 			},
 			"issuer_hint": {
@@ -308,6 +315,13 @@ func (b *backend) pathRoleUpdate(ctx context.Context, req *logical.Request, data
 		entry.VenafiSecret = venafiSecret
 	}
 
+	secret, err := b.getVenafiSecret(ctx, req.Storage, entry.VenafiSecret)
+	if err != nil {
+		return nil, err
+	}
+	if secret == nil {
+		return nil, fmt.Errorf("venafi secret [%s] does not exist", entry.VenafiSecret)
+	}
 	err = validateEntry(entry)
 	if err != nil {
 		return nil, err
@@ -348,6 +362,7 @@ func (b *backend) pathRoleCreate(ctx context.Context, req *logical.Request, data
 			GenerateLease:    data.Get("generate_lease").(bool),
 			ServerTimeout:    time.Duration(data.Get("server_timeout").(int)) * time.Second,
 			VenafiSecret:     data.Get("venafi_secret").(string),
+			Zone:             data.Get("zone").(string),
 		}
 	}
 
@@ -389,6 +404,10 @@ func validateEntry(entry *roleEntry) (err error) {
 	credName := entry.VenafiSecret
 	if credName == "" {
 		return fmt.Errorf(errorTextVenafiSecretEmpty)
+	}
+
+	if entry.Zone == "" {
+		return fmt.Errorf(errorTextZoneEmpty)
 	}
 
 	if entry.MaxTTL > 0 && entry.TTL > entry.MaxTTL {
@@ -464,6 +483,7 @@ type roleEntry struct {
 	DeprecatedTTL    string        `json:"ttl"`
 	ServerTimeout    time.Duration `json:"server_timeout"`
 	VenafiSecret     string        `json:"venafi_secret"`
+	Zone             string        `json:"zone"`
 }
 
 func (r *roleEntry) ToResponseData() map[string]interface{} {
@@ -478,6 +498,7 @@ func (r *roleEntry) ToResponseData() map[string]interface{} {
 		"max_ttl":                int64(r.MaxTTL.Seconds()),
 		"generate_lease":         r.GenerateLease,
 		"chain_option":           r.ChainOption,
+		"zone":                   r.Zone,
 	}
 	return responseData
 }

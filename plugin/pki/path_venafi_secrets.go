@@ -31,13 +31,6 @@ func pathCredentials(b *backend) *framework.Path {
 				Description: "Name of the authentication object",
 				Required:    true,
 			},
-			"zone": {
-				Type: framework.TypeString,
-				Description: `Name of Venafi Platform policy or Venafi Cloud project zone. 
-Example for Platform: testpolicy\\vault
-Example for Venafi Cloud: e33f3e40-4e7e-11ea-8da3-b3c196ebeb0b`,
-				Required: true,
-			},
 			"tpp_url": {
 				Type:        framework.TypeString,
 				Description: `URL of Venafi Platform. Example: https://tpp.venafi.example/vedsdk. Deprecated, use 'url' instead`,
@@ -178,7 +171,6 @@ func (b *backend) pathVenafiSecretCreate(ctx context.Context, req *logical.Reque
 
 	entry := &venafiSecretEntry{
 		URL:             url,
-		Zone:            data.Get("zone").(string),
 		TppURL:          tppUrl,
 		TppUser:         data.Get("tpp_user").(string),
 		TppPassword:     data.Get("tpp_password").(string),
@@ -253,10 +245,6 @@ func validateVenafiSecretEntry(entry *venafiSecretEntry) error {
 			return fmt.Errorf(errorTextURLEmpty)
 		}
 
-		if entry.Zone == "" {
-			return fmt.Errorf(errorTextZoneEmpty)
-		}
-
 		if entry.TppUser != "" && entry.Apikey != "" {
 			return fmt.Errorf(errorTextMixedTPPAndCloud)
 		}
@@ -297,7 +285,6 @@ func getWarnings(entry *venafiSecretEntry, name string) []string {
 
 type venafiSecretEntry struct {
 	URL             string `json:"url"`
-	Zone            string `json:"zone"`
 	TppURL          string `json:"tpp_url"`
 	TppUser         string `json:"tpp_user"`
 	TppPassword     string `json:"tpp_password"`
@@ -310,35 +297,24 @@ type venafiSecretEntry struct {
 }
 
 func (p *venafiSecretEntry) ToResponseData() map[string]interface{} {
-	var tppPass, accessToken, refreshToken, apiKey string
-	if p.TppPassword != "" {
-		tppPass = "********"
-	}
-	if p.AccessToken != "" {
-		accessToken = "********"
-	}
-	if p.RefreshToken != "" {
-		refreshToken = "********"
-	}
-	if p.Apikey != "" {
-		apiKey = "********"
-	}
-
 	responseData := map[string]interface{}{
-		//Sensible data will not be returned.
+		//Sensible data will not be disclosed.
 		//tpp_password, api_key, access_token, refresh_token
 
 		"url":               p.URL,
-		"zone":              p.Zone,
 		"tpp_user":          p.TppUser,
-		"tpp_password":      tppPass,
-		"access_token":      accessToken,
-		"refresh_token":     refreshToken,
-		"apikey":            apiKey,
+		"tpp_password":      p.getStringMask(),
+		"access_token":      p.getStringMask(),
+		"refresh_token":     p.getStringMask(),
+		"apikey":            p.getStringMask(),
 		"trust_bundle_file": p.TrustBundleFile,
 		"fakemode":          p.Fakemode,
 	}
 	return responseData
+}
+
+func (p *venafiSecretEntry) getStringMask() string {
+	return "********"
 }
 
 const (

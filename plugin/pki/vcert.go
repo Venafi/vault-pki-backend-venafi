@@ -75,7 +75,7 @@ func (b *backend) getConfig(ctx context.Context, req *logical.Request, roleName 
 
 	cfg = &vcert.Config{}
 	cfg.BaseUrl = venafiSecret.URL
-	cfg.Zone = venafiSecret.Zone
+	cfg.Zone = role.Zone
 	cfg.LogVerbose = true
 	if trustBundlePEM != "" {
 		cfg.ConnectionTrust = trustBundlePEM
