@@ -73,9 +73,19 @@ func (b *backend) getConfig(ctx context.Context, req *logical.Request, roleName 
 		trustBundlePEM = string(trustBundle)
 	}
 
+	//If the role has a Zone declared, it takes priority over the Zone in the Venafi secret
+	var zone string
+	if role.Zone != "" {
+		b.Logger().Debug(fmt.Sprintf("Using role zone: [%s]. Overrides venafi Secret zone: [%s]", role.Zone, venafiSecret.Zone))
+		zone = role.Zone
+	} else {
+		b.Logger().Debug(fmt.Sprintf("Using venafi secret zone: [%s]. Role zone not found. ", venafiSecret.Zone))
+		zone = venafiSecret.Zone
+	}
+
 	cfg = &vcert.Config{}
 	cfg.BaseUrl = venafiSecret.URL
-	cfg.Zone = venafiSecret.Zone
+	cfg.Zone = zone
 	cfg.LogVerbose = true
 	if trustBundlePEM != "" {
 		cfg.ConnectionTrust = trustBundlePEM
@@ -124,5 +134,4 @@ func (b *backend) getConfig(ctx context.Context, req *logical.Request, roleName 
 	}
 
 	return cfg, nil
-
 }

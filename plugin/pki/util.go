@@ -323,3 +323,17 @@ func parseTrustBundlePEM(trustBundlePem string) (*x509.CertPool, error) {
 
 	return connectionTrustBundle, nil
 }
+
+func copyMap(m map[string]interface{}) map[string]interface{} {
+	cp := make(map[string]interface{})
+	for k, v := range m {
+		vm, ok := v.(map[string]interface{})
+		if ok {
+			cp[k] = copyMap(vm)
+		} else {
+			cp[k] = v
+		}
+	}
+
+	return cp
+}

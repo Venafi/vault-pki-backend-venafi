@@ -170,3 +170,14 @@ func TestTokenIntegration(t *testing.T) {
 	t.Run("TPP Token sign certificate and ttl attribute", integrationTestEnv.TokenIntegrationSignWithTTLCertificate)
 
 }
+
+func TestZoneOverride(t *testing.T) {
+
+	integrationTestEnv, err := newIntegrationTestEnv()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Run("Token enroll with role zone", integrationTestEnv.TokenEnrollWithRoleZone)
+	t.Run("Token enroll with Venafi secret zone", integrationTestEnv.TokenEnrollWithVenafiSecretZone)
+}
