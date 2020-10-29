@@ -31,6 +31,14 @@ func pathRoles(b *backend) *framework.Path {
 				Description: "Name of the role",
 				Required:    true,
 			},
+			"zone": {
+				Type: framework.TypeString,
+				Description: `Name of Venafi Platform policy or Venafi Cloud project zone.
+This field overrides the zone field declared in the Venafi secret.
+Example for Platform: testpolicy\\vault
+Example for Venafi Cloud: e33f3e40-4e7e-11ea-8da3-b3c196ebeb0b`,
+				Required: false,
+			},
 			"store_by_cn": {
 				Type:        framework.TypeBool,
 				Description: `Set it to true to store certificates by CN in certs/ path`,
@@ -86,7 +94,7 @@ the key_type. Default: 2048`,
 				Description: `Key curve for EC key type. Valid values are: "P256","P384","P521"`,
 			},
 			"ttl": {
-				Type: framework.TypeDurationSecond,
+				Type:        framework.TypeDurationSecond,
 				Description: `The certificate validity if no specific certificate validity is requested.`,
 			},
 			"issuer_hint": {
@@ -219,69 +227,69 @@ func (b *backend) pathRoleUpdate(ctx context.Context, req *logical.Request, data
 	}
 
 	_, isSet := data.GetOk("chain_option")
-	chain_option := data.Get("chain_option").(string)
-	if isSet && (entry.ChainOption != chain_option) {
-		entry.ChainOption = chain_option
+	chainOption := data.Get("chain_option").(string)
+	if isSet && (entry.ChainOption != chainOption) {
+		entry.ChainOption = chainOption
 	}
 
 	_, isSet = data.GetOk("store_by_cn")
-	store_by_cn := data.Get("store_by_cn").(bool)
-	if isSet && store_by_cn {
+	storeByCn := data.Get("store_by_cn").(bool)
+	if isSet && storeByCn {
 		entry.StoreBy = "cn"
 	}
 
 	_, isSet = data.GetOk("store_by_serial")
-	store_by_serial := data.Get("store_by_serial").(bool)
-	if isSet && store_by_serial {
+	storeBySerial := data.Get("store_by_serial").(bool)
+	if isSet && storeBySerial {
 		entry.StoreBy = "serial"
 	}
 
 	_, isSet = data.GetOk("store_by")
-	store_by := data.Get("store_by").(string)
-	if isSet && (entry.StoreBy != store_by) {
-		entry.StoreBy = store_by
+	storeBy := data.Get("store_by").(string)
+	if isSet && (entry.StoreBy != storeBy) {
+		entry.StoreBy = storeBy
 	}
 
 	_, isSet = data.GetOk("no_store")
-	no_store := data.Get("no_store").(bool)
-	if isSet && (entry.NoStore != no_store) {
-		entry.NoStore = no_store
+	noStore := data.Get("no_store").(bool)
+	if isSet && (entry.NoStore != noStore) {
+		entry.NoStore = noStore
 	}
 
 	_, isSet = data.GetOk("service_generated_cert")
-	service_generated_cert := data.Get("service_generated_cert").(bool)
-	if isSet && (entry.ServiceGenerated != service_generated_cert) {
-		entry.ServiceGenerated = service_generated_cert
+	serviceGeneratedCert := data.Get("service_generated_cert").(bool)
+	if isSet && (entry.ServiceGenerated != serviceGeneratedCert) {
+		entry.ServiceGenerated = serviceGeneratedCert
 	}
 
 	_, isSet = data.GetOk("store_pkey")
-	store_pkey := data.Get("store_pkey").(bool)
-	if isSet && (entry.StorePrivateKey != store_pkey) {
-		entry.StorePrivateKey = store_pkey
+	storePkey := data.Get("store_pkey").(bool)
+	if isSet && (entry.StorePrivateKey != storePkey) {
+		entry.StorePrivateKey = storePkey
 	}
 
 	_, isSet = data.GetOk("key_type")
-	key_type := data.Get("key_type").(string)
-	if isSet && (entry.KeyType != key_type) {
-		entry.KeyType = key_type
+	keyType := data.Get("key_type").(string)
+	if isSet && (entry.KeyType != keyType) {
+		entry.KeyType = keyType
 	}
 
 	_, isSet = data.GetOk("key_bits")
-	key_bits := data.Get("key_bits").(int)
-	if isSet && (entry.KeyBits != key_bits) {
-		entry.KeyBits = key_bits
+	keyBits := data.Get("key_bits").(int)
+	if isSet && (entry.KeyBits != keyBits) {
+		entry.KeyBits = keyBits
 	}
 
 	_, isSet = data.GetOk("key_curve")
-	key_curve := data.Get("key_curve").(string)
-	if isSet && (entry.KeyCurve != key_curve) {
-		entry.KeyCurve = key_curve
+	keyCurve := data.Get("key_curve").(string)
+	if isSet && (entry.KeyCurve != keyCurve) {
+		entry.KeyCurve = keyCurve
 	}
 
 	_, isSet = data.GetOk("max_ttl")
-	max_ttl := time.Duration(data.Get("max_ttl").(int)) * time.Second
-	if isSet && (entry.MaxTTL != max_ttl) {
-		entry.MaxTTL = max_ttl
+	maxTtl := time.Duration(data.Get("max_ttl").(int)) * time.Second
+	if isSet && (entry.MaxTTL != maxTtl) {
+		entry.MaxTTL = maxTtl
 	}
 
 	_, isSet = data.GetOk("ttl")
@@ -291,21 +299,27 @@ func (b *backend) pathRoleUpdate(ctx context.Context, req *logical.Request, data
 	}
 
 	_, isSet = data.GetOk("generate_lease")
-	generate_lease := data.Get("generate_lease").(bool)
-	if isSet && (entry.GenerateLease != generate_lease) {
-		entry.GenerateLease = generate_lease
+	generateLease := data.Get("generate_lease").(bool)
+	if isSet && (entry.GenerateLease != generateLease) {
+		entry.GenerateLease = generateLease
 	}
 
 	_, isSet = data.GetOk("server_timeout")
-	server_timeout := time.Duration(data.Get("server_timeout").(int)) * time.Second
-	if isSet && (entry.ServerTimeout != server_timeout) {
-		entry.ServerTimeout = server_timeout
+	serverTimeout := time.Duration(data.Get("server_timeout").(int)) * time.Second
+	if isSet && (entry.ServerTimeout != serverTimeout) {
+		entry.ServerTimeout = serverTimeout
 	}
 
 	_, isSet = data.GetOk("venafi_secret")
 	venafiSecret := data.Get("venafi_secret").(string)
 	if isSet && (entry.VenafiSecret != venafiSecret) {
 		entry.VenafiSecret = venafiSecret
+	}
+
+	_, isSet = data.GetOk("zone")
+	zone := data.Get("zone").(string)
+	if isSet && (entry.Zone != zone) {
+		entry.Zone = zone
 	}
 
 	err = validateEntry(entry)
@@ -348,6 +362,7 @@ func (b *backend) pathRoleCreate(ctx context.Context, req *logical.Request, data
 			GenerateLease:    data.Get("generate_lease").(bool),
 			ServerTimeout:    time.Duration(data.Get("server_timeout").(int)) * time.Second,
 			VenafiSecret:     data.Get("venafi_secret").(string),
+			Zone:             data.Get("zone").(string),
 		}
 	}
 
@@ -464,11 +479,13 @@ type roleEntry struct {
 	DeprecatedTTL    string        `json:"ttl"`
 	ServerTimeout    time.Duration `json:"server_timeout"`
 	VenafiSecret     string        `json:"venafi_secret"`
+	Zone             string        `json:"zone"`
 }
 
 func (r *roleEntry) ToResponseData() map[string]interface{} {
 	responseData := map[string]interface{}{
 		"venafi_secret":          r.VenafiSecret,
+		"role_zone":              r.Zone,
 		"store_by":               r.StoreBy,
 		"no_store":               r.NoStore,
 		"service_generated_cert": r.ServiceGenerated,

@@ -310,38 +310,29 @@ type venafiSecretEntry struct {
 }
 
 func (p *venafiSecretEntry) ToResponseData() map[string]interface{} {
-	var tppPass, accessToken, refreshToken, apiKey string
-	if p.TppPassword != "" {
-		tppPass = "********"
-	}
-	if p.AccessToken != "" {
-		accessToken = "********"
-	}
-	if p.RefreshToken != "" {
-		refreshToken = "********"
-	}
-	if p.Apikey != "" {
-		apiKey = "********"
-	}
-
 	responseData := map[string]interface{}{
-		//Sensible data will not be returned.
+		//Sensible data will not be disclosed.
 		//tpp_password, api_key, access_token, refresh_token
 
 		"url":               p.URL,
 		"zone":              p.Zone,
 		"tpp_user":          p.TppUser,
-		"tpp_password":      tppPass,
-		"access_token":      accessToken,
-		"refresh_token":     refreshToken,
-		"apikey":            apiKey,
+		"tpp_password":      p.getStringMask(),
+		"access_token":      p.getStringMask(),
+		"refresh_token":     p.getStringMask(),
+		"apikey":            p.getStringMask(),
 		"trust_bundle_file": p.TrustBundleFile,
 		"fakemode":          p.Fakemode,
 	}
 	return responseData
 }
 
+func (p *venafiSecretEntry) getStringMask() string {
+	return stringMask
+}
+
 const (
+	stringMask                    = "********"
 	pathListVenafiSecretsHelpSyn  = `List the existing Venafi Secrets in this backend`                                    // #nosec
 	pathListVenafiSecretsHelpDesc = `Venafi Secrets will be listed by the secret name.`                                   // #nosec
 	pathVenafiSecretsHelpSyn      = `Manage the Venafi Secrets that can be created with this backend.`                    // #nosec

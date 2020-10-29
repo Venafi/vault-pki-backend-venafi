@@ -71,9 +71,10 @@ const (
 	venafiConfigMixedTppAndCloud            venafiConfigString = "MixedTppCloud"
 	venafiConfigMixedTppAndToken            venafiConfigString = "MixedTppToken"
 	venafiConfigMixedTokenAndCloud          venafiConfigString = "MixedTokenCloud"
-
-	venafiVenafiConfigFake venafiConfigString = "VenafiFake"
-	venafiRoleConfig       venafiConfigString = "Role"
+	venafiVenafiConfigFake                  venafiConfigString = "VenafiFake"
+	venafiRoleConfig                        venafiConfigString = "Role"
+	venafiRoleWithZoneConfig                venafiConfigString = "venafiRoleWithZone"
+	venafiRoleWithVenafiSecretConfig        venafiConfigString = "venafiVenafiSecretZone"
 )
 
 var venafiTestRoleConfig = map[string]interface{}{
@@ -127,6 +128,12 @@ var venafiTestTokenConfig = map[string]interface{}{
 	"zone":              os.Getenv("TPP_ZONE"),
 	"trust_bundle_file": os.Getenv("TRUST_BUNDLE"),
 }
+
+var venafiTestTokenConfigForRoleZone = map[string]interface{}{
+	"zone": os.Getenv("TPP_ZONE2"),
+}
+
+var venafiTestTokenConfigForVenafiSecretZone = map[string]interface{}{}
 
 var venafiTestTokenConfigPredefined = map[string]interface{}{
 	"url":               "https://tpp.example.com",
@@ -212,6 +219,39 @@ func (e *testEnv) writeRoleToBackend(t *testing.T, configString venafiConfigStri
 	if err != nil {
 		t.Fatal(err)
 	}
+	roleData = copyMap(roleData)
+
+	//Adding Venafi secret reference to Role
+	roleData["venafi_secret"] = e.VenafiSecretName
+	//Removing the zone from the data, as the Venafi secret zone must be used
+	roleData["zone"] = ""
+
+	ttl := strconv.Itoa(role_ttl_test_property) + "h"
+	roleData["ttl"] = ttl
+	roleData["issuer_hint"] = util.IssuerHintMicrosoft
+
+	resp, err := e.Backend.HandleRequest(e.Context, &logical.Request{
+		Operation: logical.UpdateOperation,
+		Path:      "roles/" + e.RoleName,
+		Storage:   e.Storage,
+		Data:      roleData,
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp != nil && resp.IsError() {
+		t.Fatalf("failed to create role, %#v", resp)
+	}
+}
+
+func (e *testEnv) writeRoleWithZoneToBackend(t *testing.T, configString venafiConfigString) {
+	roleData, err := makeConfig(configString)
+	if err != nil {
+		t.Fatal(err)
+	}
+	roleData = copyMap(roleData)
 
 	//Adding Venafi secret reference to Role
 	roleData["venafi_secret"] = e.VenafiSecretName
@@ -342,6 +382,7 @@ func (e *testEnv) writeVenafiToBackend(t *testing.T, configString venafiConfigSt
 	if err != nil {
 		t.Fatal(err)
 	}
+	roleData = copyMap(roleData)
 
 	resp, err := e.Backend.HandleRequest(e.Context, &logical.Request{
 		Operation: logical.UpdateOperation,
@@ -956,6 +997,10 @@ func makeConfig(configString venafiConfigString) (roleData map[string]interface{
 		roleData = venafiVenafiTestFakeConfig
 	case venafiRoleConfig:
 		roleData = venafiTestRoleConfig
+	case venafiRoleWithZoneConfig:
+		roleData = venafiTestTokenConfigForRoleZone
+	case venafiRoleWithVenafiSecretConfig:
+		roleData = venafiTestTokenConfigForVenafiSecretZone
 	default:
 		return roleData, fmt.Errorf("do not have config data for config %s", configString)
 	}
@@ -1640,6 +1685,38 @@ func (e *testEnv) TokenIntegrationIssueCertificateWithTTLOnIssueData(t *testing.
 	e.writeVenafiToBackend(t, config)
 	e.writeRoleToBackend(t, config)
 	e.IssueCertificateAndValidateTTL(t, data)
+}
+
+func (e *testEnv) TokenEnrollWithRoleZone(t *testing.T) {
+	data := testData{}
+	randString := e.TestRandString
+	domain := "venafi.example.com"
+	data.cn = randString + "." + domain
+	data.dnsNS = "alt-" + data.cn
+	data.dnsIP = "192.168.1.1"
+	data.dnsEmail = "venafi@example.com"
+
+	var config = venafiConfigToken
+	var roleConfig = venafiRoleWithZoneConfig
+	e.writeVenafiToBackend(t, config)
+	e.writeRoleWithZoneToBackend(t, roleConfig)
+	e.IssueCertificateAndSaveSerial(t, data, config)
+}
+
+func (e *testEnv) TokenEnrollWithVenafiSecretZone(t *testing.T) {
+	data := testData{}
+	randString := e.TestRandString
+	domain := "venafi.example.com"
+	data.cn = randString + "." + domain
+	data.dnsNS = "alt-" + data.cn
+	data.dnsIP = "192.168.1.1"
+	data.dnsEmail = "venafi@example.com"
+
+	var config = venafiConfigToken
+	var roleConfig = venafiRoleWithVenafiSecretConfig
+	e.writeVenafiToBackend(t, config)
+	e.writeRoleWithZoneToBackend(t, roleConfig)
+	e.IssueCertificateAndSaveSerial(t, data, config)
 }
 
 func checkStandardCert(t *testing.T, data testData) {
