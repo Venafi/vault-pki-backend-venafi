@@ -162,12 +162,15 @@ Venafi secrets engine:
    Success! Data written to: venafi-pki/venafi/tpp
    ```
 
-   :pushpin: **NOTE**: Supplying a `refresh_token` allows the secrets engine to
+   :warning: **CAUTION**: Do not create more than one Venafi secret for the same
+   pair of tokens. Supplying a `refresh_token` allows the secrets engine to
    automatically obtain new tokens and operate without interruption whenever the
    `access_token` expires. This behavior is important to understand because it 
    may require you to provide a new `access_token` and `refresh_token` if you need
    to modify the Venafi secret in the future (i.e. depending upon whether the
-   original set of tokens has been refreshed by the secrets engine plugin).
+   original set of tokens has been refreshed by the secrets engine plugin). Having
+   more than one Venafi secret for the same set of tokens would result in all but 
+   one Venafi secret being rendered inoperable when the token is refreshed.
 
    **Venafi Cloud**:
 
@@ -211,6 +214,10 @@ Venafi secrets engine:
    functionality (e.g. `issuer_hint="m"` for Microsoft).  When issue or sign operations
    include the `ttl` parameter it overrides the role default `ttl` and will be constrained
    by the role `max_ttl`.
+   
+   :pushpin: **NOTE**: The `zone` role parameter allows multiple zones to be used with a
+   single Venafi secret.  If `zone` is not specified by the role, the `zone` specified by
+   the Venafi secret applies.
 
 ## Usage
 
