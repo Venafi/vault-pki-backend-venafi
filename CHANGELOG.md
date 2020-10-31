@@ -1,3 +1,7 @@
+## v0.8.1 (October 30, 2020)
+
+Added `zone` role parameter to allow for multiple zones to be used and avoid issues with Trust Protection Platform token refresh.
+
 ## v0.8.0 (October 21, 2020)
 
 Added support for requesting specific validity periods using the Vault native `ttl` and `max_ttl` parameters.
