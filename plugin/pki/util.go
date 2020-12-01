@@ -402,22 +402,22 @@ func createConfigFromFieldData(data *venafiSecretEntry) (*vcert.Config, error) {
 
 func getAccessData(cfg *vcert.Config) (tpp.OauthRefreshAccessTokenResponse, error) {
 
-	var tookenInfoResponse tpp.OauthRefreshAccessTokenResponse
+	var tokenInfoResponse tpp.OauthRefreshAccessTokenResponse
 	tppConnector, _ := getTppConnector(cfg)
 	httpClient, err := getHTTPClient(cfg.ConnectionTrust)
 
 	if err != nil {
-		return tookenInfoResponse, err
+		return tokenInfoResponse, err
 	}
 
 	tppConnector.SetHTTPClient(httpClient)
 
-	tookenInfoResponse, err = tppConnector.RefreshAccessToken(&endpoint.Authentication{
+	tokenInfoResponse, err = tppConnector.RefreshAccessToken(&endpoint.Authentication{
 		RefreshToken: cfg.Credentials.RefreshToken,
 		ClientId:     "hashicorp-vault-by-venafi",
 		Scope:        "certificate:manage,revoke",
 	})
 
-	return tookenInfoResponse, err
+	return tokenInfoResponse, err
 
 }
