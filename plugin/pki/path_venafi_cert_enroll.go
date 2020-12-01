@@ -285,6 +285,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 
 	var entry *logical.StorageEntry
 	chain := strings.Join(append([]string{pcc.Certificate}, pcc.Chain...), "\n")
+	b.Logger().Debug("cert Chain: " + strings.Join(pcc.Chain, ", "))
 
 	if !signCSR {
 		err = pcc.AddPrivateKey(certReq.PrivateKey, []byte(data.Get("key_password").(string)))
@@ -335,6 +336,11 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 
 	}
 
+	issuing_ca := ""
+	if len(pcc.Chain) > 0 {
+		issuing_ca = pcc.Chain[0]
+	}
+
 	var respData map[string]interface{}
 	if !signCSR {
 		respData = map[string]interface{}{
@@ -343,6 +349,8 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 			"certificate_chain": chain,
 			"certificate":       pcc.Certificate,
 			"private_key":       pcc.PrivateKey,
+			"ca_chain":          pcc.Chain,
+			"issuing_ca":        issuing_ca,
 		}
 	} else {
 		respData = map[string]interface{}{
@@ -350,6 +358,8 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 			"serial_number":     serialNumber,
 			"certificate_chain": chain,
 			"certificate":       pcc.Certificate,
+			"ca_chain":          pcc.Chain,
+			"issuing_ca":        issuing_ca,
 		}
 	}
 
