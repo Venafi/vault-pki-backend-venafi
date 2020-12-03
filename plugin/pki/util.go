@@ -10,6 +10,7 @@ import (
 	"github.com/Venafi/vcert/v4/pkg/endpoint"
 	"github.com/Venafi/vcert/v4/pkg/venafi/tpp"
 	"github.com/hashicorp/vault/sdk/logical"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
@@ -22,6 +23,7 @@ import (
 const (
 	role_ttl_test_property = int(120)
 	ttl_test_property      = int(48)
+	HTTP_UNAUTHORIZED = 401
 )
 
 func sliceContains(slice []string, item string) bool {
@@ -336,4 +338,86 @@ func copyMap(m map[string]interface{}) map[string]interface{} {
 	}
 
 	return cp
+}
+
+
+func getStatusCode(msg string) int64 {
+
+	var statusCode int64
+	splittedMsg := strings.Split(msg, ":")
+
+	for i := 0; i < len(splittedMsg); i++ {
+
+		current := splittedMsg[i]
+		current = strings.TrimSpace(current)
+
+		if current == "Invalid status" {
+
+			status := splittedMsg[i+1]
+			status = strings.TrimSpace(status)
+			splittedStatus := strings.Split(status, " ")
+			statusCode, _ = strconv.ParseInt(splittedStatus[0], 10, 64)
+			break
+
+		}
+	}
+
+	return statusCode
+}
+
+func createConfigFromFieldData(data *venafiSecretEntry) (*vcert.Config, error) {
+
+	var cfg *vcert.Config
+	cfg = &vcert.Config{}
+
+	cfg.BaseUrl = data.URL
+	cfg.Zone = data.Zone
+	cfg.LogVerbose = true
+
+	trustBundlePath := data.TrustBundleFile
+
+	if trustBundlePath != "" {
+
+		var trustBundlePEM string
+		trustBundle, err := ioutil.ReadFile(trustBundlePath)
+
+		if err != nil {
+			return cfg, err
+		}
+
+		trustBundlePEM = string(trustBundle)
+		cfg.ConnectionTrust = trustBundlePEM
+	}
+
+	cfg.ConnectorType = endpoint.ConnectorTypeTPP
+
+	cfg.Credentials = &endpoint.Authentication{
+
+		AccessToken:  data.AccessToken,
+		RefreshToken: data.RefreshToken,
+	}
+
+	return cfg, nil
+}
+
+func getAccessData(cfg *vcert.Config) (tpp.OauthRefreshAccessTokenResponse, error) {
+
+	var tokenInfoResponse tpp.OauthRefreshAccessTokenResponse
+	tppConnector, _ := getTppConnector(cfg)
+	httpClient, err := getHTTPClient(cfg.ConnectionTrust)
+
+	if err != nil {
+		return tokenInfoResponse, err
+	}
+
+	tppConnector.SetHTTPClient(httpClient)
+
+	tokenInfoResponse, err = tppConnector.RefreshAccessToken(&endpoint.Authentication{
+		RefreshToken: cfg.Credentials.RefreshToken,
+		ClientId:     "hashicorp-vault-by-venafi",
+		Scope:        "certificate:manage,revoke",
+	})
+
+	return tokenInfoResponse, err
+
 }

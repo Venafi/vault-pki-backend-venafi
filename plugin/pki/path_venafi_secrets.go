@@ -195,6 +195,36 @@ func (b *backend) pathVenafiSecretCreate(ctx context.Context, req *logical.Reque
 		return logical.ErrorResponse(err.Error()), nil
 	}
 
+	if entry.RefreshToken != "" {
+
+		cfg, err := createConfigFromFieldData(entry)
+
+		if err != nil {
+
+			return logical.ErrorResponse(err.Error()), nil
+
+		}
+
+		tokenInfo, err := getAccessData(cfg)
+
+		if err != nil {
+
+			return logical.ErrorResponse(err.Error()), nil
+
+		} else {
+
+			if tokenInfo.Access_token != "" {
+				entry.AccessToken = tokenInfo.Access_token
+			}
+
+			if tokenInfo.Refresh_token != "" {
+				entry.RefreshToken = tokenInfo.Refresh_token
+			}
+
+		}
+
+	}
+
 	//Store it
 	jsonEntry, err := logical.StorageEntryJSON(CredentialsRootPath+name, entry)
 	if err != nil {
@@ -242,7 +272,7 @@ func (b *backend) getVenafiSecret(ctx context.Context, s logical.Storage, name s
 }
 
 func validateVenafiSecretEntry(entry *venafiSecretEntry) error {
-	if !entry.Fakemode && entry.Apikey == "" && (entry.TppUser == "" || entry.TppPassword == "") && entry.AccessToken == "" {
+	if !entry.Fakemode && entry.Apikey == "" && (entry.TppUser == "" || entry.TppPassword == "") && entry.RefreshToken == "" && entry.AccessToken == "" {
 		return fmt.Errorf(errorTextInvalidMode)
 	}
 
