@@ -336,31 +336,25 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 
 	}
 
-	issuing_ca := ""
+	issuingCA := ""
 	if len(pcc.Chain) > 0 {
-		issuing_ca = pcc.Chain[0]
+		issuingCA = pcc.Chain[0]
 	}
 
-	var respData map[string]interface{}
+	expirationTime := parsedCertificate.NotAfter
+	expirationSec := expirationTime.Unix()
+
+	respData := map[string]interface{}{
+		"common_name":       reqData.commonName,
+		"serial_number":     serialNumber,
+		"certificate_chain": chain,
+		"certificate":       pcc.Certificate,
+		"ca_chain":          pcc.Chain,
+		"issuing_ca":        issuingCA,
+		"expiration":        expirationSec,
+	}
 	if !signCSR {
-		respData = map[string]interface{}{
-			"common_name":       reqData.commonName,
-			"serial_number":     serialNumber,
-			"certificate_chain": chain,
-			"certificate":       pcc.Certificate,
-			"private_key":       pcc.PrivateKey,
-			"ca_chain":          pcc.Chain,
-			"issuing_ca":        issuing_ca,
-		}
-	} else {
-		respData = map[string]interface{}{
-			"common_name":       reqData.commonName,
-			"serial_number":     serialNumber,
-			"certificate_chain": chain,
-			"certificate":       pcc.Certificate,
-			"ca_chain":          pcc.Chain,
-			"issuing_ca":        issuing_ca,
-		}
+		respData["private_key"] = pcc.PrivateKey
 	}
 
 	var logResp *logical.Response
