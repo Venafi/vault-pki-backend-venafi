@@ -286,6 +286,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 
 	var entry *logical.StorageEntry
 	chain := strings.Join(append([]string{pcc.Certificate}, pcc.Chain...), "\n")
+	b.Logger().Debug("cert Chain: " + strings.Join(pcc.Chain, ", "))
 
 	if !signCSR {
 		err = pcc.AddPrivateKey(certReq.PrivateKey, []byte(data.Get("key_password").(string)))
@@ -336,22 +337,25 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 
 	}
 
-	var respData map[string]interface{}
+	issuingCA := ""
+	if len(pcc.Chain) > 0 {
+		issuingCA = pcc.Chain[0]
+	}
+
+	expirationTime := parsedCertificate.NotAfter
+	expirationSec := expirationTime.Unix()
+
+	respData := map[string]interface{}{
+		"common_name":       reqData.commonName,
+		"serial_number":     serialNumber,
+		"certificate_chain": chain,
+		"certificate":       pcc.Certificate,
+		"ca_chain":          pcc.Chain,
+		"issuing_ca":        issuingCA,
+		"expiration":        expirationSec,
+	}
 	if !signCSR {
-		respData = map[string]interface{}{
-			"common_name":       reqData.commonName,
-			"serial_number":     serialNumber,
-			"certificate_chain": chain,
-			"certificate":       pcc.Certificate,
-			"private_key":       pcc.PrivateKey,
-		}
-	} else {
-		respData = map[string]interface{}{
-			"common_name":       reqData.commonName,
-			"serial_number":     serialNumber,
-			"certificate_chain": chain,
-			"certificate":       pcc.Certificate,
-		}
+		respData["private_key"] = pcc.PrivateKey
 	}
 
 	var logResp *logical.Response
