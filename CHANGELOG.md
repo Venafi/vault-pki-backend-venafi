@@ -1,3 +1,9 @@
+## v0.8.2 (December 3, 2020)
+
+Updated credential requirements for Trust Protection Platform to support initialization with only a `refresh_token`.
+
+Added `ca_chain`, `issuing_ca`, and `expiration` values to the output of `/issue` and `/sign` operations.
+
 ## v0.8.1 (October 30, 2020)
 
 Added `zone` role parameter to allow for multiple zones to be used and avoid issues with Trust Protection Platform token refresh.
