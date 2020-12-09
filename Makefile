@@ -11,17 +11,14 @@ PLUGIN_DIR := bin
 PLUGIN_PATH := $(PLUGIN_DIR)/$(PLUGIN_NAME)
 DIST_DIR := bin/dist
 GO_BUILD := go build -ldflags '-s -w -extldflags "-static"' -a
+VERSION=`git describe --abbrev=0 --tags`
+
 ifdef BUILD_NUMBER
-	VERSION=`git describe --abbrev=0 --tags`+$(BUILD_NUMBER)
-else
-	VERSION=`git describe --abbrev=0 --tags`
+VERSION:=$(VERSION)+$(BUILD_NUMBER)
 endif
 
-#define version if release is set
 ifdef RELEASE_VERSION
-ifdef BUILD_NUMBER
-VERSION=$(RELEASE_VERSION)+$(BUILD_NUMBER)
-else
+ifneq ($(RELEASE_VERSION),none)
 VERSION=$(RELEASE_VERSION)
 endif
 endif
@@ -86,10 +83,14 @@ build:
 	env CGO_ENABLED=0 GOOS=linux   GOARCH=amd64 $(GO_BUILD) -o $(PLUGIN_DIR)/linux/$(PLUGIN_NAME) || exit 1
 	env CGO_ENABLED=0 GOOS=linux   GOARCH=386   $(GO_BUILD) -o $(PLUGIN_DIR)/linux86/$(PLUGIN_NAME) || exit 1
 	env CGO_ENABLED=0 GOOS=darwin  GOARCH=amd64 $(GO_BUILD) -o $(PLUGIN_DIR)/darwin/$(PLUGIN_NAME) || exit 1
-	env CGO_ENABLED=0 GOOS=darwin  GOARCH=386   $(GO_BUILD) -o $(PLUGIN_DIR)/darwin86/$(PLUGIN_NAME) || exit 1
 	env CGO_ENABLED=0 GOOS=windows GOARCH=amd64 $(GO_BUILD) -o $(PLUGIN_DIR)/windows/$(PLUGIN_NAME).exe || exit 1
 	env CGO_ENABLED=0 GOOS=windows GOARCH=386   $(GO_BUILD) -o $(PLUGIN_DIR)/windows86/$(PLUGIN_NAME).exe || exit 1
 	chmod +x $(PLUGIN_DIR)/*
+	shasum -a 256 "$(PLUGIN_DIR)/linux/$(PLUGIN_NAME)" | cut -d' ' -f1 > $(PLUGIN_DIR)/linux/$(PLUGIN_NAME).SHA256SUM
+	shasum -a 256 "$(PLUGIN_DIR)/linux86/$(PLUGIN_NAME)" | cut -d' ' -f1 > $(PLUGIN_DIR)/linux86/$(PLUGIN_NAME).SHA256SUM
+	shasum -a 256 "$(PLUGIN_DIR)/darwin/$(PLUGIN_NAME)" | cut -d' ' -f1 > $(PLUGIN_DIR)/darwin/$(PLUGIN_NAME).SHA256SUM
+	shasum -a 256 "$(PLUGIN_DIR)/windows/$(PLUGIN_NAME).exe" | cut -d' ' -f1 > $(PLUGIN_DIR)/windows/$(PLUGIN_NAME).exe.SHA256SUM
+	shasum -a 256 "$(PLUGIN_DIR)/windows86/$(PLUGIN_NAME).exe" | cut -d' ' -f1 > $(PLUGIN_DIR)/windows86/$(PLUGIN_NAME).exe.SHA256SUM
 
 #quickly build linux for testing
 quick_build:
@@ -99,12 +100,16 @@ compress:
 	mkdir -p $(DIST_DIR)
 	rm -f $(DIST_DIR)/*
 	echo "Path $(CURRENT_DIR)/$(DIST_DIR)/$(PLUGIN_NAME)_$(VERSION)"
-	zip -j "$(CURRENT_DIR)/$(DIST_DIR)/$(PLUGIN_NAME)_$(VERSION)_linux.zip" "$(PLUGIN_DIR)/linux/$(PLUGIN_NAME)" || exit 1
-	zip -j "$(CURRENT_DIR)/$(DIST_DIR)/$(PLUGIN_NAME)_$(VERSION)_linux86.zip" "$(PLUGIN_DIR)/linux86/$(PLUGIN_NAME)" || exit 1
-	zip -j "$(CURRENT_DIR)/$(DIST_DIR)/$(PLUGIN_NAME)_$(VERSION)_darwin.zip" "$(PLUGIN_DIR)/darwin/$(PLUGIN_NAME)" || exit 1
-	zip -j "$(CURRENT_DIR)/$(DIST_DIR)/$(PLUGIN_NAME)_$(VERSION)_darwin86.zip" "$(PLUGIN_DIR)/darwin86/$(PLUGIN_NAME)" || exit 1
-	zip -j "$(CURRENT_DIR)/$(DIST_DIR)/$(PLUGIN_NAME)_$(VERSION)_windows.zip" "$(PLUGIN_DIR)/windows/$(PLUGIN_NAME).exe" || exit 1
-	zip -j "$(CURRENT_DIR)/$(DIST_DIR)/$(PLUGIN_NAME)_$(VERSION)_windows86.zip" "$(PLUGIN_DIR)/windows86/$(PLUGIN_NAME).exe" || exit 1
+	zip -j "$(CURRENT_DIR)/$(DIST_DIR)/$(PLUGIN_NAME)_$(VERSION)_linux.zip" \
+		"$(PLUGIN_DIR)/linux/$(PLUGIN_NAME)" "$(PLUGIN_DIR)/linux/$(PLUGIN_NAME).SHA256SUM" || exit 1
+	zip -j "$(CURRENT_DIR)/$(DIST_DIR)/$(PLUGIN_NAME)_$(VERSION)_linux86.zip" \
+		"$(PLUGIN_DIR)/linux86/$(PLUGIN_NAME)" "$(PLUGIN_DIR)/linux86/$(PLUGIN_NAME).SHA256SUM" || exit 1
+	zip -j "$(CURRENT_DIR)/$(DIST_DIR)/$(PLUGIN_NAME)_$(VERSION)_darwin.zip" \
+		"$(PLUGIN_DIR)/darwin/$(PLUGIN_NAME)" "$(PLUGIN_DIR)/darwin/$(PLUGIN_NAME).SHA256SUM" || exit 1
+	zip -j "$(CURRENT_DIR)/$(DIST_DIR)/$(PLUGIN_NAME)_$(VERSION)_windows.zip" \
+		"$(PLUGIN_DIR)/windows/$(PLUGIN_NAME).exe" "$(PLUGIN_DIR)/windows/$(PLUGIN_NAME).exe.SHA256SUM" || exit 1
+	zip -j "$(CURRENT_DIR)/$(DIST_DIR)/$(PLUGIN_NAME)_$(VERSION)_windows86.zip"\
+		"$(PLUGIN_DIR)/windows86/$(PLUGIN_NAME).exe" "$(PLUGIN_DIR)/windows86/$(PLUGIN_NAME).exe.SHA256SUM" || exit 1
 
 
 build_docker:
@@ -346,16 +351,16 @@ show_config: fake_config_read cloud_config_read tpp_config_read
 config: fake_config_write cloud_config_write tpp_config_write
 
 collect_artifacts:
-	rm -rf artifcats
-	mkdir -p artifcats
-	cp -rv $(DIST_DIR)/*.zip artifcats
-	cd artifcats; echo '```' > ../release.txt
-	cd artifcats; sha256sum * >> ../release.txt
-	cd artifcats; echo '```' >> ../release.txt
+	rm -rf artifacts
+	mkdir -p artifacts
+	cp -rv $(DIST_DIR)/*.zip artifacts
 
 linter:
 	golangci-lint run
 
 release:
+	echo '```' > release.txt
+	cd artifacts; sha256sum * >> ../release.txt
+	echo '```' >> release.txt
 	go get -u github.com/tcnksm/ghr
-	ghr -prerelease -n $$RELEASE_VERSION -body="$$(cat ./release.txt)" $$RELEASE_VERSION artifcats/
+	ghr -prerelease -n $$RELEASE_VERSION -body="$$(cat ./release.txt)" $$RELEASE_VERSION artifacts/
