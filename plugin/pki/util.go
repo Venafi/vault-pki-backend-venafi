@@ -286,6 +286,13 @@ func getHTTPClient(trustBundlePem string) (*http.Client, error) {
 		ExpectContinueTimeout: 1 * time.Second,
 	}
 	tlsConfig := http.DefaultTransport.(*http.Transport).TLSClientConfig
+
+	if tlsConfig == nil {
+		tlsConfig = &tls.Config{}
+	} else {
+		tlsConfig = tlsConfig.Clone()
+	}
+
 	/* #nosec */
 	if trustBundlePem != "" {
 		trustBundle, err := parseTrustBundlePEM(trustBundlePem)
@@ -293,11 +300,6 @@ func getHTTPClient(trustBundlePem string) (*http.Client, error) {
 			return nil, err
 		}
 
-		if tlsConfig == nil {
-			tlsConfig = &tls.Config{}
-		} else {
-			tlsConfig = tlsConfig.Clone()
-		}
 		tlsConfig.RootCAs = trustBundle
 	}
 
