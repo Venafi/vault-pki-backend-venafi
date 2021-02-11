@@ -1,3 +1,15 @@
+# v0.9.0 (February 11, 2020)
+
+Updated Venafi Cloud integration to use OutagePREDICT instead of DevOpsACCELERATE.
+
+## v0.8.3 (December 31, 2020)
+
+Resolved issue that unintentionally required trust_bundle_file to be specified for Venafi API services secured by certificates issued by non-publicly trusted CAs https://github.com/Venafi/vault-pki-backend-venafi/issues/79.
+
+Added text file containing SHA256 hash to release assets (zip archives).
+
+Discontinued darwin 386 (32-bit macOS) releases since support was dropped in Go 1.15 and Vault 1.6.0
+
 ## v0.8.2 (December 3, 2020)
 
 Updated credential requirements for Trust Protection Platform to support initialization with only a `refresh_token`.
