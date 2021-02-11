@@ -142,7 +142,8 @@ Venafi secrets engine:
 
 1. Configure a Venafi secret that maps a name in Vault to connection and authentication
    settings for enrolling certificate using Venafi. The zone is a policy folder for Trust
-   Protection Platform or a DevOps project zone for Venafi Cloud. Obtain the `access_token`
+   Protection Platform or a Venafi Cloud Application Name and Issuing Template API Alias 
+   (e.g. "Business App\Enterprise CIT") for Venafi Cloud. Obtain the `access_token`
    and `refresh_token` for Trust Protection Platform using the 
    [VCert CLI](https://github.com/Venafi/vcert/blob/master/README-CLI-PLATFORM.md#obtaining-an-authorization-token)
    (`getcred` action with `--client-id "hashicorp-vault-by-venafi"` and
@@ -177,7 +178,7 @@ Venafi secrets engine:
    ```
    $ vault write venafi-pki/venafi/cloud \
        apikey="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" \
-       zone="zzzzzzzz-zzzz-zzzz-zzzz-zzzzzzzzzzzz"
+       zone="Business App\\Enterprise CIT"
    Success! Data written to: venafi-pki/roles/cloud
    ```
 
