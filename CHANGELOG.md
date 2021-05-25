@@ -1,5 +1,5 @@
 # v0.9.1 (May 25, 2021)
-Updating the dependency to the latest VCert release version v4.14.2
+Updated to the latest VCert client version (v4.14.2) to address a timing issue that caused certificates requested from Venafi as a Service to fail sporadically.
 
 # v0.9.0 (February 11, 2021)
 
