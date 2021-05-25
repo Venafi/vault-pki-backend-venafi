@@ -1,4 +1,7 @@
-# v0.9.0 (February 11, 2020)
+# v0.9.1 (May 25, 2021)
+Updating the dependency to the latest VCert release version v4.14.2
+
+# v0.9.0 (February 11, 2021)
 
 Updated Venafi Cloud integration to use OutagePREDICT instead of DevOpsACCELERATE.
 
