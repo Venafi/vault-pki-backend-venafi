@@ -110,6 +110,10 @@ Venafi secrets engine:
    $ mv venafi-pki-backend /etc/vault/vault_plugins
    ```
 
+   :pushpin: **NOTE**: Release binaries are built and tested using the latest generally
+   available version of Vault at the time.  Backward compatibility with older versions of Vault
+   is typical but not confirmed by testing.
+
 1. Update the Vault [server configuration](https://www.vaultproject.io/docs/configuration/)
    to specify the plugin directory:
 
