@@ -116,6 +116,10 @@ func (b *backend) pathVenafiIssue(ctx context.Context, req *logical.Request, dat
 		return logical.ErrorResponse("role key type \"any\" not allowed for issuing certificates, only signing"), nil
 	}
 
+	if role.ServiceGenerated && data.Get("key_password").(string) == "" {
+		return logical.ErrorResponse("for service generated csr, \"key_password\" must not be empty"), nil
+	}
+
 	return b.pathVenafiCertObtain(ctx, req, data, role, false)
 }
 
@@ -269,6 +273,12 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 		PickupID: requestID,
 		Timeout:  timeout,
 	}
+
+	if role.ServiceGenerated {
+		pickupReq.FetchPrivateKey = true
+		pickupReq.KeyPassword = data.Get("key_password").(string)
+	}
+
 	pcc, err := cl.RetrieveCertificate(pickupReq)
 	if err != nil {
 		return logical.ErrorResponse(err.Error()), nil
@@ -288,7 +298,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 	chain := strings.Join(append([]string{pcc.Certificate}, pcc.Chain...), "\n")
 	b.Logger().Debug("cert Chain: " + strings.Join(pcc.Chain, ", "))
 
-	if !signCSR {
+	if !signCSR && !role.ServiceGenerated {
 		err = pcc.AddPrivateKey(certReq.PrivateKey, []byte(data.Get("key_password").(string)))
 		if err != nil {
 			return nil, err
@@ -412,6 +422,11 @@ func formRequest(reqData requestData, role *roleEntry, signCSR bool, logger hclo
 			CsrOrigin:   certificate.LocalGeneratedCSR,
 			KeyPassword: reqData.keyPassword,
 		}
+
+		if role.ServiceGenerated {
+			certReq.CsrOrigin = certificate.ServiceGeneratedCSR
+		}
+
 		ipSet := make(map[string]struct{})
 		nameSet := make(map[string]struct{})
 		for _, v := range reqData.altNames {

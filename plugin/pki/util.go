@@ -23,7 +23,7 @@ import (
 const (
 	role_ttl_test_property = int(120)
 	ttl_test_property      = int(48)
-	HTTP_UNAUTHORIZED = 401
+	HTTP_UNAUTHORIZED      = 401
 )
 
 func sliceContains(slice []string, item string) bool {

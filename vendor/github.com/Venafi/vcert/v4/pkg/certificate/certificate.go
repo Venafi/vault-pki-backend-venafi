@@ -26,11 +26,12 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"
-	"github.com/Venafi/vcert/v4/pkg/verror"
 	"net"
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/Venafi/vcert/v4/pkg/verror"
 )
 
 // EllipticCurve represents the types of supported elliptic curves
@@ -199,6 +200,112 @@ type Request struct {
 	Location      *Location
 	ValidityHours int
 	IssuerHint    string
+}
+
+//SSH Certificate structures
+
+//This request is a standard one, it will hold data for tpp request
+//and in the future it will hold VaS data.
+type SshCertRequest struct {
+	Template             string
+	PolicyDN             string
+	ObjectName           string
+	DestinationAddresses []string
+	KeyId                string
+	Principals           []string
+	ValidityPeriod       string
+	PublicKeyData        string
+	Extensions           []string
+	ForceCommand         string
+	SourceAddresses      []string
+
+	PickupID                  string
+	Guid                      string
+	IncludePrivateKeyData     bool
+	PrivateKeyPassphrase      string
+	PrivateKeyFormat          string
+	IncludeCertificateDetails bool
+
+	Timeout time.Duration
+}
+
+type TPPSshCertRequest struct {
+	CADN                      string                 `json:"CADN,omitempty"`
+	PolicyDN                  string                 `json:"PolicyDN,omitempty"`
+	ObjectName                string                 `json:"ObjectName,omitempty"`
+	DestinationAddresses      []string               `json:"DestinationAddresses,omitempty"`
+	KeyId                     string                 `json:"KeyId,omitempty"`
+	Principals                []string               `json:"Principals,omitempty"`
+	ValidityPeriod            string                 `json:"ValidityPeriod,omitempty"`
+	PublicKeyData             string                 `json:"PublicKeyData,omitempty"`
+	Extensions                map[string]interface{} `json:"Extensions,omitempty"`
+	ForceCommand              string                 `json:"ForceCommand,omitempty"`
+	SourceAddresses           []string               `json:"SourceAddresses,omitempty"`
+	IncludePrivateKeyData     bool                   `json:"IncludePrivateKeyData,omitempty"`
+	PrivateKeyPassphrase      string                 `json:"PrivateKeyPassphrase,omitempty"`
+	IncludeCertificateDetails bool                   `json:"IncludeCertificateDetails,omitempty"`
+	ProcessingTimeout         string                 `json:"ProcessingTimeout,omitempty"`
+}
+
+type TppSshCertResponseInfo struct {
+	ErrorCode    int
+	ErrorMessage string
+	Success      bool
+}
+
+type TppSshCertRetrieveRequest struct {
+	Guid                      string
+	DN                        string
+	IncludePrivateKeyData     bool
+	PrivateKeyPassphrase      string
+	PrivateKeyFormat          string
+	IncludeCertificateDetails bool
+}
+
+type TppSshCertOperationResponse struct {
+	ProcessingDetails  ProcessingDetails
+	Guid               string
+	DN                 string
+	CertificateData    string
+	PrivateKeyData     string
+	PublicKeyData      string
+	CAGuid             string
+	CADN               string
+	CertificateDetails SshCertificateDetails
+	Response           TppSshCertResponseInfo
+}
+
+type SshCertificateObject struct {
+	Guid               string
+	DN                 string
+	CAGuid             string
+	CADN               string
+	CertificateData    string
+	PrivateKeyData     string
+	PublicKeyData      string
+	CertificateDetails SshCertificateDetails
+	ProcessingDetails  ProcessingDetails
+}
+
+type SshCertificateDetails struct {
+	KeyType                      string                 `json:"KeyType,omitempty"`
+	CertificateType              string                 `json:"CertificateType,omitempty"`
+	CertificateFingerprintSHA256 string                 `json:"CertificateFingerprintSHA256,omitempty"`
+	CAFingerprintSHA256          string                 `json:"CAFingerprintSHA256,omitempty"`
+	KeyID                        string                 `json:"KeyID,omitempty"`
+	SerialNumber                 string                 `json:"SerialNumber,omitempty"`
+	Principals                   []string               `json:"Principals,omitempty"`
+	ValidFrom                    int64                  `json:"ValidFrom,omitempty"`
+	ValidTo                      int64                  `json:"ValidTo,omitempty"`
+	ForceCommand                 string                 `json:"ForceCommand,omitempty"`
+	SourceAddresses              []string               `json:"SourceAddresses,omitempty"`
+	PublicKeyFingerprintSHA256   string                 `json:"PublicKeyFingerprintSHA256,omitempty"`
+	Extensions                   map[string]interface{} `json:"Extensions,omitempty"`
+}
+
+type ProcessingDetails struct {
+	Status            string `json:"Status,omitempty"`
+	StatusDescription string `json:"StatusDescription,omitempty"`
 }
 
 type RevocationRequest struct {
@@ -428,6 +535,7 @@ func GetPrivateKeyPEMBock(key crypto.Signer) (*pem.Block, error) {
 	}
 }
 
+//nolint
 // GetEncryptedPrivateKeyPEMBock gets the private key as an encrypted PEM data block
 func GetEncryptedPrivateKeyPEMBock(key crypto.Signer, password []byte) (*pem.Block, error) {
 	switch k := key.(type) {
