@@ -1315,7 +1315,7 @@ func (e *testEnv) FakeRevokeCertificateBySerial(t *testing.T) {
 	data.dnsEmail = "venafi@example.com"
 	serial := normalizeSerial(e.CertificateSerial)
 
-	e.RevokeCertificate(t, normalizeSerial(serial))
+	e.RevokeCertificate(t, serial)
 
 }
 
