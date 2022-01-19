@@ -938,12 +938,18 @@ func (e *testEnv) ListCertificates(t *testing.T, data testData, configString ven
 
 func (e *testEnv) RevokeCertificate(t *testing.T, certId string) {
 
+	dataKey := ""
+	if strings.Contains(certId, "-") {
+		dataKey = "serial_number"
+	} else {
+		dataKey = "certificate_uid"
+	}
 	_, err := e.Backend.HandleRequest(e.Context, &logical.Request{
 		Operation: logical.UpdateOperation,
 		Path:      "revoke/" + e.RoleName,
 		Storage:   e.Storage,
 		Data: map[string]interface{}{
-			"certificate_uid": certId,
+			dataKey: certId,
 		},
 	})
 
@@ -1294,6 +1300,22 @@ func (e *testEnv) FakeRevokeCertificate(t *testing.T) {
 	data.dnsEmail = "venafi@example.com"
 
 	e.RevokeCertificate(t, data.cn)
+
+}
+
+func (e *testEnv) FakeRevokeCertificateBySerial(t *testing.T) {
+
+	data := testData{}
+	randString := e.TestRandString
+	domain := "venafi.example.com"
+	data.cn = randString + "." + domain
+	data.dnsNS = "alt-" + data.cn
+	data.dnsIP = "192.168.1.1"
+	data.onlyIP = "127.0.0.1"
+	data.dnsEmail = "venafi@example.com"
+	serial := normalizeSerial(e.CertificateSerial)
+
+	e.RevokeCertificate(t, normalizeSerial(serial))
 
 }
 

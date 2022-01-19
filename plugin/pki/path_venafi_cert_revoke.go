@@ -69,7 +69,7 @@ func (b *backend) venafiCertRevoke(ctx context.Context, req *logical.Request, d 
 		return logical.ErrorResponse(err.Error()), nil
 	}
 
-	dn, err := getDn(b, &cl, ctx, req, roleName, id, role.StoreByCN)
+	dn, err := getDn(b, &cl, ctx, req, roleName, id, role.StoreByCN || strings.ToLower(role.StoreBy) == "cn")
 
 	if err != nil {
 		return logical.ErrorResponse(err.Error()), nil
@@ -121,7 +121,7 @@ func isCertificateStored(ctx context.Context, req *logical.Request, id string, r
 	}
 
 	if !role.StoreByCN {
-		if strings.Contains(id, ":"){
+		if strings.Contains(id, ":") {
 			id = strings.ReplaceAll(id, ":", "-")
 		}
 		if strings.Contains(id, "-") {
@@ -177,18 +177,17 @@ func getDn(b *backend, c *endpoint.Connector, ctx context.Context, req *logical.
 
 }
 
-func getDnFromSerial(c *endpoint.Connector, id string) (string, error){
-	/*var reqS certificate.SearchRequest
-	reqS = append(reqS, fmt.Sprintf("serial=%s", id))
-	data, err := c.SearchCertificates(&reqS)
-	if err != nil{
-	return "", error
+func getDnFromSerial(c *endpoint.Connector, serial string) (string, error) {
+	var reqS certificate.SearchRequest
+	//removing dash from serial since TPP does not contain them
+	tppSerial := strings.ReplaceAll(serial, "-", "")
+	reqS = append(reqS, fmt.Sprintf("serial=%s", tppSerial))
+	data, err := (*c).SearchCertificates(&reqS)
+	if err != nil {
+		return "", err
 	}
-	 dn := data.Certificates[0].CertificateRequestId
+	dn := data.Certificates[0].CertificateRequestId
 
 	return dn, nil
-	*/
 
-
-	return "", nil
 }
