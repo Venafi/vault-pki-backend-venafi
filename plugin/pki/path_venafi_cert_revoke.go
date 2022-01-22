@@ -58,9 +58,9 @@ func (b *backend) venafiCertRevoke(ctx context.Context, req *logical.Request, d 
 
 	if exists, err := isCertificateStored(ctx, req, id, role); !exists {
 		if err != nil {
-			return logical.ErrorResponse(err.Error()), nil
+			return logical.ErrorResponse(err.Error()), err
 		}
-		return logical.ErrorResponse("the certificate is not stored"), nil
+		return logical.ErrorResponse("the certificate is not stored"), fmt.Errorf("the certificate is not stored")
 	}
 
 	b.Logger().Debug("Creating Venafi client:")

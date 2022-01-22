@@ -49,6 +49,7 @@ type testData struct {
 	signCSR      bool
 	customFields []string
 	ttl          time.Duration
+	storeBy      string
 }
 
 const (
@@ -229,6 +230,41 @@ func (e *testEnv) writeRoleToBackend(t *testing.T, configString venafiConfigStri
 	ttl := strconv.Itoa(role_ttl_test_property) + "h"
 	roleData["ttl"] = ttl
 	roleData["issuer_hint"] = util.IssuerHintMicrosoft
+
+	resp, err := e.Backend.HandleRequest(e.Context, &logical.Request{
+		Operation: logical.UpdateOperation,
+		Path:      "roles/" + e.RoleName,
+		Storage:   e.Storage,
+		Data:      roleData,
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp != nil && resp.IsError() {
+		t.Fatalf("failed to create role, %#v", resp)
+	}
+}
+
+func (e *testEnv) writeRoleToBackendWithData(t *testing.T, configString venafiConfigString, data testData) {
+	roleData, err := makeConfig(configString)
+	if err != nil {
+		t.Fatal(err)
+	}
+	roleData = copyMap(roleData)
+
+	//Adding Venafi secret reference to Role
+	roleData["venafi_secret"] = e.VenafiSecretName
+	//Removing the zone from the data, as the Venafi secret zone must be used
+	roleData["zone"] = ""
+
+	ttl := strconv.Itoa(role_ttl_test_property) + "h"
+	roleData["ttl"] = ttl
+	roleData["issuer_hint"] = util.IssuerHintMicrosoft
+	if data.storeBy != "" {
+		roleData["store_by"] = data.storeBy
+	}
 
 	resp, err := e.Backend.HandleRequest(e.Context, &logical.Request{
 		Operation: logical.UpdateOperation,
@@ -938,12 +974,13 @@ func (e *testEnv) ListCertificates(t *testing.T, data testData, configString ven
 
 func (e *testEnv) RevokeCertificate(t *testing.T, certId string) {
 
-	dataKey := ""
-	if strings.Contains(certId, "-") {
+	//dataKey := ""
+	dataKey := "certificate_uid"
+	/*if strings.Contains(certId, "-") {
 		dataKey = "serial_number"
 	} else {
 		dataKey = "certificate_uid"
-	}
+	}*/
 	_, err := e.Backend.HandleRequest(e.Context, &logical.Request{
 		Operation: logical.UpdateOperation,
 		Path:      "revoke/" + e.RoleName,
@@ -1651,6 +1688,43 @@ func (e *testEnv) TokenIntegrationSignCertificateWithCustomFields(t *testing.T) 
 	e.writeVenafiToBackend(t, config)
 	e.writeRoleToBackend(t, config)
 	e.SignCertificate(t, data, config)
+}
+
+func (e *testEnv) TokenIntegrationRevokeCertificateSerial(t *testing.T) {
+
+	data := testData{}
+	randString := e.TestRandString
+	domain := "vfidev.com"
+	data.cn = randString + "." + domain
+	data.dnsNS = "alt-" + data.cn
+	data.dnsIP = "127.0.0.1"
+	data.onlyIP = "192.168.0.1"
+	var config = venafiConfigToken
+
+	e.writeVenafiToBackend(t, config)
+	e.writeRoleToBackend(t, config)
+	e.IssueCertificateAndSaveSerial(t, data, config)
+	serial := normalizeSerial(e.CertificateSerial)
+	log.Println("Testing Serial:", serial)
+	e.RevokeCertificate(t, serial)
+}
+
+func (e *testEnv) TokenIntegrationRevokeCertificateCN(t *testing.T) {
+
+	data := testData{}
+	randString := e.TestRandString
+	domain := "vfidev.com"
+	data.cn = randString + "." + domain
+	data.dnsNS = "alt-" + data.cn
+	data.dnsIP = "127.0.0.1"
+	data.onlyIP = "192.168.0.1"
+	data.storeBy = "cn"
+	var config = venafiConfigToken
+
+	e.writeVenafiToBackend(t, config)
+	e.writeRoleToBackendWithData(t, config, data)
+	e.IssueCertificateAndSaveSerial(t, data, config)
+	e.RevokeCertificate(t, data.cn)
 }
 
 func (e *testEnv) TokenIntegrationSignWithTTLCertificate(t *testing.T) {

@@ -169,6 +169,8 @@ func TestTokenIntegration(t *testing.T) {
 	t.Run("TPP Token sign certificate", integrationTestEnv.TokenIntegrationSignCertificate)
 	t.Run("TPP Token sign certificate with custom fields", integrationTestEnv.TokenIntegrationSignCertificateWithCustomFields)
 	t.Run("TPP Token sign certificate and ttl attribute", integrationTestEnv.TokenIntegrationSignWithTTLCertificate)
+	t.Run("TPP Token revoke certificate by cn", integrationTestEnv.TokenIntegrationRevokeCertificateCN)
+	t.Run("TPP Token revoke certificate by serial", integrationTestEnv.TokenIntegrationRevokeCertificateSerial)
 
 }
 
