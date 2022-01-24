@@ -974,13 +974,7 @@ func (e *testEnv) ListCertificates(t *testing.T, data testData, configString ven
 
 func (e *testEnv) RevokeCertificate(t *testing.T, certId string) {
 
-	//dataKey := ""
 	dataKey := "certificate_uid"
-	/*if strings.Contains(certId, "-") {
-		dataKey = "serial_number"
-	} else {
-		dataKey = "certificate_uid"
-	}*/
 	_, err := e.Backend.HandleRequest(e.Context, &logical.Request{
 		Operation: logical.UpdateOperation,
 		Path:      "revoke/" + e.RoleName,
