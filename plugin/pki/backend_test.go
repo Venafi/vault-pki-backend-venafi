@@ -59,8 +59,6 @@ func TestFakeEndpoints(t *testing.T) {
 	t.Run("fake list certificates", integrationTestEnv.FakeListCertificate)
 	t.Run("fake read certificate by serial", integrationTestEnv.FakeReadCertificateBySerial)
 	t.Run("fake sign", integrationTestEnv.FakeSignCertificate)
-	t.Run("fake revoke certificate by cn", integrationTestEnv.FakeRevokeCertificate)
-	t.Run("fake revoke certificate by serial", integrationTestEnv.FakeRevokeCertificateBySerial)
 
 }
 

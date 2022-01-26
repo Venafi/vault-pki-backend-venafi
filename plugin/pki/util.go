@@ -342,7 +342,6 @@ func copyMap(m map[string]interface{}) map[string]interface{} {
 	return cp
 }
 
-
 func getStatusCode(msg string) int64 {
 
 	var statusCode int64

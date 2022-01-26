@@ -42,14 +42,15 @@ type testData struct {
 	dnsIP string
 	dnsNS string
 	//onlyIP added IP Address x509 field
-	onlyIP       string
-	keyPassword  string
-	privateKey   string
-	provider     venafiConfigString
-	signCSR      bool
-	customFields []string
-	ttl          time.Duration
-	storeBy      string
+	onlyIP           string
+	keyPassword      string
+	privateKey       string
+	provider         venafiConfigString
+	signCSR          bool
+	customFields     []string
+	ttl              time.Duration
+	storeBy          string
+	privateKeyFormat string
 }
 
 const (
@@ -546,17 +547,23 @@ func (e *testEnv) IssueCertificateAndSaveSerial(t *testing.T, data testData, con
 
 	if data.keyPassword != "" {
 		issueData = map[string]interface{}{
-			"common_name":  data.cn,
-			"alt_names":    strings.Join(altNames, ","),
-			"ip_sans":      []string{data.onlyIP},
-			"key_password": data.keyPassword,
+			"common_name":        data.cn,
+			"alt_names":          strings.Join(altNames, ","),
+			"ip_sans":            []string{data.onlyIP},
+			"key_password":       data.keyPassword,
+			"private_key_format": "der",
 		}
 	} else {
 		issueData = map[string]interface{}{
-			"common_name": data.cn,
-			"alt_names":   strings.Join(altNames, ","),
-			"ip_sans":     []string{data.onlyIP},
+			"common_name":        data.cn,
+			"alt_names":          strings.Join(altNames, ","),
+			"ip_sans":            []string{data.onlyIP},
+			"private_key_format": "der",
 		}
+	}
+
+	if data.privateKeyFormat != "" {
+		issueData["private_key_format"] = data.privateKeyFormat
 	}
 
 	if data.customFields != nil {
