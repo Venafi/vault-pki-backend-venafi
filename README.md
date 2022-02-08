@@ -1,7 +1,7 @@
-![Venafi](Venafi_logo.png)
+[![Venafi](.github/images/Venafi_logo.png)](https://www.venafi.com/)
 [![MPL 2.0 License](https://img.shields.io/badge/License-MPL%202.0-blue.svg)](https://opensource.org/licenses/MPL-2.0)
 ![Community Supported](https://img.shields.io/badge/Support%20Level-Community-brightgreen)
-![Compatible with TPP 17.3+ & Cloud](https://img.shields.io/badge/Compatibility-TPP%2017.3+%20%26%20Cloud-f9a90c)  
+![Compatible with TPP 17.3+ & VaaS](https://img.shields.io/badge/Compatibility-TPP%2017.3+%20%26%20VaaS-f9a90c)  
 _**This open source project is community-supported.** To report a problem or share an idea, use
 **[Issues](../../issues)**; and if you have a suggestion for fixing the issue, please include those details, too.
 In addition, use **[Pull Requests](../../pulls)** to contribute actual bug fixes or proposed enhancements.
@@ -10,7 +10,10 @@ We welcome and appreciate all contributions. Got questions or want to discuss so
 
 # Venafi PKI Secrets Engine for HashiCorp Vault
 
-This solution enables [HashiCorp Vault](https://www.vaultproject.io/) users to have certificate requests fulfilled by the [Venafi Platform](https://www.venafi.com/platform/trust-protection-platform) or [Venafi Cloud](https://www.venafi.com/platform/cloud/devops) ensuring compliance with corporate security policy and providing visibility into certificate issuance enterprise wide.
+This solution enables [HashiCorp Vault](https://www.vaultproject.io/) users to have certificate requests fulfilled by
+the [Venafi Trust Protection Platform](https://www.venafi.com/platform/trust-protection-platform) or
+[Venafi as a Service](https://www.venafi.com/venaficloud) ensuring compliance with corporate security policy and
+providing visibility into certificate issuance enterprise wide.
 
 ### Venafi Trust Protection Platform Requirements
 
@@ -63,17 +66,27 @@ in PEM format (e.g. /opt/venafi/bundle.pem) and reference it using the
 `trust_bundle_file` parameter whenever you create or update a PKI role in your
 Vault.
 
-### Venafi Cloud Requirements
+### Venafi as a Service Requirements
 
-If you are using Venafi Cloud, be sure to set up an issuing template, project,
-and any other dependencies that appear in the Venafi Cloud documentation.
+If you are using Venafi as a Service, verify the following:
 
-- Set up an issuing template to link Venafi Cloud to your CA. To learn more,
-  search for "Issuing Templates" in the
-  [Venafi Cloud Help system](https://docs.venafi.cloud/help/Default.htm).
-- Create a project and zone that identifies the template and other information.
-  To learn more, search for "Projects" in the
-  [Venafi Cloud Help system](https://docs.venafi.cloud/help/Default.htm).
+- The Venafi as a Service REST API at [https://api.venafi.cloud](https://api.venafi.cloud/swagger-ui.html)
+is accessible from the systems where Vault will be running.
+- You have successfully registered for a Venafi as a Service account, have been granted at least the
+"Resource Owner" role, and know your API key.
+- A CA Account and Issuing Template exist and have been configured with:
+    - Recommended Settings values for:
+        - Organizational Unit (OU)
+        - Organization (O)
+        - City/Locality (L)
+        - State/Province (ST)
+        - Country (C)
+    - Issuing Rules that:
+        - (Recommended) Limits Common Name and Subject Alternative Name to domains that are allowed by your organization
+        - (Recommended) Restricts the Key Length to 2048 or higher
+        - (Recommended) Does not allow Private Key Reuse
+- An Application exists where you are among the owners, and you know the Application name.
+- An Issuing Template is assigned to the Application, and you know its API Alias.
 
 ## Setup
 
@@ -96,6 +109,10 @@ Venafi secrets engine:
    $ unzip venafi-pki-backend_v0.0.1+1_linux.zip
    $ mv venafi-pki-backend /etc/vault/vault_plugins
    ```
+
+   :pushpin: **NOTE**: Release binaries are built and tested using the latest generally
+   available version of Vault at the time.  Backward compatibility with older versions of Vault
+   is typical but not confirmed by testing.
 
 1. Update the Vault [server configuration](https://www.vaultproject.io/docs/configuration/)
    to specify the plugin directory:
@@ -142,8 +159,9 @@ Venafi secrets engine:
 
 1. Configure a Venafi secret that maps a name in Vault to connection and authentication
    settings for enrolling certificate using Venafi. The zone is a policy folder for Trust
-   Protection Platform or a DevOps project zone for Venafi Cloud. Obtain the `access_token`
-   and `refresh_token` for Trust Protection Platform using the 
+   Protection Platform or an Application name and Issuing Template API Alias (e.g.
+   "Business App\Enterprise CIT") for Venafi as a Service. Obtain the `access_token` and
+   `refresh_token` for Trust Protection Platform using the 
    [VCert CLI](https://github.com/Venafi/vcert/blob/master/README-CLI-PLATFORM.md#obtaining-an-authorization-token)
    (`getcred` action with `--client-id "hashicorp-vault-by-venafi"` and
    `--scope "certificate:manage"`) or the Platform's Authorize REST API method. To see
@@ -172,13 +190,13 @@ Venafi secrets engine:
    more than one Venafi secret for the same set of tokens would result in all but 
    one Venafi secret being rendered inoperable when the token is refreshed.
 
-   **Venafi Cloud**:
+   **Venafi as a Service**:
 
    ```
-   $ vault write venafi-pki/venafi/cloud \
+   $ vault write venafi-pki/venafi/vaas \
        apikey="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" \
-       zone="zzzzzzzz-zzzz-zzzz-zzzz-zzzzzzzzzzzz"
-   Success! Data written to: venafi-pki/roles/cloud
+       zone="Business App\\Enterprise CIT"
+   Success! Data written to: venafi-pki/roles/vaas
    ```
 
 1. Lastly, configure a [role](https://www.vaultproject.io/api-docs/secret/pki#create-update-role)
@@ -196,15 +214,15 @@ Venafi secrets engine:
    Success! Data written to: venafi-pki/roles/tpp
    ```
 
-   **Venafi Cloud**:
+   **Venafi as a Service**:
 
    ```text
-   $ vault write venafi-pki/roles/cloud \
-       venafi_secret=cloud \
+   $ vault write venafi-pki/roles/vaas \
+       venafi_secret=vaas \
        generate_lease=true store_by=serial store_pkey=true \
        allowed_domains=example.com \
        allow_subdomains=true
-   Success! Data written to: venafi-pki/roles/cloud
+   Success! Data written to: venafi-pki/roles/vaas
    ```
 
    :pushpin: **NOTE**: The `ttl` and `max_ttl` role parameters can be used specify the
@@ -246,15 +264,15 @@ token with the proper permission, it can enroll certificates using Venafi.
    serial_number        1d:bc:a8:3c:00:00:00:05:5c:e8
    ```
 
-   **Venafi Cloud**:
+   **Venafi as a Service**:
 
    ```text
-   $ vault write venafi-pki/issue/cloud common_name="common-name.example.com" \
+   $ vault write venafi-pki/issue/vaas common_name="common-name.example.com" \
        alt_names="dns-san-1.example.com,dns-san-2.example.com"
 
    Key                  Value
    ---                  -----
-   lease_id             venafi-pki/issue/cloud/1WCNvXKiwboWfRRfjzlPAwEi
+   lease_id             venafi-pki/issue/vaas/1WCNvXKiwboWfRRfjzlPAwEi
    lease_duration       167h59m58s
    lease_renewable      false
    certificate          -----BEGIN CERTIFICATE-----
@@ -283,14 +301,14 @@ token with the proper permission, it can enroll certificates using Venafi.
    serial_number        1d:c4:07:9a:00:00:00:05:5c:ea
    ```
 
-   **Venafi Cloud**:
+   **Venafi as a Service**:
 
    ```text
-   $ vault write venafi-pki/sign/cloud csr=@example.req
+   $ vault write venafi-pki/sign/vaas csr=@example.req
 
    Key                  Value
    ---                  -----
-   lease_id             venafi-pki/sign/cloud/fF44FdMAjuCdC29w3Ff81hes
+   lease_id             venafi-pki/sign/vaas/fF44FdMAjuCdC29w3Ff81hes
    lease_duration       167h59m58s
    lease_renewable      false
    certificate          -----BEGIN CERTIFICATE-----
