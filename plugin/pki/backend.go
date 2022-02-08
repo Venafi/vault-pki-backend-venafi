@@ -5,6 +5,7 @@ import (
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
 	"strings"
+	"sync"
 )
 
 // Factory creates a new backend implementing the logical.Backend interface
@@ -53,6 +54,7 @@ func Backend(conf *logical.BackendConfig) *backend {
 type backend struct {
 	*framework.Backend
 	storage logical.Storage
+	mux     sync.Mutex
 }
 
 const (
