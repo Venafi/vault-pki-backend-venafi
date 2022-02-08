@@ -1,9 +1,10 @@
 # github.com/Venafi/vcert v3.18.4+incompatible
 github.com/Venafi/vcert/test
-# github.com/Venafi/vcert/v4 v4.11.0
+# github.com/Venafi/vcert/v4 v4.17.0
 github.com/Venafi/vcert/v4
 github.com/Venafi/vcert/v4/pkg/certificate
 github.com/Venafi/vcert/v4/pkg/endpoint
+github.com/Venafi/vcert/v4/pkg/policy
 github.com/Venafi/vcert/v4/pkg/util
 github.com/Venafi/vcert/v4/pkg/venafi/cloud
 github.com/Venafi/vcert/v4/pkg/venafi/fake
@@ -146,14 +147,28 @@ github.com/pierrec/lz4/internal/xxh32
 github.com/rendon/testcli
 # github.com/ryanuber/go-glob v1.0.0
 github.com/ryanuber/go-glob
-# golang.org/x/crypto v0.0.0-20190605123033-f99c8df09eb5
+# github.com/youmark/pkcs8 v0.0.0-20201027041543-1326539a0a0a
+github.com/youmark/pkcs8
+# golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
 golang.org/x/crypto/blake2b
+golang.org/x/crypto/blowfish
+golang.org/x/crypto/chacha20
 golang.org/x/crypto/cryptobyte
 golang.org/x/crypto/cryptobyte/asn1
+golang.org/x/crypto/curve25519
+golang.org/x/crypto/curve25519/internal/field
 golang.org/x/crypto/ed25519
 golang.org/x/crypto/ed25519/internal/edwards25519
+golang.org/x/crypto/internal/poly1305
+golang.org/x/crypto/internal/subtle
+golang.org/x/crypto/nacl/box
+golang.org/x/crypto/nacl/secretbox
 golang.org/x/crypto/pbkdf2
-# golang.org/x/net v0.0.0-20200520004742-59133d7f0dd7
+golang.org/x/crypto/salsa20/salsa
+golang.org/x/crypto/scrypt
+golang.org/x/crypto/ssh
+golang.org/x/crypto/ssh/internal/bcrypt_pbkdf
+# golang.org/x/net v0.0.0-20210226172049-e18ecbb05110
 golang.org/x/net/context
 golang.org/x/net/html
 golang.org/x/net/html/atom
@@ -164,11 +179,11 @@ golang.org/x/net/http2/hpack
 golang.org/x/net/idna
 golang.org/x/net/internal/timeseries
 golang.org/x/net/trace
-# golang.org/x/sys v0.0.0-20200519105757-fe76b779f299
+# golang.org/x/sys v0.0.0-20210615035016-665e8c7367d1
 golang.org/x/sys/cpu
 golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/unix
-# golang.org/x/text v0.3.2
+# golang.org/x/text v0.3.3
 golang.org/x/text/encoding
 golang.org/x/text/encoding/charmap
 golang.org/x/text/encoding/htmlindex
@@ -272,5 +287,5 @@ gopkg.in/square/go-jose.v2/json
 gopkg.in/square/go-jose.v2/jwt
 # gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7
 gopkg.in/tomb.v1
-# gopkg.in/yaml.v2 v2.3.0
+# gopkg.in/yaml.v2 v2.4.0
 gopkg.in/yaml.v2

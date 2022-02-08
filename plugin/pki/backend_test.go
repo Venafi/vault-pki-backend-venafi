@@ -59,7 +59,6 @@ func TestFakeEndpoints(t *testing.T) {
 	t.Run("fake list certificates", integrationTestEnv.FakeListCertificate)
 	t.Run("fake read certificate by serial", integrationTestEnv.FakeReadCertificateBySerial)
 	t.Run("fake sign", integrationTestEnv.FakeSignCertificate)
-	t.Run("fake revoke certificate", integrationTestEnv.FakeRevokeCertificate)
 
 }
 
@@ -168,6 +167,8 @@ func TestTokenIntegration(t *testing.T) {
 	t.Run("TPP Token sign certificate", integrationTestEnv.TokenIntegrationSignCertificate)
 	t.Run("TPP Token sign certificate with custom fields", integrationTestEnv.TokenIntegrationSignCertificateWithCustomFields)
 	t.Run("TPP Token sign certificate and ttl attribute", integrationTestEnv.TokenIntegrationSignWithTTLCertificate)
+	t.Run("TPP Token revoke certificate by cn", integrationTestEnv.TokenIntegrationRevokeCertificateCN)
+	t.Run("TPP Token revoke certificate by serial", integrationTestEnv.TokenIntegrationRevokeCertificateSerial)
 
 }
 

@@ -29,12 +29,104 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Venafi/vcert/v4/pkg/policy"
+
 	"github.com/Venafi/vcert/v4/pkg/certificate"
 	"github.com/Venafi/vcert/v4/pkg/endpoint"
 )
 
 type Connector struct {
 	verbose bool
+}
+
+func (c *Connector) SearchCertificates(req *certificate.SearchRequest) (*certificate.CertSearchResponse, error) {
+	panic("implement me")
+}
+
+func (c *Connector) IsCSRServiceGenerated(req *certificate.Request) (bool, error) {
+	panic("operation is not supported yet")
+}
+
+func (c *Connector) RetrieveSshConfig(ca *certificate.SshCaTemplateRequest) (*certificate.SshConfig, error) {
+	panic("operation is not supported yet")
+}
+
+func (c *Connector) RetrieveSSHCertificate(req *certificate.SshCertRequest) (response *certificate.SshCertificateObject, err error) {
+	panic("operation is not supported yet")
+}
+
+func (c *Connector) RequestSSHCertificate(req *certificate.SshCertRequest) (response *certificate.SshCertificateObject, err error) {
+	panic("operation is not supported yet")
+}
+
+func (c *Connector) GetPolicy(name string) (*policy.PolicySpecification, error) {
+
+	caName := "\\VED\\Policy\\Certificate Authorities\\TEST CA\\QA Test CA - Server 90 Days"
+	validityHours := 120
+	wildcardAllowed := true
+	serviceGenerated := true
+	reuseAllowed := false
+	subjectAltNamesAllowed := true
+
+	domain := "venafi.com"
+	org := "Venafi"
+	locality := "Salt Lake City"
+	state := "Utah"
+	country := "US"
+
+	specification := policy.PolicySpecification{
+		Owners:    []string{"amoo"},
+		Users:     []string{"rvela", "malborno"},
+		Approvers: []string{"rrodrig", "lpresuel"},
+		Policy: &policy.Policy{
+			CertificateAuthority: &caName,
+			Domains:              []string{"venafi.com"},
+			WildcardAllowed:      &wildcardAllowed,
+			MaxValidDays:         &validityHours,
+			Subject: &policy.Subject{
+				Orgs:       []string{"Venafi"},
+				OrgUnits:   []string{"DevOps"},
+				Localities: []string{"Salt Lake City"},
+				States:     []string{"Utah"},
+				Countries:  []string{"US"},
+			},
+			KeyPair: &policy.KeyPair{
+				KeyTypes:         []string{"RSA"},
+				RsaKeySizes:      []int{3072},
+				ServiceGenerated: &serviceGenerated,
+				ReuseAllowed:     &reuseAllowed,
+				EllipticCurves:   []string{"P384"},
+			},
+			SubjectAltNames: &policy.SubjectAltNames{
+				DnsAllowed:   &subjectAltNamesAllowed,
+				IpAllowed:    &subjectAltNamesAllowed,
+				EmailAllowed: &subjectAltNamesAllowed,
+				UriAllowed:   &subjectAltNamesAllowed,
+				UpnAllowed:   &subjectAltNamesAllowed,
+			},
+		},
+		Default: &policy.Default{
+			Domain: &domain,
+			Subject: &policy.DefaultSubject{
+				Org:      &org,
+				OrgUnits: []string{"DevOps"},
+				Locality: &locality,
+				State:    &state,
+				Country:  &country,
+			},
+			KeyPair: &policy.DefaultKeyPair{
+				KeyType:          nil,
+				RsaKeySize:       nil,
+				EllipticCurve:    nil,
+				ServiceGenerated: nil,
+			},
+		},
+	}
+	return &specification, nil
+}
+
+func (c *Connector) SetPolicy(name string, ps *policy.PolicySpecification) (string, error) {
+	return "OK", nil
 }
 
 func NewConnector(verbose bool, trust *x509.CertPool) *Connector {

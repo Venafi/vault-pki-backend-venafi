@@ -26,11 +26,14 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"
-	"github.com/Venafi/vcert/v4/pkg/verror"
+	"github.com/Venafi/vcert/v4/pkg/util"
+	"github.com/youmark/pkcs8"
 	"net"
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/Venafi/vcert/v4/pkg/verror"
 )
 
 // EllipticCurve represents the types of supported elliptic curves
@@ -201,6 +204,112 @@ type Request struct {
 	IssuerHint    string
 }
 
+//SSH Certificate structures
+
+//This request is a standard one, it will hold data for tpp request
+//and in the future it will hold VaS data.
+type SshCertRequest struct {
+	Template             string
+	PolicyDN             string
+	ObjectName           string
+	DestinationAddresses []string
+	KeyId                string
+	Principals           []string
+	ValidityPeriod       string
+	PublicKeyData        string
+	Extensions           []string
+	ForceCommand         string
+	SourceAddresses      []string
+
+	PickupID                  string
+	Guid                      string
+	IncludePrivateKeyData     bool
+	PrivateKeyPassphrase      string
+	PrivateKeyFormat          string
+	IncludeCertificateDetails bool
+
+	Timeout time.Duration
+}
+
+type TPPSshCertRequest struct {
+	CADN                      string                 `json:"CADN,omitempty"`
+	PolicyDN                  string                 `json:"PolicyDN,omitempty"`
+	ObjectName                string                 `json:"ObjectName,omitempty"`
+	DestinationAddresses      []string               `json:"DestinationAddresses,omitempty"`
+	KeyId                     string                 `json:"KeyId,omitempty"`
+	Principals                []string               `json:"Principals,omitempty"`
+	ValidityPeriod            string                 `json:"ValidityPeriod,omitempty"`
+	PublicKeyData             string                 `json:"PublicKeyData,omitempty"`
+	Extensions                map[string]interface{} `json:"Extensions,omitempty"`
+	ForceCommand              string                 `json:"ForceCommand,omitempty"`
+	SourceAddresses           []string               `json:"SourceAddresses,omitempty"`
+	IncludePrivateKeyData     bool                   `json:"IncludePrivateKeyData,omitempty"`
+	PrivateKeyPassphrase      string                 `json:"PrivateKeyPassphrase,omitempty"`
+	IncludeCertificateDetails bool                   `json:"IncludeCertificateDetails,omitempty"`
+	ProcessingTimeout         string                 `json:"ProcessingTimeout,omitempty"`
+}
+
+type TppSshCertResponseInfo struct {
+	ErrorCode    int
+	ErrorMessage string
+	Success      bool
+}
+
+type TppSshCertRetrieveRequest struct {
+	Guid                      string
+	DN                        string
+	IncludePrivateKeyData     bool
+	PrivateKeyPassphrase      string
+	PrivateKeyFormat          string
+	IncludeCertificateDetails bool
+}
+
+type TppSshCertOperationResponse struct {
+	ProcessingDetails  ProcessingDetails
+	Guid               string
+	DN                 string
+	CertificateData    string
+	PrivateKeyData     string
+	PublicKeyData      string
+	CAGuid             string
+	CADN               string
+	CertificateDetails SshCertificateDetails
+	Response           TppSshCertResponseInfo
+}
+
+type SshCertificateObject struct {
+	Guid               string
+	DN                 string
+	CAGuid             string
+	CADN               string
+	CertificateData    string
+	PrivateKeyData     string
+	PublicKeyData      string
+	CertificateDetails SshCertificateDetails
+	ProcessingDetails  ProcessingDetails
+}
+
+type SshCertificateDetails struct {
+	KeyType                      string                 `json:"KeyType,omitempty"`
+	CertificateType              string                 `json:"CertificateType,omitempty"`
+	CertificateFingerprintSHA256 string                 `json:"CertificateFingerprintSHA256,omitempty"`
+	CAFingerprintSHA256          string                 `json:"CAFingerprintSHA256,omitempty"`
+	KeyID                        string                 `json:"KeyID,omitempty"`
+	SerialNumber                 string                 `json:"SerialNumber,omitempty"`
+	Principals                   []string               `json:"Principals,omitempty"`
+	ValidFrom                    int64                  `json:"ValidFrom,omitempty"`
+	ValidTo                      int64                  `json:"ValidTo,omitempty"`
+	ForceCommand                 string                 `json:"ForceCommand,omitempty"`
+	SourceAddresses              []string               `json:"SourceAddresses,omitempty"`
+	PublicKeyFingerprintSHA256   string                 `json:"PublicKeyFingerprintSHA256,omitempty"`
+	Extensions                   map[string]interface{} `json:"Extensions,omitempty"`
+}
+
+type ProcessingDetails struct {
+	Status            string `json:"Status,omitempty"`
+	StatusDescription string `json:"StatusDescription,omitempty"`
+}
+
 type RevocationRequest struct {
 	CertificateDN string
 	Thumbprint    string
@@ -243,6 +352,18 @@ type CertificateInfo struct {
 	Thumbprint string
 	ValidFrom  time.Time
 	ValidTo    time.Time
+}
+
+type SearchRequest []string
+
+type CertSearchResponse struct {
+	Certificates []CertSeachInfo `json:"Certificates"`
+	Count        int             `json:"TotalCount"`
+}
+
+type CertSeachInfo struct {
+	CertificateRequestId   string `json:"DN"`
+	CertificateRequestGuid string `json:"Guid"`
 }
 
 // SetCSR sets CSR from PEM or DER format
@@ -413,10 +534,22 @@ func PublicKey(priv crypto.Signer) crypto.PublicKey {
 }
 
 // GetPrivateKeyPEMBock gets the private key as a PEM data block
-func GetPrivateKeyPEMBock(key crypto.Signer) (*pem.Block, error) {
+func GetPrivateKeyPEMBock(key crypto.Signer, format ...string) (*pem.Block, error) {
+	currentFormat := ""
+	if len(format) > 0 && format[0] != "" {
+		currentFormat = format[0]
+	}
 	switch k := key.(type) {
 	case *rsa.PrivateKey:
-		return &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(k)}, nil
+		if currentFormat == "legacy-pem" {
+			return &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(k)}, nil
+		} else {
+			dataBytes, err := pkcs8.MarshalPrivateKey(key.(*rsa.PrivateKey), nil, nil)
+			if err != nil {
+				return nil, err
+			}
+			return &pem.Block{Type: "PRIVATE KEY", Bytes: dataBytes}, err
+		}
 	case *ecdsa.PrivateKey:
 		b, err := x509.MarshalECPrivateKey(k)
 		if err != nil {
@@ -429,16 +562,28 @@ func GetPrivateKeyPEMBock(key crypto.Signer) (*pem.Block, error) {
 }
 
 // GetEncryptedPrivateKeyPEMBock gets the private key as an encrypted PEM data block
-func GetEncryptedPrivateKeyPEMBock(key crypto.Signer, password []byte) (*pem.Block, error) {
+func GetEncryptedPrivateKeyPEMBock(key crypto.Signer, password []byte, format ...string) (*pem.Block, error) {
+	currentFormat := ""
+	if len(format) > 0 && format[0] != "" {
+		currentFormat = format[0]
+	}
 	switch k := key.(type) {
 	case *rsa.PrivateKey:
-		return x509.EncryptPEMBlock(rand.Reader, "RSA PRIVATE KEY", x509.MarshalPKCS1PrivateKey(k), password, x509.PEMCipherAES256)
+		if currentFormat == "legacy-pem" {
+			return util.X509EncryptPEMBlock(rand.Reader, "RSA PRIVATE KEY", x509.MarshalPKCS1PrivateKey(k), password, util.PEMCipherAES256)
+		} else {
+			dataBytes, err := pkcs8.MarshalPrivateKey(key.(*rsa.PrivateKey), password, nil)
+			if err != nil {
+				return nil, err
+			}
+			return &pem.Block{Type: "ENCRYPTED PRIVATE KEY", Bytes: dataBytes}, err
+		}
 	case *ecdsa.PrivateKey:
 		b, err := x509.MarshalECPrivateKey(k)
 		if err != nil {
 			return nil, err
 		}
-		return x509.EncryptPEMBlock(rand.Reader, "EC PRIVATE KEY", b, password, x509.PEMCipherAES256)
+		return util.X509EncryptPEMBlock(rand.Reader, "EC PRIVATE KEY", b, password, util.PEMCipherAES256)
 	default:
 		return nil, fmt.Errorf("%w: unable to format Key", verror.VcertError)
 	}

@@ -27,6 +27,8 @@ import (
 	"net/http"
 	"regexp"
 
+	"github.com/Venafi/vcert/v4/pkg/policy"
+
 	"github.com/Venafi/vcert/v4/pkg/certificate"
 )
 
@@ -59,9 +61,9 @@ func (t ConnectorType) String() string {
 	case ConnectorTypeFake:
 		return "Fake Endpoint"
 	case ConnectorTypeCloud:
-		return "Venafi Cloud"
+		return "Venafi as a Service"
 	case ConnectorTypeTPP:
-		return "TPP"
+		return "Trust Protection Platform"
 	default:
 		return fmt.Sprintf("unexpected connector type: %d", t)
 	}
@@ -86,6 +88,7 @@ type Connector interface {
 	RequestCertificate(req *certificate.Request) (requestID string, err error)
 	// RetrieveCertificate immediately returns an enrolled certificate. Otherwise, RetrieveCertificate waits and retries during req.Timeout.
 	RetrieveCertificate(req *certificate.Request) (certificates *certificate.PEMCollection, err error)
+	IsCSRServiceGenerated(req *certificate.Request) (bool, error)
 	RevokeCertificate(req *certificate.RevocationRequest) error
 	RenewCertificate(req *certificate.RenewalRequest) (requestID string, err error)
 	// ImportCertificate adds an existing certificate to Venafi Platform even if the certificate was not issued by Venafi Cloud or Venafi Platform. For information purposes.
@@ -94,6 +97,12 @@ type Connector interface {
 	SetHTTPClient(client *http.Client)
 	// ListCertificates
 	ListCertificates(filter Filter) ([]certificate.CertificateInfo, error)
+	SetPolicy(name string, ps *policy.PolicySpecification) (string, error)
+	GetPolicy(name string) (*policy.PolicySpecification, error)
+	RequestSSHCertificate(req *certificate.SshCertRequest) (response *certificate.SshCertificateObject, err error)
+	RetrieveSSHCertificate(req *certificate.SshCertRequest) (response *certificate.SshCertificateObject, err error)
+	RetrieveSshConfig(ca *certificate.SshCaTemplateRequest) (*certificate.SshConfig, error)
+	SearchCertificates(req *certificate.SearchRequest) (*certificate.CertSearchResponse, error)
 }
 
 type Filter struct {
@@ -135,6 +144,18 @@ func (err ErrCertificatePending) Error() string {
 		return fmt.Sprintf("Issuance is pending. You may try retrieving the certificate later using Pickup ID: %s", err.CertificateID)
 	}
 	return fmt.Sprintf("Issuance is pending. You may try retrieving the certificate later using Pickup ID: %s\n\tStatus: %s", err.CertificateID, err.Status)
+}
+
+type ErrCertificateRejected struct {
+	CertificateID string
+	Status        string
+}
+
+func (err ErrCertificateRejected) Error() string {
+	if err.Status == "" {
+		return fmt.Sprintf("Certificate request was rejected. You may need to verify the certificate id: %s", err.CertificateID)
+	}
+	return fmt.Sprintf("Status: %s", err.Status)
 }
 
 // Policy is struct that contains restrictions for certificates. Most of the fields contains list of regular expression.
@@ -437,7 +458,7 @@ func (z *ZoneConfiguration) UpdateCertificateRequest(request *certificate.Reques
 }
 
 func getPrimaryNetAddr() string {
-	conn, err := net.Dial("udp", "venafi.com:1")
+	conn, err := net.Dial("udp", "8.8.8.8:80")
 	if err != nil {
 		return "0.0.0.0"
 	}

@@ -44,6 +44,10 @@ func pathVenafiCertEnroll(b *backend) *framework.Path {
 				Type:        framework.TypeString,
 				Description: "Password for encrypting private key",
 			},
+			"private_key_format": {
+				Type:        framework.TypeString,
+				Description: "For specifiying the private key format ",
+			},
 			"custom_fields": {
 				Type:        framework.TypeCommaStringSlice,
 				Description: "Use to specify custom fields in format 'key=value'. Use comma to separate multiple values: 'key1=value1,key2=value2'",
@@ -116,6 +120,10 @@ func (b *backend) pathVenafiIssue(ctx context.Context, req *logical.Request, dat
 		return logical.ErrorResponse("role key type \"any\" not allowed for issuing certificates, only signing"), nil
 	}
 
+	if role.ServiceGenerated && data.Get("key_password").(string) == "" {
+		return logical.ErrorResponse("for service generated csr, \"key_password\" must not be empty"), nil
+	}
+
 	return b.pathVenafiCertObtain(ctx, req, data, role, false)
 }
 
@@ -138,7 +146,7 @@ func (b *backend) pathVenafiSign(ctx context.Context, req *logical.Request, data
 
 func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request, data *framework.FieldData, role *roleEntry, signCSR bool) (
 	*logical.Response, error) {
-
+	b.mux.Lock()
 	// When utilizing performance standbys in Vault Enterprise, this forces the call to be redirected to the primary since
 	// a storage call is made after the API calls to issue the certificate.  This prevents the certificate from being
 	// issued twice in this scenario.
@@ -224,7 +232,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 		//validate if the error is related to a expired access token, at this moment the only way can validate this is using the error message
 		//and verify if that message describes errors related to expired access token.
 		code := getStatusCode(msg)
-		if code == HTTP_UNAUTHORIZED && regex.MatchString(msg){
+		if code == HTTP_UNAUTHORIZED && regex.MatchString(msg) {
 			cfg, err := b.getConfig(ctx, req, roleName, true)
 
 			if err != nil {
@@ -269,6 +277,12 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 		PickupID: requestID,
 		Timeout:  timeout,
 	}
+
+	if role.ServiceGenerated {
+		pickupReq.FetchPrivateKey = true
+		pickupReq.KeyPassword = data.Get("key_password").(string)
+	}
+
 	pcc, err := cl.RetrieveCertificate(pickupReq)
 	if err != nil {
 		return logical.ErrorResponse(err.Error()), nil
@@ -288,10 +302,30 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 	chain := strings.Join(append([]string{pcc.Certificate}, pcc.Chain...), "\n")
 	b.Logger().Debug("cert Chain: " + strings.Join(pcc.Chain, ", "))
 
-	if !signCSR {
-		err = pcc.AddPrivateKey(certReq.PrivateKey, []byte(data.Get("key_password").(string)))
+	format := ""
+	privateKeyFormat, ok := data.GetOk("private_key_format")
+	if ok {
+		if privateKeyFormat == "der" {
+			format = "legacy-pem"
+		}
+	}
+
+	if !signCSR && !role.ServiceGenerated {
+		err = pcc.AddPrivateKey(certReq.PrivateKey, []byte(data.Get("key_password").(string)), format)
 		if err != nil {
 			return nil, err
+		}
+	} else {
+		if reqData.keyPassword != "" && privateKeyFormat == "der" {
+			privateKey, err := util.DecryptPkcs8PrivateKey(pcc.PrivateKey, reqData.keyPassword)
+			if err != nil {
+				return nil, err
+			}
+			privateKey, err = util.EncryptPkcs1PrivateKey(privateKey, reqData.keyPassword)
+			if err != nil {
+				return nil, err
+			}
+			pcc.PrivateKey = privateKey
 		}
 	}
 
@@ -380,6 +414,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 	if !signCSR {
 		logResp.AddWarning("Read access to this endpoint should be controlled via ACLs as it will return the connection private key as it is.")
 	}
+	b.mux.Unlock()
 	return logResp, nil
 }
 
@@ -412,6 +447,11 @@ func formRequest(reqData requestData, role *roleEntry, signCSR bool, logger hclo
 			CsrOrigin:   certificate.LocalGeneratedCSR,
 			KeyPassword: reqData.keyPassword,
 		}
+
+		if role.ServiceGenerated {
+			certReq.CsrOrigin = certificate.ServiceGeneratedCSR
+		}
+
 		ipSet := make(map[string]struct{})
 		nameSet := make(map[string]struct{})
 		for _, v := range reqData.altNames {

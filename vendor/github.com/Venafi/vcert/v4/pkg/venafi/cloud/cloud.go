@@ -22,11 +22,13 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"github.com/Venafi/vcert/v4/pkg/policy"
 	"io"
 	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -60,17 +62,14 @@ type certificateRequestResponse struct {
 }
 
 type certificateRequestResponseData struct {
-	ID                     string    `json:"id,omitempty"`
-	ZoneID                 string    `json:"zoneId,omitempty"`
-	Status                 string    `json:"status,omitempty"`
-	SubjectDN              string    `json:"subjectDN,omitempty"`
-	GeneratedKey           bool      `json:"generatedKey,omitempty"`
-	DefaultKeyPassword     bool      `json:"defaultKeyPassword,omitempty"`
-	CertificateInstanceIDs []string  `json:"certificateInstanceIds,omitempty"`
-	CreationDateString     string    `json:"creationDate,omitempty"`
-	CreationDate           time.Time `json:"-"`
-	PEM                    string    `json:"pem,omitempty"`
-	DER                    string    `json:"der,omitempty"`
+	ID                 string    `json:"id,omitempty"`
+	ApplicationId      string    `json:"applicationId,omitempty"`
+	TemplateId         string    `json:"certificateIssuingTemplateId,omitempty"`
+	Status             string    `json:"status,omitempty"`
+	SubjectDN          string    `json:"subjectDN,omitempty"`
+	CreationDateString string    `json:"creationDate,omitempty"`
+	CreationDate       time.Time `json:"-"`
+	CertificateIds     []string  `json:"certificateIds,omitempty"`
 }
 
 type certificateRequestClientInfo struct {
@@ -79,18 +78,49 @@ type certificateRequestClientInfo struct {
 }
 
 type certificateRequest struct {
-	CSR                          string                       `json:"certificateSigningRequest,omitempty"`
-	ZoneID                       string                       `json:"zoneId,omitempty"`
-	ExistingManagedCertificateId string                       `json:"existingManagedCertificateId,omitempty"`
-	ReuseCSR                     bool                         `json:"reuseCSR,omitempty"`
-	ApiClientInformation         certificateRequestClientInfo `json:"apiClientInformation,omitempty"`
-	ValidityPeriod               string                       `json:"validityPeriod,omitempty"`
+	CSR                      string                       `json:"certificateSigningRequest,omitempty"`
+	ApplicationId            string                       `json:"applicationId,omitempty"`
+	TemplateId               string                       `json:"certificateIssuingTemplateId,omitempty"`
+	CertificateOwnerUserId   string                       `json:"certificateOwnerUserId,omitempty"`
+	ExistingCertificateId    string                       `json:"existingCertificateId,omitempty"`
+	ApiClientInformation     certificateRequestClientInfo `json:"apiClientInformation,omitempty"`
+	CertificateUsageMetadata []certificateUsageMetadata   `json:"certificateUsageMetadata,omitempty"`
+	ReuseCSR                 bool                         `json:"reuseCSR,omitempty"`
+	ValidityPeriod           string                       `json:"validityPeriod,omitempty"`
+	IsVaaSGenerated          bool                         `json:"isVaaSGenerated,omitempty"`
+	CsrAttributes            CsrAttributes                `json:"csrAttributes,omitempty"`
+	ApplicationServerTypeId  string                       `json:"applicationServerTypeId,omitempty"`
+}
+
+type CsrAttributes struct {
+	CommonName                    *string                        `json:"commonName,omitempty"`
+	Organization                  *string                        `json:"organization,omitempty"`
+	OrganizationalUnits           []string                       `json:"organizationalUnits,omitempty"`
+	Locality                      *string                        `json:"locality,omitempty"`
+	State                         *string                        `json:"state,omitempty"`
+	Country                       *string                        `json:"country,omitempty"`
+	SubjectAlternativeNamesByType *SubjectAlternativeNamesByType `json:"subjectAlternativeNamesByType,omitempty"`
+}
+type SubjectAlternativeNamesByType struct {
+	DnsNames []string `json:"dnsNames,omitempty"`
+}
+
+type KeyStoreRequest struct {
+	ExportFormat                  string `json:"exportFormat,omitempty"`
+	EncryptedPrivateKeyPassphrase string `json:"encryptedPrivateKeyPassphrase"`
+	EncryptedKeystorePassphrase   string `json:"encryptedKeystorePassphrase"`
+	CertificateLabel              string `json:"certificateLabel"`
+}
+
+type EdgeEncryptionKey struct {
+	Key string `json:"key,omitempty"`
 }
 
 type certificateStatus struct {
-	Id                        string                            `json:"Id,omitempty"`
-	ManagedCertificateId      string                            `json:"managedCertificateId,omitempty"`
-	ZoneId                    string                            `json:"zoneId,omitempty"`
+	Id                        string                            `json:"id,omitempty"`
+	CertificateIdsList        []string                          `json:"certificateIds,omitempty"`
+	ApplicationId             string                            `json:"applicationId,omitempty"`
+	TemplateId                string                            `json:"certificateIssuingTemplateId,omitempty"`
 	Status                    string                            `json:"status,omitempty"`
 	ErrorInformation          CertificateStatusErrorInformation `json:"errorInformation,omitempty"`
 	CreationDate              string                            `json:"creationDate,omitempty"`
@@ -106,48 +136,64 @@ type CertificateStatusErrorInformation struct {
 	Args    []string `json:"args,omitempty"`
 }
 
-type importRequestClientInfo struct {
+type apiClientInformation struct {
 	Type       string `json:"type"`
 	Identifier string `json:"identifier"`
 }
 
-type importRequestInstanceInfo struct {
+type certificateUsageMetadata struct {
 	AppName            string `json:"appName,omitempty"`
 	NodeName           string `json:"nodeName,omitempty"`
 	AutomationMetadata string `json:"automationMetadata,omitempty"`
 }
 
 type importRequest struct {
-	Certificate              string                      `json:"certificate"`
-	IssuerCertificates       []string                    `json:"issuerCertificates,omitempty"`
-	ZoneId                   string                      `json:"zoneId"`
-	CertificateName          string                      `json:"certificateName"`
-	ApiClientInformation     importRequestClientInfo     `json:"apiClientInformation,omitempty"`
-	CertificateUsageMetadata []importRequestInstanceInfo `json:"certificateUsageMetadata,omitempty"`
+	Certificates []importRequestCertInfo `json:"certificates"`
 }
 
-type importResponseClientInfo struct {
-	Type       string `json:"type"`
-	Identifier string `json:"identifier"`
+type importRequestCertInfo struct {
+	Certificate              string                     `json:"certificate"`
+	IssuerCertificates       []string                   `json:"issuerCertificates,omitempty"`
+	ApplicationIds           []string                   `json:"applicationIds"`
+	ApiClientInformation     apiClientInformation       `json:"apiClientInformation,omitempty"`
+	CertificateUsageMetadata []certificateUsageMetadata `json:"certificateUsageMetadata,omitempty"`
 }
 
 type importResponseCertInfo struct {
-	Id                      string                   `json:"id"`
-	ManagedCertificateId    string                   `json:"managedCertificateId"`
-	CompanyId               string                   `json:"companyId"`
-	Fingerprint             string                   `json:"fingerprint"`
-	CertificateSource       string                   `json:"certificateSource"`
-	OwnerUserId             string                   `json:"ownerUserId"`
-	IssuanceZoneId          string                   `json:"issuanceZoneId"`
-	ValidityStartDateString string                   `json:"validityStartDate"`
-	ValidityStartDate       time.Time                `json:"-"`
-	ValidityEndDateString   string                   `json:"validityEndDate"`
-	ValidityEndDate         time.Time                `json:"-"`
-	ApiClientInformation    importResponseClientInfo `json:"apiClientInformation,omitempty"`
+	Id                      string               `json:"id"`
+	ManagedCertificateId    string               `json:"managedCertificateId"`
+	CompanyId               string               `json:"companyId"`
+	Fingerprint             string               `json:"fingerprint"`
+	CertificateSource       string               `json:"certificateSource"`
+	OwnerUserId             string               `json:"ownerUserId"`
+	IssuanceZoneId          string               `json:"issuanceZoneId"`
+	ValidityStartDateString string               `json:"validityStartDate"`
+	ValidityStartDate       time.Time            `json:"-"`
+	ValidityEndDateString   string               `json:"validityEndDate"`
+	ValidityEndDate         time.Time            `json:"-"`
+	ApiClientInformation    apiClientInformation `json:"apiClientInformation,omitempty"`
 }
 
 type importResponse struct {
 	CertificateInformations []importResponseCertInfo `json:"certificateInformations"`
+}
+
+type ApplicationDetails struct {
+	ApplicationId             string               `json:"id,omitempty"`
+	CitAliasToIdMap           map[string]string    `json:"certificateIssuingTemplateAliasIdMap,omitempty"`
+	CompanyId                 string               `json:"companyId,omitempty"`
+	Name                      string               `json:"name,omitempty"`
+	Description               string               `json:"description,omitempty"`
+	OwnerIdType               []policy.OwnerIdType `json:"ownerIdsAndTypes,omitempty"`
+	InternalFqDns             []string             `json:"internalFqDns,omitempty"`
+	ExternalIpRanges          []string             `json:"externalIpRanges,omitempty"`
+	InternalIpRanges          []string             `json:"internalIpRanges,omitempty"`
+	InternalPorts             []string             `json:"internalPorts,omitempty"`
+	FullyQualifiedDomainNames []string             `json:"fullyQualifiedDomainNames,omitempty"`
+	IpRanges                  []string             `json:"ipRanges,omitempty"`
+	Ports                     []string             `json:"ports,omitempty"`
+	FqDns                     []string             `json:"fqDns,omitempty"`
+	OrganizationalUnitId      string               `json:"organizationalUnitId,omitempty"`
 }
 
 //GenerateRequest generates a CertificateRequest based on the zone configuration, and returns the request along with the private key.
@@ -231,6 +277,9 @@ func (c *Connector) request(method string, url string, data interface{}, authNot
 	if method == "POST" {
 		b, _ = json.Marshal(data)
 		payload = bytes.NewReader(b)
+	} else if method == "PUT" {
+		b, _ = json.Marshal(data)
+		payload = bytes.NewReader(b)
 	}
 
 	r, err := http.NewRequest(method, url, payload)
@@ -242,6 +291,9 @@ func (c *Connector) request(method string, url string, data interface{}, authNot
 		r.Header.Add("tppl-api-key", c.apiKey)
 	}
 	if method == "POST" {
+		r.Header.Add("Accept", "application/json")
+		r.Header.Add("content-type", "application/json")
+	} else if method == "PUT" {
 		r.Header.Add("Accept", "application/json")
 		r.Header.Add("content-type", "application/json")
 	} else {
@@ -310,7 +362,7 @@ func parseZoneConfigurationResult(httpStatusCode int, httpStatus string, body []
 	switch httpStatusCode {
 	case http.StatusOK:
 		return parseZoneConfigurationData(body)
-	case http.StatusBadRequest:
+	case http.StatusBadRequest, http.StatusNotFound:
 		return nil, verror.ZoneNotFoundError
 	default:
 		respErrors, err := parseResponseErrors(body)
@@ -335,16 +387,34 @@ func parseZoneConfigurationData(b []byte) (*zone, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", verror.ServerError, err)
 	}
-
 	return &data, nil
 }
 
-func parseCertificateTemplate(httpStatusCode int, httpStatus string, body []byte) (*certificateTemplate, error) {
-	ct := certificateTemplate{}
-	if httpStatusCode != http.StatusOK {
-		return nil, fmt.Errorf("%w: unexpected status code on Venafi Cloud policy read. Status: %s\n", verror.ServerError, httpStatus)
+func parseCertificateTemplateResult(httpStatusCode int, httpStatus string, body []byte) (*certificateTemplate, error) {
+	switch httpStatusCode {
+	case http.StatusOK:
+		return parseCertificateTemplateData(body)
+	case http.StatusBadRequest:
+		return nil, verror.ZoneNotFoundError
+	default:
+		respErrors, err := parseResponseErrors(body)
+		if err != nil {
+			return nil, err
+		}
+
+		respError := fmt.Sprintf("Unexpected status code on Venafi Cloud zone read. Status: %s\n", httpStatus)
+		for _, e := range respErrors {
+			if e.Code == 10051 {
+				return nil, verror.ZoneNotFoundError
+			}
+			respError += fmt.Sprintf("Error Code: %d Error: %s\n", e.Code, e.Message)
+		}
+		return nil, fmt.Errorf("%w: %v", verror.ServerError, respError)
 	}
-	// todo: better error parsing
+}
+
+func parseCertificateTemplateData(body []byte) (*certificateTemplate, error) {
+	var ct certificateTemplate
 	err := json.Unmarshal(body, &ct)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", verror.ServerError, err)
@@ -384,7 +454,330 @@ func newPEMCollectionFromResponse(data []byte, chainOrder certificate.ChainOptio
 	return certificate.PEMCollectionFromBytes(data, chainOrder)
 }
 
-func certThumprint(asn1 []byte) string {
+func certThumbprint(asn1 []byte) string {
 	h := sha1.Sum(asn1)
 	return strings.ToUpper(fmt.Sprintf("%x", h))
+}
+
+func parseApplicationDetailsResult(httpStatusCode int, httpStatus string, body []byte) (*ApplicationDetails, error) {
+	switch httpStatusCode {
+	case http.StatusOK:
+		return parseApplicationDetailsData(body)
+	case http.StatusBadRequest:
+		return nil, verror.ApplicationNotFoundError
+	default:
+		respErrors, err := parseResponseErrors(body)
+		if err != nil {
+			return nil, err
+		}
+
+		respError := fmt.Sprintf("Unexpected status code on Venafi Cloud application read. Status: %s\n", httpStatus)
+		for _, e := range respErrors {
+			if e.Code == 10051 {
+				return nil, verror.ApplicationNotFoundError
+			}
+			respError += fmt.Sprintf("Error Code: %d Error: %s\n", e.Code, e.Message)
+		}
+		return nil, fmt.Errorf("%w: %v", verror.ServerError, respError)
+	}
+}
+
+func parseApplicationDetailsData(b []byte) (*ApplicationDetails, error) {
+	var data ApplicationDetails
+	err := json.Unmarshal(b, &data)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", verror.ServerError, err)
+	}
+	return &data, nil
+}
+
+type cloudZone struct {
+	zone          string
+	appName       string
+	templateAlias string
+}
+
+func (z cloudZone) String() string {
+	return z.zone
+}
+
+func (z *cloudZone) getApplicationName() string {
+	if z.appName == "" {
+		err := z.parseZone()
+		if err != nil {
+			return ""
+		}
+	}
+	return z.appName
+}
+
+func (z *cloudZone) getTemplateAlias() string {
+	if z.templateAlias == "" {
+		err := z.parseZone()
+		if err != nil {
+			return ""
+		}
+	}
+	return z.templateAlias
+}
+
+func (z *cloudZone) parseZone() error {
+	if z.zone == "" {
+		return fmt.Errorf("zone not specified")
+	}
+
+	segments := strings.Split(z.zone, "\\")
+	if len(segments) > 2 || len(segments) < 2 {
+		return fmt.Errorf("invalid zone format")
+	}
+
+	z.appName = segments[0]
+	z.templateAlias = segments[1]
+
+	return nil
+}
+
+func createAppUpdateRequest(applicationDetails *ApplicationDetails, cit *certificateTemplate) policy.ApplicationCreateRequest {
+	request := policy.ApplicationCreateRequest{
+		OwnerIdsAndTypes:                     applicationDetails.OwnerIdType,
+		Name:                                 applicationDetails.Name,
+		Description:                          applicationDetails.Description,
+		Fqdns:                                applicationDetails.FqDns,
+		InternalFqdns:                        applicationDetails.InternalFqDns,
+		InternalIpRanges:                     applicationDetails.InternalIpRanges,
+		ExternalIpRanges:                     applicationDetails.ExternalIpRanges,
+		InternalPorts:                        applicationDetails.InternalPorts,
+		FullyQualifiedDomainNames:            applicationDetails.FullyQualifiedDomainNames,
+		IpRanges:                             applicationDetails.IpRanges,
+		Ports:                                applicationDetails.Ports,
+		CertificateIssuingTemplateAliasIdMap: applicationDetails.CitAliasToIdMap,
+		OrganizationalUnitId:                 applicationDetails.OrganizationalUnitId,
+	}
+
+	//add new cit values to the map.
+	citMap := request.CertificateIssuingTemplateAliasIdMap
+	value := citMap[cit.Name]
+	if value == "" {
+		citMap[cit.Name] = cit.ID
+	} else {
+		if value != cit.ID {
+			citMap[cit.Name] = cit.ID
+		}
+	}
+	request.CertificateIssuingTemplateAliasIdMap = citMap
+
+	return request
+}
+
+func buildPolicySpecification(cit *certificateTemplate, info *policy.CertificateAuthorityInfo, removeRegex bool) *policy.PolicySpecification {
+	if cit == nil {
+		return nil
+	}
+
+	var ps policy.PolicySpecification
+
+	var pol policy.Policy
+
+	if len(cit.SubjectCNRegexes) > 0 {
+		if removeRegex {
+			pol.Domains = policy.RemoveRegex(cit.SubjectCNRegexes)
+		} else {
+			pol.Domains = cit.SubjectCNRegexes
+		}
+	}
+
+	wildCard := isWildCard(cit.SubjectCNRegexes)
+	pol.WildcardAllowed = &wildCard
+
+	if len(cit.SANRegexes) > 0 {
+		subjectAlt := policy.SubjectAltNames{}
+		trueVal := true
+		subjectAlt.DnsAllowed = &trueVal
+		pol.SubjectAltNames = &subjectAlt
+	}
+
+	// ps.Policy.WildcardAllowed is pending.
+	if cit.ValidityPeriod != "" {
+		//they have the format P#D
+		days := cit.ValidityPeriod[1 : len(cit.ValidityPeriod)-1]
+		intDays, _ := strconv.ParseInt(days, 10, 32)
+		//ok we have a 32 bits int but we need to convert it just into a "int"
+		intVal := int(intDays)
+		pol.MaxValidDays = &intVal
+	}
+	if info != nil {
+		ca := fmt.Sprint(info.CAType, "\\", info.CAAccountKey, "\\", info.VendorProductName)
+		pol.CertificateAuthority = &ca
+	}
+
+	//subject.
+	var subject policy.Subject
+	shouldCreateSubject := false
+
+	if len(cit.SubjectORegexes) > 0 {
+		subject.Orgs = cit.SubjectORegexes
+		shouldCreateSubject = true
+	}
+
+	if len(cit.SubjectOURegexes) > 0 {
+		subject.OrgUnits = cit.SubjectOURegexes
+		shouldCreateSubject = true
+	}
+
+	if len(cit.SubjectLRegexes) > 0 {
+		subject.Localities = cit.SubjectLRegexes
+		shouldCreateSubject = true
+	}
+
+	if len(cit.SubjectSTRegexes) > 0 {
+		subject.States = cit.SubjectSTRegexes
+		shouldCreateSubject = true
+	}
+
+	if len(cit.SubjectCValues) > 0 {
+		subject.Countries = cit.SubjectCValues
+		shouldCreateSubject = true
+	}
+
+	if shouldCreateSubject {
+		pol.Subject = &subject
+	}
+
+	//key pair
+	var keyPair policy.KeyPair
+	shouldCreateKeyPair := false
+	if len(cit.KeyTypes) > 0 {
+		var keyTypes []string
+		var keySizes []int
+
+		for _, allowedKT := range cit.KeyTypes {
+			keyType := string(allowedKT.KeyType)
+			keyLengths := allowedKT.KeyLengths
+
+			keyTypes = append(keyTypes, keyType)
+
+			keySizes = append(keySizes, keyLengths...)
+
+		}
+		shouldCreateKeyPair = true
+		keyPair.KeyTypes = keyTypes
+		keyPair.RsaKeySizes = keySizes
+	}
+
+	if shouldCreateKeyPair {
+		pol.KeyPair = &keyPair
+		pol.KeyPair.ReuseAllowed = &cit.KeyReuse
+	}
+
+	ps.Policy = &pol
+
+	//build defaults.
+	var defaultSub policy.DefaultSubject
+	shouldCreateDeFaultSub := false
+	if cit.RecommendedSettings.SubjectOValue != "" {
+		defaultSub.Org = &cit.RecommendedSettings.SubjectOValue
+		shouldCreateDeFaultSub = true
+	}
+
+	if cit.RecommendedSettings.SubjectOUValue != "" {
+		defaultSub.OrgUnits = []string{cit.RecommendedSettings.SubjectOUValue}
+		shouldCreateDeFaultSub = true
+	}
+
+	if cit.RecommendedSettings.SubjectCValue != "" {
+		defaultSub.Country = &cit.RecommendedSettings.SubjectCValue
+		shouldCreateDeFaultSub = true
+	}
+
+	if cit.RecommendedSettings.SubjectSTValue != "" {
+		defaultSub.State = &cit.RecommendedSettings.SubjectSTValue
+		shouldCreateDeFaultSub = true
+	}
+
+	if cit.RecommendedSettings.SubjectLValue != "" {
+		defaultSub.Locality = &cit.RecommendedSettings.SubjectLValue
+		shouldCreateDeFaultSub = true
+	}
+
+	if shouldCreateDeFaultSub {
+		if ps.Default == nil {
+			ps.Default = &policy.Default{}
+		}
+		ps.Default.Subject = &defaultSub
+	}
+
+	//default key type
+	var defaultKP policy.DefaultKeyPair
+	shouldCreateDefaultKeyPAir := false
+
+	if cit.RecommendedSettings.Key.Type != "" {
+		defaultKP.KeyType = &cit.RecommendedSettings.Key.Type
+		shouldCreateDefaultKeyPAir = true
+	}
+
+	if cit.RecommendedSettings.Key.Length > 0 {
+		defaultKP.RsaKeySize = &cit.RecommendedSettings.Key.Length
+		shouldCreateDefaultKeyPAir = true
+	}
+
+	if shouldCreateDefaultKeyPAir {
+		if ps.Default == nil {
+			ps.Default = &policy.Default{}
+		}
+		ps.Default.KeyPair = &defaultKP
+	}
+
+	return &ps
+}
+
+func parseCitResult(expectedStatusCode int, httpStatusCode int, httpStatus string, body []byte) (*certificateTemplate, error) {
+	if httpStatusCode == expectedStatusCode {
+		return parseCitDetailsData(body, httpStatusCode)
+	}
+	respErrors, err := parseResponseErrors(body)
+	if err != nil {
+		return nil, err // parseResponseErrors always return verror.ServerError
+	}
+	respError := fmt.Sprintf("unexpected status code on Venafi Cloud registration. Status: %s\n", httpStatus)
+	for _, e := range respErrors {
+		respError += fmt.Sprintf("Error Code: %d Error: %s\n", e.Code, e.Message)
+	}
+	return nil, fmt.Errorf("%w: %v", verror.ServerError, respError)
+}
+
+func parseCitDetailsData(b []byte, status int) (*certificateTemplate, error) {
+
+	var cits CertificateTemplates
+	var cit certificateTemplate
+
+	if status == http.StatusOK { //update case
+		err := json.Unmarshal(b, &cit)
+
+		if err != nil {
+			return nil, err
+		}
+	} else { //create case
+		err := json.Unmarshal(b, &cits)
+
+		if err != nil {
+			return nil, err
+		}
+
+		//we just get the cit we created/updated
+		cit = cits.CertificateTemplates[0]
+	}
+
+	return &cit, nil
+}
+
+func isWildCard(cnRegex []string) bool {
+	if len(cnRegex) > 0 {
+		for _, val := range cnRegex {
+			if !(strings.HasPrefix(val, "[*a")) {
+				return false
+			}
+		}
+		return true
+	}
+	return false
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 Venafi, Inc.
+ * Copyright 2018-2021 Venafi, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -83,6 +83,7 @@ type certificateRequest struct {
 	DisableAutomaticRenewal bool            `json:",omitempty"`
 	CustomFields            []customField   `json:",omitempty"`
 	Devices                 []device        `json:",omitempty"`
+	CertificateType         string          `json:",omitempty"`
 }
 
 type certificateRetrieveRequest struct {
@@ -218,11 +219,23 @@ type OauthRefreshAccessTokenResponse struct {
 	Refresh_token string `json:"refresh_token,omitempty"`
 	Token_type    string `json:"token_type,omitempty"`
 }
+
+type OauthVerifyTokenResponse struct {
+	AccessIssuedOn string `json:"access_issued_on_ISO8601,omitempty"`
+	ClientID       string `json:"application,omitempty"`
+	Expires        string `json:"expires_ISO8601,omitempty"`
+	GrantIssuedOn  string `json:"grant_issued_on_ISO8601,omitempty"`
+	Identity       string `json:"identity,omitempty"`
+	Scope          string `json:"scope,omitempty"`
+	ValidFor       int    `json:"valid_for,omitempty"`
+}
+
 type policyRequest struct {
 	ObjectDN      string `json:",omitempty"`
 	Class         string `json:",omitempty"`
 	AttributeName string `json:",omitempty"`
 }
+
 type metadataItem struct {
 	AllowedValues     []string `json:",omitempty"`
 	Classes           []string `json:",omitempty"`
@@ -275,27 +288,38 @@ type urlResource string
 
 const (
 	urlResourceAuthorize              urlResource = "vedsdk/authorize/"
-	urlResourceAuthorizeCertificate   urlResource = "vedauth/Authorize/Certificate"
+	urlResourceAuthorizeCertificate   urlResource = "vedauth/authorize/certificate"
 	urlResourceAuthorizeOAuth         urlResource = "vedauth/authorize/oauth"
+	urlResourceAuthorizeVerify        urlResource = "vedauth/authorize/verify"
+	urlResourceRefreshAccessToken     urlResource = "vedauth/authorize/token" // #nosec
+	urlResourceRevokeAccessToken      urlResource = "vedauth/revoke/token"    // #nosec
 	urlResourceCertificateImport      urlResource = "vedsdk/certificates/import"
 	urlResourceCertificatePolicy      urlResource = "vedsdk/certificates/checkpolicy"
 	urlResourceCertificateRenew       urlResource = "vedsdk/certificates/renew"
 	urlResourceCertificateRequest     urlResource = "vedsdk/certificates/request"
 	urlResourceCertificateRetrieve    urlResource = "vedsdk/certificates/retrieve"
 	urlResourceCertificateRevoke      urlResource = "vedsdk/certificates/revoke"
-	urlResourceCertificatesAssociate  urlResource = "vedsdk/Certificates/Associate"
-	urlResourceCertificatesDissociate urlResource = "vedsdk/Certificates/Dissociate"
+	urlResourceCertificatesAssociate  urlResource = "vedsdk/certificates/associate"
+	urlResourceCertificatesDissociate urlResource = "vedsdk/certificates/dissociate"
 	urlResourceCertificate            urlResource = "vedsdk/certificates/"
 	urlResourceCertificateSearch                  = urlResourceCertificate
 	urlResourceCertificatesList                   = urlResourceCertificate
-	urlResourceConfigDnToGuid         urlResource = "vedsdk/Config/DnToGuid"
-	urlResourceConfigReadDn           urlResource = "vedsdk/Config/ReadDn"
+	urlResourceConfigDnToGuid         urlResource = "vedsdk/config/dntoguid"
+	urlResourceConfigReadDn           urlResource = "vedsdk/config/readdn"
 	urlResourceFindPolicy             urlResource = "vedsdk/config/findpolicy"
-	urlResourceRefreshAccessToken     urlResource = "vedauth/authorize/token" // #nosec
 	urlResourceMetadataSet            urlResource = "vedsdk/metadata/set"
 	urlResourceAllMetadataGet         urlResource = "vedsdk/metadata/getitems"
 	urlResourceMetadataGet            urlResource = "vedsdk/metadata/get"
-	urlResourceSystemStatusVersion    urlResource = "vedsdk/SystemStatus/Version"
+	urlResourceSystemStatusVersion    urlResource = "vedsdk/systemstatus/version"
+	urlResourceCreatePolicy           urlResource = "vedsdk/Config/Create"
+	urlResourceWritePolicy            urlResource = "vedsdk/Config/WritePolicy"
+	urlResourceIsValidPolicy          urlResource = "vedsdk/Config/isvalid"
+	urlResourceReadPolicy             urlResource = "vedsdk/certificates/checkpolicy"
+	urlResourceCleanPolicy            urlResource = "vedsdk/config/clearpolicyattribute"
+	urlResourceSshCertReq             urlResource = "vedsdk/SSHCertificates/request"
+	urlResourceSshCertRet             urlResource = "vedsdk/SSHCertificates/retrieve"
+	urlResourceSshCAPubKey            urlResource = "vedsdk/SSHCertificates/Template/Retrieve/PublicKeyData"
+	urlResourceSshCADetails           urlResource = "vedsdk/SSHCertificates/Template/Retrieve"
 )
 
 const (
