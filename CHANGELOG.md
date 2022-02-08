@@ -1,4 +1,4 @@
-# v0.10.0 (Feb 8, 2021)
+# v0.10.0 (Feb 8, 2022)
 Support for CSR Service generated and Revoke action and changed the default format of private keys.
 
 # v0.9.1 (May 25, 2021)
