@@ -1,3 +1,6 @@
+# v0.10.0 (Feb 8, 2021)
+Support for CSR Service generated and Revoke action and changed the default format of private keys.
+
 # v0.9.1 (May 25, 2021)
 Updated to the latest VCert client version (v4.14.2) to address a timing issue that caused certificates requested from Venafi as a Service to fail sporadically.
 
