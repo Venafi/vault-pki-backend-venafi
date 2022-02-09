@@ -63,7 +63,7 @@ Example for Venafi Cloud: e33f3e40-4e7e-11ea-8da3-b3c196ebeb0b`,
 
 			"service_generated_cert": {
 				Type:        framework.TypeBool,
-				Description: `Use service generated CSR for Venafi Platfrom (ignored if Saas endpoint used)`,
+				Description: `Have Trust Protection Platform or Venafi as a Service generate keys and CSRs`,
 				Default:     false,
 			},
 			"store_pkey": {

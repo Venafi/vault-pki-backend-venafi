@@ -9,6 +9,15 @@ Listed below are the SHA256 hashes of plugins from recent official releases, pro
 simplify the task of identifying which version of the *Venafi PKI Secrets Engine for HashiCorp
 Vault* you are currently using.
 
+### v0.10.0
+```
+a09bdabfc31deb2de8b02646d319a71e5424d6db09bd15c63d7f31d02a9cf93a  darwin     venafi-pki-backend
+322c6d74a9e6ac258feac739100c354f94dff64a7c91b605b29b4cef9e3e8cdc  linux      venafi-pki-backend
+623a2c207bd2a472108f01c8099e237197df8eef0779898f81151922fefaf752  linux86    venafi-pki-backend
+92cb0527c4871c9c73067ba33610777c2ed81e53545bbf46c8f22179980024bb  windows    venafi-pki-backend.exe
+c2d2e457515f57a0039519f6281b4c9fd83d9d008e878fdf0133d55cfcf3c0bc  windows86  venafi-pki-backend.exe
+```
+
 ### v0.9.1
 ```
 b64502fab669236981f5d4af39624285cb4ae2f6b02a12b8cc5eacd589b96b18  darwin     venafi-pki-backend
