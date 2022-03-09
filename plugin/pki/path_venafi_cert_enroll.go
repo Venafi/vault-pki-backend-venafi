@@ -147,6 +147,7 @@ func (b *backend) pathVenafiSign(ctx context.Context, req *logical.Request, data
 func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request, data *framework.FieldData, role *roleEntry, signCSR bool) (
 	*logical.Response, error) {
 	b.mux.Lock()
+	defer b.mux.Unlock()
 	// When utilizing performance standbys in Vault Enterprise, this forces the call to be redirected to the primary since
 	// a storage call is made after the API calls to issue the certificate.  This prevents the certificate from being
 	// issued twice in this scenario.
@@ -414,7 +415,6 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 	if !signCSR {
 		logResp.AddWarning("Read access to this endpoint should be controlled via ACLs as it will return the connection private key as it is.")
 	}
-	b.mux.Unlock()
 	return logResp, nil
 }
 
