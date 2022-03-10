@@ -1,5 +1,5 @@
 # v0.10.1 (March 10, 2022)
-Fix for a bug with the use of lock in pathVenafiCertObtain function.
+Fix for a bug with the use of a synchronized block in pathVenafiCertObtain function.
 
 # v0.10.0 (Feb 8, 2022)
 Support for CSR Service generated and Revoke action and changed the default format of private keys.
