@@ -38,6 +38,11 @@ func pathVenafiCertRevoke(b *backend) *framework.Path {
 
 func (b *backend) venafiCertRevoke(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
 
+	op := req.Operation
+	if op == logical.RevokeOperation {
+		return nil, nil
+	}
+
 	b.Logger().Debug("Getting the role\n")
 	roleName := d.Get("role").(string)
 
