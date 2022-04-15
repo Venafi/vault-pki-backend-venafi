@@ -208,9 +208,7 @@ Venafi secrets engine:
    ```text
    $ vault write venafi-pki/roles/tpp \
        venafi_secret=tpp \
-       generate_lease=true store_by=serial store_pkey=true \
-       allowed_domains=example.com \
-       allow_subdomains=true
+       generate_lease=true store_by=serial store_pkey=true
    Success! Data written to: venafi-pki/roles/tpp
    ```
 
@@ -219,9 +217,7 @@ Venafi secrets engine:
    ```text
    $ vault write venafi-pki/roles/vaas \
        venafi_secret=vaas \
-       generate_lease=true store_by=serial store_pkey=true \
-       allowed_domains=example.com \
-       allow_subdomains=true
+       generate_lease=true store_by=serial store_pkey=true
    Success! Data written to: venafi-pki/roles/vaas
    ```
 
