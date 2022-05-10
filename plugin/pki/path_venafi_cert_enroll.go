@@ -341,7 +341,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 
 	_, err = tls.X509KeyPair([]byte(pcc.Certificate), []byte(pcc.PrivateKey))
 	if err != nil {
-		fmt.Errorf("the certificcate returned by Venafi did not contain the requested private key;" +
+		fmt.Errorf("the certificate returned by Venafi did not contain the requested private key" +
 			" key pair has been discarded")
 	}
 	if role.StorePrivateKey && !signCSR {
