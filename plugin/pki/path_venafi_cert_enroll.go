@@ -313,10 +313,13 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 
 	// Local generated
 	if !signCSR && !role.ServiceGenerated {
-		err = pcc.AddPrivateKey(certReq.PrivateKey, []byte(data.Get("key_password").(string)), format)
+		//err = pcc.AddPrivateKey(certReq.PrivateKey, []byte(data.Get("key_password").(string)), format)
+		privateKeyPemBytes, err := certificate.GetPrivateKeyPEMBock(certReq.PrivateKey, format)
 		if err != nil {
 			return nil, err
 		}
+		privateKeyPem := string(pem.EncodeToMemory(privateKeyPemBytes))
+		pcc.PrivateKey = privateKeyPem
 	} else {
 		// Service generated
 		privateKey, err := DecryptPkcs8PrivateKey(pcc.PrivateKey, keyPass)
