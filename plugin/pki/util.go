@@ -458,24 +458,6 @@ func getPrivateKey(keyBytes []byte, passphrase string) ([]byte, error) {
 	return keyBytes, nil
 }
 
-/*func encryptPrivateKey(privateKey string, password string, format string) (*string, error) {
-	var encryptedPrivateKeyPem1 *string
-	//var err error
-	//block, _ := pem.Decode([]byte(privateKey))
-
-	if format == "" {
-
-	} else {
-		//PKCS1
-		encryptedPrivateKeyPem, err := util.EncryptPkcs1PrivateKey(privateKey, password)
-		if err != nil {
-			return nil, err
-		}
-		encryptedPrivateKeyPem1 = &encryptedPrivateKeyPem
-	}
-	return encryptedPrivateKeyPem1, nil
-}*/
-
 func encryptPrivateKey(privateKey string, password string) (string, error) {
 	var encryptedPrivateKeyPem string
 	var err error
