@@ -1,7 +1,11 @@
 package policy
 
 import (
+	"encoding/json"
 	"fmt"
+	"gopkg.in/yaml.v2"
+	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -11,7 +15,7 @@ import (
 //this is the nearest to a constant on arrays.
 var TppKeyType = []string{"RSA", "ECDSA"}
 var TppRsaKeySize = []int{512, 1024, 2048, 3072, 4096}
-var CloudRsaKeySize = []int{1024, 2048, 4096}
+var CloudRsaKeySize = []int{1024, 2048, 3072, 4096}
 var TppEllipticCurves = []string{"P256", "P384", "P521"}
 
 func GetFileType(f string) string {
@@ -90,8 +94,10 @@ func validatePolicySubject(ps *PolicySpecification) error {
 		return fmt.Errorf("attribute countries has more than one value")
 	}
 
-	if len(subject.Countries[0]) != 2 {
-		return fmt.Errorf("number of country's characters, doesn't match to two characters")
+	if len(subject.Countries) > 0 {
+		if len(subject.Countries[0]) != 2 {
+			return fmt.Errorf("number of country's characters, doesn't match to two characters")
+		}
 	}
 
 	return nil
@@ -722,19 +728,12 @@ func ValidateCloudPolicySpecification(ps *PolicySpecification) error {
 	//validate key type
 	if ps.Policy != nil {
 		if ps.Policy.KeyPair != nil {
-			if len(ps.Policy.KeyPair.KeyTypes) > 1 {
-				return fmt.Errorf("attribute keyTypes has more than one value")
-			}
-
-			if ps.Policy.KeyPair.KeyTypes[0] != "RSA" {
-				return fmt.Errorf("specified attribute keyTypes value is not supported on Venafi cloud")
-			}
 
 			//validate key KeyTypes:keyLengths
 			if len(ps.Policy.KeyPair.RsaKeySizes) > 0 {
 				unSupported := getInvalidCloudRsaKeySizeValue(ps.Policy.KeyPair.RsaKeySizes)
 				if unSupported != nil {
-					return fmt.Errorf("specified attribute key lenght value: %s is not supported on Venafi cloud", strconv.Itoa(*(unSupported)))
+					return fmt.Errorf("specified attribute key length value: %s is not supported on VaaS", strconv.Itoa(*(unSupported)))
 				}
 			}
 		}
@@ -744,8 +743,13 @@ func ValidateCloudPolicySpecification(ps *PolicySpecification) error {
 			subjectAltNames := getSubjectAltNames(*(ps.Policy.SubjectAltNames))
 			if len(subjectAltNames) > 0 {
 				for k, v := range subjectAltNames {
-					if k != "dnsAllowed" && v {
+					if k == "upnAllowed" && v {
 						return fmt.Errorf("specified subjectAltNames: %s value is true, this value is not allowed ", k)
+					}
+					if k == "uriAllowed" && v {
+						if len(ps.Policy.SubjectAltNames.UriProtocols) == 0 {
+							return fmt.Errorf("uriAllowed attribute is true, but uriProtocols is not specified or empty")
+						}
 					}
 				}
 			}
@@ -810,8 +814,8 @@ func ValidateCloudPolicySpecification(ps *PolicySpecification) error {
 	if ps.Default != nil && ps.Default.KeyPair != nil {
 
 		if ps.Default.KeyPair.KeyType != nil && *(ps.Default.KeyPair.KeyType) != "" {
-			if *(ps.Default.KeyPair.KeyType) != "RSA" {
-				return fmt.Errorf("specified default attribute keyType value is not supported on Venafi cloud")
+			if *(ps.Default.KeyPair.KeyType) != "RSA" && *(ps.Default.KeyPair.KeyType) != "EC" {
+				return fmt.Errorf("specified default attribute keyType value is not supported on VaaS")
 			}
 		}
 
@@ -819,7 +823,7 @@ func ValidateCloudPolicySpecification(ps *PolicySpecification) error {
 		if ps.Default.KeyPair.RsaKeySize != nil && *(ps.Default.KeyPair.RsaKeySize) != 0 {
 			unSupported := getInvalidCloudRsaKeySizeValue([]int{*(ps.Default.KeyPair.RsaKeySize)})
 			if unSupported != nil {
-				return fmt.Errorf("specified attribute key lenght value: %s is not supported on Venafi cloud", strconv.Itoa(*(unSupported)))
+				return fmt.Errorf("specified attribute key length value: %s is not supported on VaaS", strconv.Itoa(*(unSupported)))
 			}
 		}
 	}
@@ -939,63 +943,169 @@ func BuildCloudCitRequest(ps *PolicySpecification, ca *CADetails) (*CloudPolicyR
 		} else {
 			cloudPolicyRequest.SanRegexes = regexValues //in cloud subject CN and SAN have the same values and we use domains as those values
 		}
+
+		if ps.Policy.SubjectAltNames != nil && ps.Policy.SubjectAltNames.EmailAllowed != nil {
+			if *(ps.Policy.SubjectAltNames.EmailAllowed) {
+				rfc882Regex := ConvertToRfc822Regex(ps.Policy.Domains)
+				cloudPolicyRequest.SanRfc822NameRegexes = rfc882Regex
+			} else {
+				cloudPolicyRequest.SanRfc822NameRegexes = nil
+			}
+		}
+
+		if ps.Policy != nil && ps.Policy.SubjectAltNames != nil && len(ps.Policy.SubjectAltNames.UriProtocols) > 0 {
+			uriRegex := convertToUriRegex(ps.Policy.SubjectAltNames.UriProtocols, ps.Policy.Domains)
+			cloudPolicyRequest.SanUniformResourceIdentifierRegexes = uriRegex
+		}
+
 	} else {
 		cloudPolicyRequest.SubjectCNRegexes = []string{".*"}
 		cloudPolicyRequest.SanRegexes = []string{".*"}
+
+		if ps.Policy != nil {
+			if ps.Policy.SubjectAltNames != nil && ps.Policy.SubjectAltNames.EmailAllowed != nil {
+				if *(ps.Policy.SubjectAltNames.EmailAllowed) {
+					cloudPolicyRequest.SanRfc822NameRegexes = []string{".*@.*"}
+				}
+			}
+
+			if ps.Policy.SubjectAltNames != nil && ps.Policy.SubjectAltNames.IpAllowed != nil {
+				if *(ps.Policy.SubjectAltNames.IpAllowed) {
+					cloudPolicyRequest.SanIpAddressRegexes = []string{}
+				}
+			}
+
+			//to be implemented.
+			if ps.Policy != nil && ps.Policy.SubjectAltNames != nil && len(ps.Policy.SubjectAltNames.UriProtocols) > 0 {
+				uriRegex := convertToUriRegex(ps.Policy.SubjectAltNames.UriProtocols, []string{".*"})
+				cloudPolicyRequest.SanUniformResourceIdentifierRegexes = uriRegex
+			}
+
+		}
+	}
+
+	if ps.Policy != nil && ps.Policy.SubjectAltNames != nil && ps.Policy.SubjectAltNames.IpAllowed != nil {
+		if *(ps.Policy.SubjectAltNames.IpAllowed) {
+			if len(ps.Policy.SubjectAltNames.IpConstraints) > 0 {
+				cloudPolicyRequest.SanIpAddressRegexes = getIpRegexes(ps.Policy.SubjectAltNames.IpConstraints)
+			} else {
+				cloudPolicyRequest.SanIpAddressRegexes = []string{
+					ipv4, ipv6,
+				}
+			}
+
+		} else {
+			cloudPolicyRequest.SanIpAddressRegexes = nil
+		}
 	}
 
 	if ps.Policy != nil && ps.Policy.Subject != nil && len(ps.Policy.Subject.Orgs) > 0 {
-		cloudPolicyRequest.SubjectORegexes = ps.Policy.Subject.Orgs
+		if len(ps.Policy.Subject.Orgs) == 1 && ps.Policy.Subject.Orgs[0] == "" {
+			cloudPolicyRequest.SubjectORegexes = nil
+		} else {
+			cloudPolicyRequest.SubjectORegexes = ps.Policy.Subject.Orgs
+		}
+
 	} else {
 		cloudPolicyRequest.SubjectORegexes = []string{".*"}
 	}
 
 	if ps.Policy != nil && ps.Policy.Subject != nil && len(ps.Policy.Subject.OrgUnits) > 0 {
-		cloudPolicyRequest.SubjectOURegexes = ps.Policy.Subject.OrgUnits
+		if len(ps.Policy.Subject.OrgUnits) == 1 && ps.Policy.Subject.OrgUnits[0] == "" {
+			cloudPolicyRequest.SubjectOURegexes = nil
+		} else {
+			cloudPolicyRequest.SubjectOURegexes = ps.Policy.Subject.OrgUnits
+		}
+
 	} else {
 		cloudPolicyRequest.SubjectOURegexes = []string{".*"}
 	}
 
 	if ps.Policy != nil && ps.Policy.Subject != nil && len(ps.Policy.Subject.Localities) > 0 {
-		cloudPolicyRequest.SubjectLRegexes = ps.Policy.Subject.Localities
+		if len(ps.Policy.Subject.Localities) == 1 && ps.Policy.Subject.Localities[0] == "" {
+			cloudPolicyRequest.SubjectLRegexes = nil
+		} else {
+			cloudPolicyRequest.SubjectLRegexes = ps.Policy.Subject.Localities
+		}
+
 	} else {
 		cloudPolicyRequest.SubjectLRegexes = []string{".*"}
 	}
 
 	if ps.Policy != nil && ps.Policy.Subject != nil && len(ps.Policy.Subject.States) > 0 {
-		cloudPolicyRequest.SubjectSTRegexes = ps.Policy.Subject.States
+		if len(ps.Policy.Subject.States) == 1 && ps.Policy.Subject.States[0] == "" {
+			cloudPolicyRequest.SubjectSTRegexes = nil
+		} else {
+			cloudPolicyRequest.SubjectSTRegexes = ps.Policy.Subject.States
+		}
 	} else {
 		cloudPolicyRequest.SubjectSTRegexes = []string{".*"}
 	}
 
 	if ps.Policy != nil && ps.Policy.Subject != nil && len(ps.Policy.Subject.Countries) > 0 {
-		cloudPolicyRequest.SubjectCValues = ps.Policy.Subject.Countries
+		if len(ps.Policy.Subject.Countries) == 1 && ps.Policy.Subject.Countries[0] == "" {
+			cloudPolicyRequest.SubjectCValues = nil
+		} else {
+			cloudPolicyRequest.SubjectCValues = ps.Policy.Subject.Countries
+		}
 	} else {
 		cloudPolicyRequest.SubjectCValues = []string{".*"}
 	}
 
-	var keyTypes KeyTypes
+	var keyType *KeyType
+	var ecKeyType *KeyType
 	if ps.Policy != nil && ps.Policy.KeyPair != nil && len(ps.Policy.KeyPair.KeyTypes) > 0 {
-		keyTypes.KeyType = ps.Policy.KeyPair.KeyTypes[0]
-	} else {
-		keyTypes.KeyType = "RSA"
-	}
-
-	if ps.Policy != nil && ps.Policy.KeyPair != nil && len(ps.Policy.KeyPair.RsaKeySizes) > 0 {
-		keyTypes.KeyLengths = ps.Policy.KeyPair.RsaKeySizes
-	} else {
-		// on this case we need to look if there is a default if so then we can use it.
-		if ps.Default != nil && ps.Default.KeyPair != nil && ps.Default.KeyPair.RsaKeySize != nil {
-			keyTypes.KeyLengths = []int{*(ps.Default.KeyPair.RsaKeySize)}
-		} else {
-			keyTypes.KeyLengths = []int{2048}
+		for _, val := range ps.Policy.KeyPair.KeyTypes {
+			if val == "RSA" {
+				keyType = &KeyType{}
+				keyType.KeyType = val
+			} else if val == "EC" {
+				ecKeyType = &KeyType{}
+				ecKeyType.KeyType = val
+			}
 		}
 
+	} else {
+		keyType = &KeyType{}
+		keyType.KeyType = "RSA"
 	}
 
-	var keyTypesArr []KeyTypes
+	if keyType != nil {
+		if ps.Policy != nil && ps.Policy.KeyPair != nil && len(ps.Policy.KeyPair.RsaKeySizes) > 0 {
+			keyType.KeyLengths = ps.Policy.KeyPair.RsaKeySizes
+		} else {
+			// on this case we need to look if there is a default if so then we can use it.
+			if ps.Default != nil && ps.Default.KeyPair != nil && ps.Default.KeyPair.RsaKeySize != nil {
+				keyType.KeyLengths = []int{*(ps.Default.KeyPair.RsaKeySize)}
+			} else {
+				keyType.KeyLengths = []int{2048}
+			}
 
-	keyTypesArr = append(keyTypesArr, keyTypes)
+		}
+	}
+
+	if ecKeyType != nil {
+		if ps.Policy != nil && ps.Policy.KeyPair != nil && len(ps.Policy.KeyPair.EllipticCurves) > 0 {
+			ecKeyType.KeyCurves = ps.Policy.KeyPair.EllipticCurves
+		} else {
+			// on this case we need to look if there is a default if so then we can use it.
+			if ps.Default != nil && ps.Default.KeyPair != nil && ps.Default.KeyPair.EllipticCurve != nil {
+				ecKeyType.KeyCurves = []string{*(ps.Default.KeyPair.EllipticCurve)}
+			} else {
+				ecKeyType.KeyCurves = []string{"P256"}
+			}
+		}
+	}
+
+	var keyTypesArr []KeyType
+
+	if keyType != nil {
+		keyTypesArr = append(keyTypesArr, *(keyType))
+	}
+
+	if ecKeyType != nil {
+		keyTypesArr = append(keyTypesArr, *(ecKeyType))
+	}
 
 	if len(keyTypesArr) > 0 {
 		cloudPolicyRequest.KeyTypes = keyTypesArr
@@ -1047,11 +1157,19 @@ func BuildCloudCitRequest(ps *PolicySpecification, ca *CADetails) (*CloudPolicyR
 		if ps.Default.KeyPair.KeyType != nil {
 
 			key.Type = *(ps.Default.KeyPair.KeyType)
-			if ps.Default.KeyPair.RsaKeySize != nil {
-				key.Length = *(ps.Default.KeyPair.RsaKeySize)
-			} else {
-				//default
-				key.Length = 2048
+			if key.Type == "RSA" {
+				if ps.Default.KeyPair.RsaKeySize != nil {
+					key.Length = *(ps.Default.KeyPair.RsaKeySize)
+				} else {
+					//default
+					key.Length = 2048
+				}
+			} else if key.Type == "EC" {
+				if ps.Default.KeyPair.EllipticCurve != nil && *(ps.Default.KeyPair.EllipticCurve) != "" {
+					key.Curve = *(ps.Default.KeyPair.EllipticCurve)
+				} else {
+					key.Curve = "P256"
+				}
 			}
 
 			shouldCreateKPRS = true
@@ -1065,6 +1183,14 @@ func BuildCloudCitRequest(ps *PolicySpecification, ca *CADetails) (*CloudPolicyR
 
 	if shouldCreateKPRS || shouldCreateSubjectRS {
 		cloudPolicyRequest.RecommendedSettings = &recommendedSettings
+	}
+
+	if ps.Policy != nil && ps.Policy.KeyPair != nil && ps.Policy.KeyPair.ServiceGenerated != nil {
+		cloudPolicyRequest.CsrUploadAllowed = !*(ps.Policy.KeyPair.ServiceGenerated)
+		cloudPolicyRequest.KeyGeneratedByVenafiAllowed = *(ps.Policy.KeyPair.ServiceGenerated)
+	} else {
+		cloudPolicyRequest.CsrUploadAllowed = true
+		cloudPolicyRequest.KeyGeneratedByVenafiAllowed = true
 	}
 
 	return &cloudPolicyRequest, nil
@@ -1081,6 +1207,71 @@ func ConvertToRegex(values []string, wildcardAllowed bool) []string {
 		}
 		regexVals = append(regexVals, currentRegex)
 	}
+	if len(regexVals) > 0 {
+		return regexVals
+	}
+
+	return nil
+}
+
+func getIpRegexes(supportedIps []string) (ipRegexes []string) {
+
+	ipRegexes = make([]string, 0)
+
+	for _, val := range supportedIps {
+
+		if val == "v4" {
+			ipRegexes = append(ipRegexes, ipv4)
+		}
+		if val == "v6" {
+			ipRegexes = append(ipRegexes, ipv6)
+
+		}
+		if val == "v4private" {
+			ipRegexes = append(ipRegexes, v4private)
+
+		}
+		if val == "v6private" {
+			ipRegexes = append(ipRegexes, v6private)
+
+		}
+	}
+
+	return ipRegexes
+}
+
+func ConvertToRfc822Regex(values []string) []string {
+	var regexVals []string
+	for _, current := range values {
+
+		currentRegex := strings.ReplaceAll(current, ".", "\\.")
+		currentRegex = fmt.Sprint(".*@", currentRegex)
+
+		regexVals = append(regexVals, currentRegex)
+	}
+
+	if len(regexVals) > 0 {
+		return regexVals
+	}
+
+	return nil
+}
+
+func convertToUriRegex(protocols, domains []string) []string {
+
+	var regexVals []string
+
+	protocolsS := strings.Join(protocols, "|")
+	protocolsS = fmt.Sprint("(", protocolsS, ")://.*\\.")
+
+	for _, current := range domains {
+
+		currentRegex := strings.ReplaceAll(current, ".", "\\.")
+		currentRegex = fmt.Sprint(protocolsS, currentRegex)
+
+		regexVals = append(regexVals, currentRegex)
+	}
+
 	if len(regexVals) > 0 {
 		return regexVals
 	}
@@ -1177,6 +1368,14 @@ func IsPolicyEmpty(ps *PolicySpecification) bool {
 		}
 
 		if san.UpnAllowed != nil {
+			return false
+		}
+
+		if len(san.IpConstraints) > 0 {
+			return false
+		}
+
+		if len(san.UriProtocols) > 0 {
 			return false
 		}
 	}
@@ -1295,4 +1494,95 @@ func IsDefaultEmpty(ps *PolicySpecification) bool {
 	}
 
 	return true
+}
+
+func VerifyPolicySpec(bytes []byte, fileExt string) error {
+
+	var err error
+	var policySpecification PolicySpecification
+
+	if fileExt == JsonExtension {
+		err = json.Unmarshal(bytes, &policySpecification)
+		if err != nil {
+			return err
+		}
+	} else if fileExt == YamlExtension {
+		err = yaml.Unmarshal(bytes, &policySpecification)
+		if err != nil {
+			return err
+		}
+	} else {
+		return fmt.Errorf("the specified file is not supported")
+	}
+
+	return nil
+}
+
+func GetFileAndBytes(p string) (*os.File, []byte, error) {
+	file, err := os.Open(p)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	bytes, err := ioutil.ReadAll(file)
+	if err != nil {
+		return nil, nil, err
+	}
+	return file, bytes, nil
+}
+func GetPolicySpec() *PolicySpecification {
+
+	emptyString := ""
+	intVal := 0
+	falseBool := false
+
+	specification := PolicySpecification{
+		Policy: &Policy{
+			CertificateAuthority: &emptyString,
+			Domains:              []string{""},
+			WildcardAllowed:      &falseBool,
+			AutoInstalled:        &falseBool,
+			MaxValidDays:         &intVal,
+			Subject: &Subject{
+				Orgs:       []string{""},
+				OrgUnits:   []string{""},
+				Localities: []string{""},
+				States:     []string{""},
+				Countries:  []string{""},
+			},
+			KeyPair: &KeyPair{
+				KeyTypes:         []string{""},
+				RsaKeySizes:      []int{0},
+				ServiceGenerated: &falseBool,
+				ReuseAllowed:     &falseBool,
+				EllipticCurves:   []string{""},
+			},
+			SubjectAltNames: &SubjectAltNames{
+				DnsAllowed:    &falseBool,
+				IpAllowed:     &falseBool,
+				EmailAllowed:  &falseBool,
+				UriAllowed:    &falseBool,
+				UpnAllowed:    &falseBool,
+				UriProtocols:  []string{""},
+				IpConstraints: []string{""},
+			},
+		},
+		Default: &Default{
+			Domain: &emptyString,
+			Subject: &DefaultSubject{
+				Org:      &emptyString,
+				OrgUnits: []string{""},
+				Locality: &emptyString,
+				State:    &emptyString,
+				Country:  &emptyString,
+			},
+			KeyPair: &DefaultKeyPair{
+				KeyType:          &emptyString,
+				RsaKeySize:       &intVal,
+				EllipticCurve:    &emptyString,
+				ServiceGenerated: &falseBool,
+			},
+		},
+	}
+	return &specification
 }

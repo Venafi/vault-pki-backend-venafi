@@ -23,11 +23,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/Venafi/vcert/v4/pkg/policy"
+	"github.com/Venafi/vcert/v4/pkg/util"
 	"io"
 	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -55,6 +57,23 @@ type userDetails struct {
 	User    *user    `json:"user,omitempty"`
 	Company *company `json:"company,omitempty"`
 	APIKey  *apiKey  `json:"apiKey,omitempty"`
+}
+
+type OwnerType int64
+
+const (
+	UserType OwnerType = iota
+	TeamType
+)
+
+func (o OwnerType) String() string {
+	switch o {
+	case UserType:
+		return "USER"
+	case TeamType:
+		return "TEAM"
+	}
+	return "unknown"
 }
 
 type certificateRequestResponse struct {
@@ -100,9 +119,20 @@ type CsrAttributes struct {
 	State                         *string                        `json:"state,omitempty"`
 	Country                       *string                        `json:"country,omitempty"`
 	SubjectAlternativeNamesByType *SubjectAlternativeNamesByType `json:"subjectAlternativeNamesByType,omitempty"`
+	KeyTypeParameters             *KeyTypeParameters             `json:"keyTypeParameters,omitempty"`
 }
+
+type KeyTypeParameters struct {
+	KeyType   string  `json:"keyType,omitempty"`
+	KeyLength *int    `json:"keyLength,omitempty"`
+	KeyCurve  *string `json:"keyCurve,omitempty"`
+}
+
 type SubjectAlternativeNamesByType struct {
-	DnsNames []string `json:"dnsNames,omitempty"`
+	DnsNames                   []string `json:"dnsNames,omitempty"`
+	IpAddresses                []string `json:"ipAddresses,omitempty"`
+	Rfc822Names                []string `json:"rfc822Names,omitempty"`
+	UniformResourceIdentifiers []string `json:"uniformResourceIdentifiers,omitempty"`
 }
 
 type KeyStoreRequest struct {
@@ -358,6 +388,81 @@ func parseUserDetailsData(b []byte) (*userDetails, error) {
 	return &data, nil
 }
 
+func parseUserByIdResult(expectedStatusCode int, httpStatusCode int, httpStatus string, body []byte) (*user, error) {
+	if httpStatusCode == expectedStatusCode {
+		return parseUserByIdData(body)
+	}
+	respErrors, err := parseResponseErrors(body)
+	if err != nil {
+		return nil, err // parseResponseErrors always return verror.ServerError
+	}
+	respError := fmt.Sprintf("unexpected status code on retrieval of user by ID. Status: %s\n", httpStatus)
+	for _, e := range respErrors {
+		respError += fmt.Sprintf("Error Code: %d Error: %s\n", e.Code, e.Message)
+	}
+	return nil, fmt.Errorf("%w: %v", verror.ServerError, respError)
+}
+
+func parseUserByIdData(b []byte) (*user, error) {
+	var data user
+	err := json.Unmarshal(b, &data)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", verror.ServerError, err)
+	}
+
+	return &data, nil
+}
+
+func parseUsersByNameResult(expectedStatusCode int, httpStatusCode int, httpStatus string, body []byte) (*users, error) {
+	if httpStatusCode == expectedStatusCode {
+		return parseUsersByNameData(body)
+	}
+	respErrors, err := parseResponseErrors(body)
+	if err != nil {
+		return nil, err // parseResponseErrors always return verror.ServerError
+	}
+	respError := fmt.Sprintf("unexpected status code on retrieval of users by name. Status: %s\n", httpStatus)
+	for _, e := range respErrors {
+		respError += fmt.Sprintf("Error Code: %d Error: %s\n", e.Code, e.Message)
+	}
+	return nil, fmt.Errorf("%w: %v", verror.ServerError, respError)
+}
+
+func parseUsersByNameData(b []byte) (*users, error) {
+	var data users
+	err := json.Unmarshal(b, &data)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", verror.ServerError, err)
+	}
+
+	return &data, nil
+}
+
+func parseTeamsResult(expectedStatusCode int, httpStatusCode int, httpStatus string, body []byte) (*teams, error) {
+	if httpStatusCode == expectedStatusCode {
+		return parseTeamsData(body)
+	}
+	respErrors, err := parseResponseErrors(body)
+	if err != nil {
+		return nil, err // parseResponseErrors always return verror.ServerError
+	}
+	respError := fmt.Sprintf("unexpected status code on retrieval of teams. Status: %s\n", httpStatus)
+	for _, e := range respErrors {
+		respError += fmt.Sprintf("Error Code: %d Error: %s\n", e.Code, e.Message)
+	}
+	return nil, fmt.Errorf("%w: %v", verror.ServerError, respError)
+}
+
+func parseTeamsData(b []byte) (*teams, error) {
+	var data teams
+	err := json.Unmarshal(b, &data)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", verror.ServerError, err)
+	}
+
+	return &data, nil
+}
+
 func parseZoneConfigurationResult(httpStatusCode int, httpStatus string, body []byte) (*zone, error) {
 	switch httpStatusCode {
 	case http.StatusOK:
@@ -537,8 +642,8 @@ func (z *cloudZone) parseZone() error {
 	return nil
 }
 
-func createAppUpdateRequest(applicationDetails *ApplicationDetails, cit *certificateTemplate) policy.ApplicationCreateRequest {
-	request := policy.ApplicationCreateRequest{
+func createAppUpdateRequest(applicationDetails *ApplicationDetails) policy.Application {
+	request := policy.Application{
 		OwnerIdsAndTypes:                     applicationDetails.OwnerIdType,
 		Name:                                 applicationDetails.Name,
 		Description:                          applicationDetails.Description,
@@ -554,19 +659,16 @@ func createAppUpdateRequest(applicationDetails *ApplicationDetails, cit *certifi
 		OrganizationalUnitId:                 applicationDetails.OrganizationalUnitId,
 	}
 
-	//add new cit values to the map.
-	citMap := request.CertificateIssuingTemplateAliasIdMap
-	value := citMap[cit.Name]
-	if value == "" {
-		citMap[cit.Name] = cit.ID
-	} else {
-		if value != cit.ID {
-			citMap[cit.Name] = cit.ID
-		}
-	}
-	request.CertificateIssuingTemplateAliasIdMap = citMap
-
 	return request
+}
+
+func getSAN(p *policy.Policy) *policy.SubjectAltNames {
+	if p == nil || p.SubjectAltNames == nil {
+		san := policy.SubjectAltNames{}
+		p.SubjectAltNames = &san
+		return &san
+	}
+	return p.SubjectAltNames
 }
 
 func buildPolicySpecification(cit *certificateTemplate, info *policy.CertificateAuthorityInfo, removeRegex bool) *policy.PolicySpecification {
@@ -590,10 +692,39 @@ func buildPolicySpecification(cit *certificateTemplate, info *policy.Certificate
 	pol.WildcardAllowed = &wildCard
 
 	if len(cit.SANRegexes) > 0 {
-		subjectAlt := policy.SubjectAltNames{}
-		trueVal := true
-		subjectAlt.DnsAllowed = &trueVal
-		pol.SubjectAltNames = &subjectAlt
+		subjectAlt := getSAN(&pol)
+		subjectAlt.DnsAllowed = util.GetBooleanRef(true)
+	}
+
+	if len(cit.SanRfc822NameRegexes) > 0 {
+		subjectAlt := getSAN(&pol)
+		subjectAlt.EmailAllowed = util.GetBooleanRef(true)
+	}
+
+	if len(cit.SanUniformResourceIdentifierRegexes) > 0 {
+		subjectAlt := getSAN(&pol)
+		protocols := make([]string, 0)
+		for _, val := range cit.SanUniformResourceIdentifierRegexes {
+			index := strings.Index(val, ")://")
+			subStr := val[1:index]
+			currProtocols := strings.Split(subStr, "|")
+			for _, currentProtocol := range currProtocols {
+				if len(protocols) == 0 {
+					protocols = append(protocols, currentProtocol)
+				} else {
+					if !contains(protocols, currentProtocol) {
+						protocols = append(protocols, currentProtocol)
+					}
+				}
+			}
+		}
+		subjectAlt.UriProtocols = protocols
+		subjectAlt.UriAllowed = util.GetBooleanRef(true)
+	}
+
+	if len(cit.SanIpAddressRegexes) > 0 {
+		subjectAlt := getSAN(&pol)
+		subjectAlt.IpAllowed = util.GetBooleanRef(true)
 	}
 
 	// ps.Policy.WildcardAllowed is pending.
@@ -612,36 +743,38 @@ func buildPolicySpecification(cit *certificateTemplate, info *policy.Certificate
 
 	//subject.
 	var subject policy.Subject
-	shouldCreateSubject := false
 
 	if len(cit.SubjectORegexes) > 0 {
 		subject.Orgs = cit.SubjectORegexes
-		shouldCreateSubject = true
+	} else if cit.SubjectORegexes == nil {
+		subject.Orgs = []string{""}
 	}
 
 	if len(cit.SubjectOURegexes) > 0 {
 		subject.OrgUnits = cit.SubjectOURegexes
-		shouldCreateSubject = true
+	} else if cit.SubjectOURegexes == nil {
+		subject.OrgUnits = []string{""}
 	}
 
 	if len(cit.SubjectLRegexes) > 0 {
 		subject.Localities = cit.SubjectLRegexes
-		shouldCreateSubject = true
+	} else if cit.SubjectLRegexes == nil {
+		subject.Localities = []string{""}
 	}
 
 	if len(cit.SubjectSTRegexes) > 0 {
 		subject.States = cit.SubjectSTRegexes
-		shouldCreateSubject = true
+	} else if cit.SubjectSTRegexes == nil {
+		subject.States = []string{""}
 	}
 
 	if len(cit.SubjectCValues) > 0 {
 		subject.Countries = cit.SubjectCValues
-		shouldCreateSubject = true
+	} else if cit.SubjectCValues == nil {
+		subject.Countries = []string{""}
 	}
 
-	if shouldCreateSubject {
-		pol.Subject = &subject
-	}
+	pol.Subject = &subject
 
 	//key pair
 	var keyPair policy.KeyPair
@@ -649,19 +782,44 @@ func buildPolicySpecification(cit *certificateTemplate, info *policy.Certificate
 	if len(cit.KeyTypes) > 0 {
 		var keyTypes []string
 		var keySizes []int
+		var ellipticCurves []string
 
 		for _, allowedKT := range cit.KeyTypes {
 			keyType := string(allowedKT.KeyType)
 			keyLengths := allowedKT.KeyLengths
+			ecKeys := allowedKT.KeyCurves
 
 			keyTypes = append(keyTypes, keyType)
 
-			keySizes = append(keySizes, keyLengths...)
+			if len(keyLengths) > 0 {
+				keySizes = append(keySizes, keyLengths...)
+			}
+
+			if len(ecKeys) > 0 {
+				ellipticCurves = append(ellipticCurves, ecKeys...)
+			}
 
 		}
 		shouldCreateKeyPair = true
 		keyPair.KeyTypes = keyTypes
-		keyPair.RsaKeySizes = keySizes
+		if len(keySizes) > 0 {
+			keyPair.RsaKeySizes = keySizes
+		}
+
+		if len(ellipticCurves) > 0 {
+			keyPair.EllipticCurves = ellipticCurves
+		}
+	}
+
+	if cit.KeyGeneratedByVenafiAllowed && cit.CsrUploadAllowed {
+		keyPair.ServiceGenerated = nil
+	} else if cit.KeyGeneratedByVenafiAllowed {
+		keyPair.ServiceGenerated = &cit.KeyGeneratedByVenafiAllowed
+		shouldCreateKeyPair = true
+	} else if cit.CsrUploadAllowed {
+		falseVal := false
+		keyPair.ServiceGenerated = &falseVal
+		shouldCreateKeyPair = true
 	}
 
 	if shouldCreateKeyPair {
@@ -728,6 +886,30 @@ func buildPolicySpecification(cit *certificateTemplate, info *policy.Certificate
 	}
 
 	return &ps
+}
+
+func contains(values []string, toSearch string) bool {
+	copiedValues := make([]string, len(values))
+	copy(copiedValues, values)
+	sort.Strings(copiedValues)
+
+	return binarySearch(copiedValues, toSearch) >= 0
+}
+
+func binarySearch(values []string, toSearch string) int {
+	len := len(values) - 1
+	min := 0
+	for min <= len {
+		mid := len - (len-min)/2
+		if strings.Compare(toSearch, values[mid]) > 0 {
+			min = mid + 1
+		} else if strings.Compare(toSearch, values[mid]) < 0 {
+			len = mid - 1
+		} else {
+			return mid
+		}
+	}
+	return -1
 }
 
 func parseCitResult(expectedStatusCode int, httpStatusCode int, httpStatus string, body []byte) (*certificateTemplate, error) {
