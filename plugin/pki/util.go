@@ -3,14 +3,19 @@ package pki
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"github.com/Venafi/vcert/v4"
 	"github.com/Venafi/vcert/v4/pkg/endpoint"
+	"github.com/Venafi/vcert/v4/pkg/util"
 	"github.com/Venafi/vcert/v4/pkg/venafi/tpp"
 	"github.com/hashicorp/vault/sdk/logical"
+	"github.com/youmark/pkcs8"
 	"io/ioutil"
+	mathrand "math/rand"
 	"net"
 	"net/http"
 	"os"
@@ -24,6 +29,7 @@ const (
 	role_ttl_test_property = int(120)
 	ttl_test_property      = int(48)
 	HTTP_UNAUTHORIZED      = 401
+	LEGACY_PEM             = "der"
 )
 
 func sliceContains(slice []string, item string) bool {
@@ -421,4 +427,114 @@ func getAccessData(cfg *vcert.Config) (tpp.OauthRefreshAccessTokenResponse, erro
 
 	return tokenInfoResponse, err
 
+}
+
+func randRunes(n int) string {
+	var letterRunes = []rune("abcdefghijklmnopqrstuvwxyz")
+	b := make([]rune, n)
+	for i := range b {
+		/* #nosec */
+		b[i] = letterRunes[mathrand.Intn(len(letterRunes))]
+	}
+	return string(b)
+}
+
+func getPrivateKey(keyBytes []byte, passphrase string) ([]byte, error) {
+	// this section makes some small changes to code from notary/tuf/utils/x509.go
+	pemBlock, _ := pem.Decode(keyBytes)
+	if pemBlock == nil {
+		return nil, fmt.Errorf("no valid private key found")
+	}
+
+	var err error
+	if util.X509IsEncryptedPEMBlock(pemBlock) {
+		keyBytes, err = util.X509DecryptPEMBlock(pemBlock, []byte(passphrase))
+		if err != nil {
+			return nil, fmt.Errorf("private key is encrypted, but could not decrypt it: %s", err.Error())
+		}
+		keyBytes = pem.EncodeToMemory(&pem.Block{Type: pemBlock.Type, Bytes: keyBytes})
+	}
+
+	return keyBytes, nil
+}
+
+func encryptPrivateKey(privateKey string, password string) (string, error) {
+	var encryptedPrivateKeyPem string
+	var err error
+	encryptedPrivateKeyPem, err = EncryptPkcs1PrivateKey(privateKey, password)
+	if err != nil {
+		// We try PKCS8
+		encryptedPrivateKeyPem, err = encryptPkcs8PrivateKey(privateKey, password)
+		if err != nil {
+			return "", err
+		}
+	}
+	return encryptedPrivateKeyPem, nil
+}
+
+func DecryptPkcs8PrivateKey(privateKey string, password string) (string, error) {
+
+	block, _ := pem.Decode([]byte(privateKey))
+	key, _, err := pkcs8.ParsePrivateKey(block.Bytes, []byte(password))
+
+	if err != nil {
+		return "", err
+	}
+
+	pemType := "PRIVATE KEY"
+
+	privateKeyBytes, err := pkcs8.MarshalPrivateKey(key, nil, nil)
+
+	if err != nil {
+		return "", err
+	}
+
+	pemBytes := pem.EncodeToMemory(&pem.Block{Type: pemType, Bytes: privateKeyBytes})
+
+	return string(pemBytes), nil
+}
+
+func EncryptPkcs1PrivateKey(privateKey string, password string) (string, error) {
+
+	block, _ := pem.Decode([]byte(privateKey))
+
+	keyType := util.GetPrivateKeyType(privateKey, password)
+	var encrypted *pem.Block
+	var err error
+	if keyType == "RSA PRIVATE KEY" {
+		encrypted, err = util.X509EncryptPEMBlock(rand.Reader, "RSA PRIVATE KEY", block.Bytes, []byte(password), util.PEMCipherAES256)
+		if err != nil {
+			return "", nil
+		}
+	} else if keyType == "EC PRIVATE KEY" {
+		encrypted, err = util.X509EncryptPEMBlock(rand.Reader, "EC PRIVATE KEY", block.Bytes, []byte(password), util.PEMCipherAES256)
+		if err != nil {
+			return "", nil
+		}
+	} else {
+		return "", fmt.Errorf("unable to encrypt key in PKCS1 format")
+	}
+	return string(pem.EncodeToMemory(encrypted)), nil
+}
+
+func encryptPkcs8PrivateKey(privateKey string, password string) (string, error) {
+	block, _ := pem.Decode([]byte(privateKey))
+	key, _, err := pkcs8.ParsePrivateKey(block.Bytes, []byte(""))
+	if err != nil {
+		return "", err
+	}
+	privateKeyBytes1, err := pkcs8.MarshalPrivateKey(key, []byte(password), nil)
+	if err != nil {
+		return "", err
+	}
+
+	keyType := "ENCRYPTED PRIVATE KEY"
+
+	// Generate a pem block with the private key
+	keyPemBytes := pem.EncodeToMemory(&pem.Block{
+		Type:  keyType,
+		Bytes: privateKeyBytes1,
+	})
+	encryptedPrivateKeyPem := string(keyPemBytes)
+	return encryptedPrivateKeyPem, nil
 }

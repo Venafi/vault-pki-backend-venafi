@@ -15,6 +15,10 @@ func pathVenafiCertRead(b *backend) *framework.Path {
 				Type:        framework.TypeString,
 				Description: "Common name or serial number of desired certificate",
 			},
+			"key_password": {
+				Type:        framework.TypeString,
+				Description: "Password for encrypting private key",
+			},
 		},
 		Callbacks: map[logical.Operation]framework.OperationFunc{
 			logical.ReadOperation: b.pathVenafiCertRead,
@@ -60,6 +64,14 @@ func (b *backend) pathVenafiCertRead(ctx context.Context, req *logical.Request, 
 		"certificate_chain": cert.CertificateChain,
 		"certificate":       cert.Certificate,
 		"private_key":       cert.PrivateKey,
+	}
+	keyPassword := data.Get("key_password").(string)
+	if keyPassword != "" {
+		encryptedPrivateKeyPem, err := encryptPrivateKey(cert.PrivateKey, keyPassword)
+		if err != nil {
+			return nil, err
+		}
+		respData["private_key"] = encryptedPrivateKeyPem
 	}
 
 	return &logical.Response{

@@ -54,9 +54,14 @@ type CloudPolicyRequest struct {
 	SubjectSTRegexes                    []string             `json:"subjectSTRegexes"`
 	SubjectCValues                      []string             `json:"subjectCValues"`
 	SanRegexes                          []string             `json:"sanRegexes"`
-	KeyTypes                            []KeyTypes           `json:"keyTypes"`
+	SanIpAddressRegexes                 []string             `json:"sanIpAddressRegexes"`
+	SanRfc822NameRegexes                []string             `json:"sanRfc822NameRegexes"`
+	SanUniformResourceIdentifierRegexes []string             `json:"sanUniformResourceIdentifierRegexes"`
+	KeyTypes                            []KeyType            `json:"keyTypes"`
 	KeyReuse                            *bool                `json:"keyReuse"`
 	RecommendedSettings                 *RecommendedSettings `json:"recommendedSettings"`
+	CsrUploadAllowed                    bool                 `json:"csrUploadAllowed"`
+	KeyGeneratedByVenafiAllowed         bool                 `json:"keyGeneratedByVenafiAllowed"`
 }
 
 type Product struct {
@@ -68,9 +73,10 @@ type Product struct {
 	OrganizationId       *int64  `json:"organizationId,omitempty"`
 }
 
-type KeyTypes struct {
-	KeyType    string `json:"keyType"`
-	KeyLengths []int  `json:"keyLengths"`
+type KeyType struct {
+	KeyType    string   `json:"keyType"`
+	KeyLengths []int    `json:"keyLengths,omitempty"`
+	KeyCurves  []string `json:"keyCurves,omitempty"`
 }
 
 type TrackingData struct {
@@ -93,10 +99,11 @@ type RecommendedSettings struct {
 
 type Key struct {
 	Type   string `json:"type"`
-	Length int    `json:"length"`
+	Length int    `json:"length,omitempty"`
+	Curve  string `json:"curve,omitempty"`
 }
 
-type ApplicationCreateRequest struct {
+type Application struct {
 	OwnerIdsAndTypes                     []OwnerIdType     `json:"ownerIdsAndTypes"`
 	Name                                 string            `json:"name"`
 	Description                          string            `json:"description"`
@@ -147,6 +154,42 @@ type TppPolicy struct {
 	ManualCsr            *LockedAttribute
 	AllowPrivateKeyReuse *int
 	WantRenewal          *int
+}
+
+type BrowseIdentitiesRequest struct {
+	Filter       string
+	Limit        int
+	IdentityType int
+}
+
+type BrowseIdentitiesResponse struct {
+	Identities []IdentityEntry
+}
+
+type IdentitySelfResponse struct {
+	Identities []IdentityEntry
+}
+
+type ValidateIdentityRequest struct {
+	ID IdentityInformation
+}
+
+type ValidateIdentityResponse struct {
+	ID IdentityEntry
+}
+
+type IdentityInformation struct {
+	PrefixedUniversal string
+}
+
+type IdentityEntry struct {
+	FullName          string
+	Name              string
+	Prefix            string
+	PrefixedName      string
+	PrefixedUniversal string
+	Type              int
+	Universal         string
 }
 
 type LockedAttribute struct {

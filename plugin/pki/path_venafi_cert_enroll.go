@@ -2,6 +2,8 @@ package pki
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
@@ -120,10 +122,6 @@ func (b *backend) pathVenafiIssue(ctx context.Context, req *logical.Request, dat
 		return logical.ErrorResponse("role key type \"any\" not allowed for issuing certificates, only signing"), nil
 	}
 
-	if role.ServiceGenerated && data.Get("key_password").(string) == "" {
-		return logical.ErrorResponse("for service generated csr, \"key_password\" must not be empty"), nil
-	}
-
 	return b.pathVenafiCertObtain(ctx, req, data, role, false)
 }
 
@@ -155,6 +153,8 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 		HasState(consts.ReplicationPerformanceStandby|consts.ReplicationPerformanceSecondary) {
 		return nil, logical.ErrReadOnly
 	}
+
+	keyPass := fmt.Sprintf("t%d-%s.tem.pwd", time.Now().Unix(), randRunes(4))
 
 	b.Logger().Debug("Getting the role\n")
 	roleName := data.Get("role").(string)
@@ -281,7 +281,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 
 	if role.ServiceGenerated {
 		pickupReq.FetchPrivateKey = true
-		pickupReq.KeyPassword = data.Get("key_password").(string)
+		pickupReq.KeyPassword = keyPass
 	}
 
 	pcc, err := cl.RetrieveCertificate(pickupReq)
@@ -306,30 +306,48 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 	format := ""
 	privateKeyFormat, ok := data.GetOk("private_key_format")
 	if ok {
-		if privateKeyFormat == "der" {
+		if privateKeyFormat == LEGACY_PEM {
 			format = "legacy-pem"
 		}
 	}
 
+	// Local generated
 	if !signCSR && !role.ServiceGenerated {
-		err = pcc.AddPrivateKey(certReq.PrivateKey, []byte(data.Get("key_password").(string)), format)
+		privateKeyPemBytes, err := certificate.GetPrivateKeyPEMBock(certReq.PrivateKey, format)
 		if err != nil {
 			return nil, err
 		}
-	} else {
-		if reqData.keyPassword != "" && privateKeyFormat == "der" {
-			privateKey, err := util.DecryptPkcs8PrivateKey(pcc.PrivateKey, reqData.keyPassword)
-			if err != nil {
-				return nil, err
-			}
-			privateKey, err = util.EncryptPkcs1PrivateKey(privateKey, reqData.keyPassword)
-			if err != nil {
-				return nil, err
-			}
-			pcc.PrivateKey = privateKey
+		privateKeyPem := string(pem.EncodeToMemory(privateKeyPemBytes))
+		pcc.PrivateKey = privateKeyPem
+	} else if role.ServiceGenerated {
+		// Service generated
+		privateKey, err := DecryptPkcs8PrivateKey(pcc.PrivateKey, keyPass)
+		if err != nil {
+			return nil, err
 		}
+		block, _ := pem.Decode([]byte(privateKey))
+		if privateKeyFormat == LEGACY_PEM {
+			encrypted, err := util.X509EncryptPEMBlock(rand.Reader, "RSA PRIVATE KEY", block.Bytes, []byte(keyPass), util.PEMCipherAES256)
+			if err != nil {
+				return nil, err
+			}
+			encryptedPem := pem.EncodeToMemory(encrypted)
+			privateKeyBytes, err := getPrivateKey(encryptedPem, keyPass)
+			if err != nil {
+				return nil, err
+			}
+			privateKey = string(privateKeyBytes)
+		}
+		pcc.PrivateKey = privateKey
+	} else {
+		b.Logger().Debug("CSR is being provided, not processing private key")
 	}
 
+	_, err = tls.X509KeyPair([]byte(pcc.Certificate), []byte(pcc.PrivateKey))
+	if err != nil {
+		fmt.Errorf("the certificate returned by Venafi did not contain the requested private key," +
+			" key pair has been discarded")
+	}
 	if role.StorePrivateKey && !signCSR {
 		entry, err = logical.StorageEntryJSON("", VenafiCert{
 			Certificate:      pcc.Certificate,
@@ -390,7 +408,16 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 		"expiration":        expirationSec,
 	}
 	if !signCSR {
-		respData["private_key"] = pcc.PrivateKey
+		keyPassword := data.Get("key_password").(string)
+		if keyPassword == "" {
+			respData["private_key"] = pcc.PrivateKey
+		} else {
+			encryptedPrivateKeyPem, err := encryptPrivateKey(pcc.PrivateKey, keyPassword)
+			if err != nil {
+				return nil, err
+			}
+			respData["private_key"] = encryptedPrivateKeyPem
+		}
 	}
 
 	var logResp *logical.Response

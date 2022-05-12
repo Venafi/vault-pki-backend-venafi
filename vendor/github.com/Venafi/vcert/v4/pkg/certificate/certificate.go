@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 Venafi, Inc.
+ * Copyright 2022 Venafi, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -206,7 +206,7 @@ type Request struct {
 
 //SSH Certificate structures
 
-//This request is a standard one, it will hold data for tpp request
+// SshCertRequest This request is a standard one, it will hold data for tpp request
 //and in the future it will hold VaS data.
 type SshCertRequest struct {
 	Template             string
@@ -361,6 +361,75 @@ type CertSearchResponse struct {
 	Count        int             `json:"TotalCount"`
 }
 
+type CertificateMetaData struct {
+	Approver               []string `json:"Approver"`
+	CreatedOn              string   `json:"CreatedOn"`
+	CertificateAuthorityDN string   `json:"CertificateAuthorityDN"`
+	Contact                []string `json:"Contact"`
+	CreatedBy              []string `json:"CreatedBy"`
+	CertificateDetails     struct {
+		AIACAIssuerURL        []string  `json:"AIACAIssuerURL"`
+		AIAKeyIdentifier      string    `json:"AIAKeyIdentifier"`
+		C                     string    `json:"C"`
+		CDPURI                string    `json:"CDPURI"`
+		CN                    string    `json:"CN"`
+		EnhancedKeyUsage      string    `json:"EnhancedKeyUsage"`
+		Issuer                string    `json:"Issuer"`
+		KeyAlgorithm          string    `json:"KeyAlgorithm"`
+		KeySize               int       `json:"KeySize"`
+		KeyUsage              string    `json:"KeyUsage"`
+		L                     string    `json:"L"`
+		O                     string    `json:"O"`
+		OU                    []string  `json:"OU"`
+		PublicKeyHash         string    `json:"PublicKeyHash"`
+		S                     string    `json:"S"`
+		SKIKeyIdentifier      string    `json:"SKIKeyIdentifier"`
+		Serial                string    `json:"Serial"`
+		SignatureAlgorithm    string    `json:"SignatureAlgorithm"`
+		SignatureAlgorithmOID string    `json:"SignatureAlgorithmOID"`
+		StoreAdded            time.Time `json:"StoreAdded"`
+		Subject               string    `json:"Subject"`
+		TemplateMajorVersion  string    `json:"TemplateMajorVersion"`
+		TemplateMinorVersion  string    `json:"TemplateMinorVersion"`
+		TemplateName          string    `json:"TemplateName"`
+		TemplateOID           string    `json:"TemplateOID"`
+		Thumbprint            string    `json:"Thumbprint"`
+		ValidFrom             time.Time `json:"ValidFrom"`
+		ValidTo               time.Time `json:"ValidTo"`
+	} `json:"CertificateDetails"`
+
+	RenewalDetails struct {
+		City               string   `json:"City"`
+		Country            string   `json:"Country"`
+		KeySize            int      `json:"KeySize"`
+		Organization       string   `json:"Organization"`
+		OrganizationalUnit []string `json:"OrganizationalUnit"`
+		State              string   `json:"State"`
+		Subject            string   `json:"Subject"`
+	} `json:"RenewalDetails"`
+
+	ValidationDetails struct {
+		LastValidationStateUpdate time.Time `json:"LastValidationStateUpdate"`
+		NetworkValidationDisabled bool      `json:"NetworkValidationDisabled"`
+		ValidationDisabled        bool      `json:"ValidationDisabled"`
+	} `json:"ValidationDetails"`
+
+	CustomFields []CustomFieldDetails `json:"CustomFields"`
+
+	DN             string `json:"DN"`
+	Guid           string `json:"Guid"`
+	ManagementType string `json:"ManagementType"`
+	Name           string `json:"Name"`
+	Origin         string `json:"Origin"`
+	ParentDn       string `json:"ParentDn"`
+	SchemaClass    string `json:"SchemaClass"`
+}
+type CustomFieldDetails struct {
+	Name  string   `json:"Name"`
+	Type  string   `json:"Type"`
+	Value []string `json:"Value"`
+}
+
 type CertSeachInfo struct {
 	CertificateRequestId   string `json:"DN"`
 	CertificateRequestGuid string `json:"Guid"`
@@ -409,14 +478,7 @@ func (request *Request) GenerateCSR() error {
 	certificateRequest := x509.CertificateRequest{}
 	certificateRequest.Subject = request.Subject
 	if !request.OmitSANs {
-		certificateRequest.DNSNames = request.DNSNames
-		certificateRequest.EmailAddresses = request.EmailAddresses
-		certificateRequest.IPAddresses = request.IPAddresses
-		certificateRequest.URIs = request.URIs
-
-		if len(request.UPNs) > 0 {
-			addUserPrincipalNameSANs(&certificateRequest, request.UPNs)
-		}
+		addSubjectAltNames(&certificateRequest, request.DNSNames, request.EmailAddresses, request.IPAddresses, request.URIs, request.UPNs)
 	}
 	certificateRequest.Attributes = request.Attributes
 
@@ -551,11 +613,19 @@ func GetPrivateKeyPEMBock(key crypto.Signer, format ...string) (*pem.Block, erro
 			return &pem.Block{Type: "PRIVATE KEY", Bytes: dataBytes}, err
 		}
 	case *ecdsa.PrivateKey:
-		b, err := x509.MarshalECPrivateKey(k)
-		if err != nil {
-			return nil, err
+		if currentFormat == "legacy-pem" {
+			b, err := x509.MarshalECPrivateKey(k)
+			if err != nil {
+				return nil, err
+			}
+			return &pem.Block{Type: "EC PRIVATE KEY", Bytes: b}, nil
+		} else {
+			dataBytes, err := pkcs8.MarshalPrivateKey(key.(*ecdsa.PrivateKey), nil, nil)
+			if err != nil {
+				return nil, err
+			}
+			return &pem.Block{Type: "PRIVATE KEY", Bytes: dataBytes}, err
 		}
-		return &pem.Block{Type: "EC PRIVATE KEY", Bytes: b}, nil
 	default:
 		return nil, fmt.Errorf("%w: unable to format Key", verror.VcertError)
 	}
@@ -579,11 +649,19 @@ func GetEncryptedPrivateKeyPEMBock(key crypto.Signer, password []byte, format ..
 			return &pem.Block{Type: "ENCRYPTED PRIVATE KEY", Bytes: dataBytes}, err
 		}
 	case *ecdsa.PrivateKey:
-		b, err := x509.MarshalECPrivateKey(k)
-		if err != nil {
-			return nil, err
+		if currentFormat == "legacy-pem" {
+			b, err := x509.MarshalECPrivateKey(k)
+			if err != nil {
+				return nil, err
+			}
+			return util.X509EncryptPEMBlock(rand.Reader, "EC PRIVATE KEY", b, password, util.PEMCipherAES256)
+		} else {
+			dataBytes, err := pkcs8.MarshalPrivateKey(key.(*ecdsa.PrivateKey), password, nil)
+			if err != nil {
+				return nil, err
+			}
+			return &pem.Block{Type: "ENCRYPTED PRIVATE KEY", Bytes: dataBytes}, err
 		}
-		return util.X509EncryptPEMBlock(rand.Reader, "EC PRIVATE KEY", b, password, util.PEMCipherAES256)
 	default:
 		return nil, fmt.Errorf("%w: unable to format Key", verror.VcertError)
 	}

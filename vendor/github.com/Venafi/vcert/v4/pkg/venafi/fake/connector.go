@@ -39,8 +39,12 @@ type Connector struct {
 	verbose bool
 }
 
+func (c *Connector) RetrieveCertificateMetaData(dn string) (*certificate.CertificateMetaData, error) {
+	panic("operation is not supported yet")
+}
+
 func (c *Connector) SearchCertificates(req *certificate.SearchRequest) (*certificate.CertSearchResponse, error) {
-	panic("implement me")
+	panic("operation is not supported yet")
 }
 
 func (c *Connector) IsCSRServiceGenerated(req *certificate.Request) (bool, error) {
@@ -56,6 +60,10 @@ func (c *Connector) RetrieveSSHCertificate(req *certificate.SshCertRequest) (res
 }
 
 func (c *Connector) RequestSSHCertificate(req *certificate.SshCertRequest) (response *certificate.SshCertificateObject, err error) {
+	panic("operation is not supported yet")
+}
+
+func (c *Connector) RetrieveAvailableSSHTemplates() (response []certificate.SshAvaliableTemplate, err error) {
 	panic("operation is not supported yet")
 }
 

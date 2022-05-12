@@ -23,6 +23,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/Venafi/vcert/v4/pkg/policy"
 	"io"
 	"io/ioutil"
 	"log"
@@ -198,6 +199,7 @@ type OauthGetRefreshTokenResponse struct {
 	Expires       int    `json:"expires,omitempty"`
 	Identity      string `json:"identity,omitempty"`
 	Refresh_token string `json:"refresh_token,omitempty"`
+	Refresh_until int    `json:"refresh_until,omitempty"`
 	Scope         string `json:"scope,omitempty"`
 	Token_type    string `json:"token_type,omitempty"`
 }
@@ -217,6 +219,7 @@ type OauthRefreshAccessTokenResponse struct {
 	Expires       int    `json:"expires,omitempty"`
 	Identity      string `json:"identity,omitempty"`
 	Refresh_token string `json:"refresh_token,omitempty"`
+	Refresh_until int    `json:"refresh_until,omitempty"`
 	Token_type    string `json:"token_type,omitempty"`
 }
 
@@ -282,12 +285,25 @@ type metadataSetResponse struct {
 	Locked bool `json:",omitempty"`
 	Result int  `json:",omitempty"`
 }
+
+type DNToGUIDResponse struct {
+	ClassName        string `json:"ClassName"`
+	GUID             string `json:"GUID"`
+	HierarchicalGUID string `json:"HierarchicalGUID"`
+	Result           int    `json:"Result"`
+	Revision         int    `json:"Revision"`
+}
+
+type DNToGUIDRequest struct {
+	ObjectDN string `json:"ObjectDN"`
+}
 type systemStatusVersionResponse string
 
 type urlResource string
 
 const (
 	urlResourceAuthorize              urlResource = "vedsdk/authorize/"
+	urlResourceAuthorizeIsAuthServer  urlResource = "vedauth/authorize/isAuthServer"
 	urlResourceAuthorizeCertificate   urlResource = "vedauth/authorize/certificate"
 	urlResourceAuthorizeOAuth         urlResource = "vedauth/authorize/oauth"
 	urlResourceAuthorizeVerify        urlResource = "vedauth/authorize/verify"
@@ -313,13 +329,18 @@ const (
 	urlResourceSystemStatusVersion    urlResource = "vedsdk/systemstatus/version"
 	urlResourceCreatePolicy           urlResource = "vedsdk/Config/Create"
 	urlResourceWritePolicy            urlResource = "vedsdk/Config/WritePolicy"
+	urlResourceReadPolicy             urlResource = "vedsdk/Config/ReadPolicy"
 	urlResourceIsValidPolicy          urlResource = "vedsdk/Config/isvalid"
-	urlResourceReadPolicy             urlResource = "vedsdk/certificates/checkpolicy"
+	urlResourceCheckPolicy            urlResource = "vedsdk/certificates/checkpolicy"
 	urlResourceCleanPolicy            urlResource = "vedsdk/config/clearpolicyattribute"
+	urlResourceBrowseIdentities       urlResource = "vedsdk/Identity/Browse"
+	urlResourceValidateIdentity       urlResource = "vedsdk/Identity/Validate"
 	urlResourceSshCertReq             urlResource = "vedsdk/SSHCertificates/request"
 	urlResourceSshCertRet             urlResource = "vedsdk/SSHCertificates/retrieve"
 	urlResourceSshCAPubKey            urlResource = "vedsdk/SSHCertificates/Template/Retrieve/PublicKeyData"
 	urlResourceSshCADetails           urlResource = "vedsdk/SSHCertificates/Template/Retrieve"
+	urlResourceSshTemplateAvaliable   urlResource = "vedsdk/SSHCertificates/Template/Available"
+	urlResourceDNToGUID               urlResource = "vedsdk/Config/DnToGuid"
 )
 
 const (
@@ -624,6 +645,44 @@ func newPEMCollectionFromResponse(base64Response string, chainOrder certificate.
 		return certificate.PEMCollectionFromBytes(certBytes, chainOrder)
 	}
 	return nil, nil
+}
+
+func parseBrowseIdentitiesResult(httpStatusCode int, httpStatus string, body []byte) (policy.BrowseIdentitiesResponse, error) {
+	var browseIdentitiesResponse policy.BrowseIdentitiesResponse
+	switch httpStatusCode {
+	case http.StatusOK, http.StatusAccepted:
+		browseIdentitiesResponse, err := parseBrowseIdentitiesData(body)
+		if err != nil {
+			return browseIdentitiesResponse, err
+		}
+		return browseIdentitiesResponse, nil
+	default:
+		return browseIdentitiesResponse, fmt.Errorf("Unexpected status code on TPP Browse Identities. Status: %s", httpStatus)
+	}
+}
+
+func parseBrowseIdentitiesData(b []byte) (data policy.BrowseIdentitiesResponse, err error) {
+	err = json.Unmarshal(b, &data)
+	return
+}
+
+func parseValidateIdentityResponse(httpStatusCode int, httpStatus string, body []byte) (policy.ValidateIdentityResponse, error) {
+	var validateIdentityResponse policy.ValidateIdentityResponse
+	switch httpStatusCode {
+	case http.StatusOK, http.StatusAccepted:
+		validateIdentityResponse, err := parseValidateIdentityData(body)
+		if err != nil {
+			return validateIdentityResponse, err
+		}
+		return validateIdentityResponse, nil
+	default:
+		return validateIdentityResponse, fmt.Errorf("Unexpected status code on TPP Validate Identity. Status: %s", httpStatus)
+	}
+}
+
+func parseValidateIdentityData(b []byte) (data policy.ValidateIdentityResponse, err error) {
+	err = json.Unmarshal(b, &data)
+	return
 }
 
 type _strValue struct {

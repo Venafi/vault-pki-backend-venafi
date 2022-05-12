@@ -26,6 +26,7 @@ build: get
 	env GOOS=linux   GOARCH=amd64 go build $(GO_LDFLAGS) -o bin/linux/vcert         ./cmd/vcert
 	env GOOS=linux   GOARCH=386   go build $(GO_LDFLAGS) -o bin/linux/vcert86       ./cmd/vcert
 	env GOOS=darwin  GOARCH=amd64 go build $(GO_LDFLAGS) -o bin/darwin/vcert        ./cmd/vcert
+	env GOOS=darwin  GOARCH=arm64 go build $(GO_LDFLAGS) -o bin/darwin/vcert_arm        ./cmd/vcert
 	env GOOS=windows GOARCH=amd64 go build $(GO_LDFLAGS) -o bin/windows/vcert.exe   ./cmd/vcert
 	env GOOS=windows GOARCH=386   go build $(GO_LDFLAGS) -o bin/windows/vcert86.exe ./cmd/vcert
 
@@ -43,20 +44,32 @@ gofmt:
 	! gofmt -l . | grep -v ^vendor/ | grep .
 
 test: get linter
-	go test -v -cover .
-	go test -v -cover ./pkg/certificate
-	go test -v -cover ./pkg/endpoint
-	go test -v -cover ./pkg/venafi/fake
-	go test -v -cover ./cmd/vcert
+	go test -v -coverprofile=cov1.out .
+	go tool cover -func=cov1.out
+	go test -v -coverprofile=cov2.out ./pkg/certificate
+	go tool cover -func=cov2.out
+	go test -v -coverprofile=cov3.out ./pkg/endpoint
+	go tool cover -func=cov3.out
+	go test -v -coverprofile=cov4.out ./pkg/venafi/fake
+	go tool cover -func=cov4.out
+	go test -v -coverprofile=cov5.out ./pkg/policy
+	go tool cover -func=cov5.out
+	go test -v -coverprofile=cov6.out ./pkg/util
+	go tool cover -func=cov6.out
+	go test -v -coverprofile=cov_cmd.out ./cmd/vcert
+	go tool cover -func=cov_cmd.out
 
 tpp_test: get
-	go test -v $(GOFLAGS) ./pkg/venafi/tpp
+	go test -v $(GOFLAGS) -coverprofile=cov_tpp.out ./pkg/venafi/tpp
+	go tool cover -func=cov_tpp.out
 
 cloud_test: get
-	go test -v $(GOFLAGS) ./pkg/venafi/cloud
+	go test -v $(GOFLAGS) -coverprofile=cov_vaas.out ./pkg/venafi/cloud
+	go tool cover -func=cov_vaas.out
 
 cmd_test: get
-	go test -v $(GOFLAGS) ./cmd/vcert
+	go test -v $(GOFLAGS) -coverprofile=cov_cmd.out ./cmd/vcert
+	go tool cover -func=cov_cmd.out
 
 collect_artifacts:
 	rm -rf artifacts
