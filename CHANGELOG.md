@@ -1,3 +1,9 @@
+# v0.10.3 (May 12, 2022)
+Fixed a bug about storing private keys behavior and validation of certificate mismatch
+
+# v0.10.2 (March 24, 2022)
+Fixed issue with revocation while disabling secrets engine
+
 # v0.10.1 (March 10, 2022)
 Fix for a bug with the use of a synchronized block in pathVenafiCertObtain function.
 
