@@ -319,7 +319,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 		}
 		privateKeyPem := string(pem.EncodeToMemory(privateKeyPemBytes))
 		pcc.PrivateKey = privateKeyPem
-	} else {
+	} else if role.ServiceGenerated {
 		// Service generated
 		privateKey, err := DecryptPkcs8PrivateKey(pcc.PrivateKey, keyPass)
 		if err != nil {
@@ -339,6 +339,8 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 			privateKey = string(privateKeyBytes)
 		}
 		pcc.PrivateKey = privateKey
+	} else {
+		b.Logger().Debug("CSR is being provided, not processing private key")
 	}
 
 	_, err = tls.X509KeyPair([]byte(pcc.Certificate), []byte(pcc.PrivateKey))
