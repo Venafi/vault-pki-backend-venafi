@@ -59,6 +59,10 @@ func pathVenafiCertEnroll(b *backend) *framework.Path {
 				Description: `The requested Time To Live for the certificate; sets the expiration date.
 If not specified the role default is used. Cannot be larger than the role max TTL.`,
 			},
+			"retry": {
+				Type:        framework.TypeBool,
+				Description: "Used to specify to retry (once) issuance of certificate if any error occurred",
+			},
 		},
 		Operations: map[logical.Operation]framework.OperationHandler{
 			logical.UpdateOperation: &framework.PathOperation{
@@ -92,6 +96,10 @@ If not specified the role default is used. Cannot be larger than the role max TT
 			"custom_fields": {
 				Type:        framework.TypeCommaStringSlice,
 				Description: "Use to specify custom fields in format 'key=value'. Use comma to separate multiple values: 'key1=value1,key2=value2'",
+			},
+			"retry": {
+				Type:        framework.TypeBool,
+				Description: "Used to specify to retry (once) issuance of certificate if any error occurred",
 			},
 		},
 		Operations: map[logical.Operation]framework.OperationHandler{
@@ -144,8 +152,6 @@ func (b *backend) pathVenafiSign(ctx context.Context, req *logical.Request, data
 
 func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request, data *framework.FieldData, role *roleEntry, signCSR bool) (
 	*logical.Response, error) {
-	b.mux.Lock()
-	defer b.mux.Unlock()
 	// When utilizing performance standbys in Vault Enterprise, this forces the call to be redirected to the primary since
 	// a storage call is made after the API calls to issue the certificate.  This prevents the certificate from being
 	// issued twice in this scenario.
@@ -153,8 +159,6 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 		HasState(consts.ReplicationPerformanceStandby|consts.ReplicationPerformanceSecondary) {
 		return nil, logical.ErrReadOnly
 	}
-
-	keyPass := fmt.Sprintf("t%d-%s.tem.pwd", time.Now().Unix(), randRunes(4))
 
 	b.Logger().Debug("Getting the role\n")
 	roleName := data.Get("role").(string)
@@ -268,24 +272,27 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 	}
 
 	b.Logger().Debug("Running enroll request")
+	format := ""
+	privateKeyFormat, ok := data.GetOk("private_key_format")
+	if ok {
+		if privateKeyFormat == LEGACY_PEM {
+			format = "legacy-pem"
+		}
+	}
 
-	requestID, err := cl.RequestCertificate(certReq)
+	keyPass := fmt.Sprintf("t%d-%s.tem.pwd", time.Now().Unix(), randRunes(4))
+	retry, ok := data.GetOk("retry")
+
+	var pcc *certificate.PEMCollection
+	pcc, err = issueCertificate(certReq, keyPass, cl, timeout, role, format, privateKeyFormat, signCSR)
+
 	if err != nil {
-		return logical.ErrorResponse(err.Error()), nil
-	}
-
-	pickupReq := &certificate.Request{
-		PickupID: requestID,
-		Timeout:  timeout,
-	}
-
-	if role.ServiceGenerated {
-		pickupReq.FetchPrivateKey = true
-		pickupReq.KeyPassword = keyPass
-	}
-
-	pcc, err := cl.RetrieveCertificate(pickupReq)
-	if err != nil {
+		if retry == true {
+			pcc, err = issueCertificate(certReq, keyPass, cl, timeout, role, format, privateKeyFormat, signCSR)
+			if err != nil {
+				return logical.ErrorResponse(err.Error()), nil
+			}
+		}
 		return logical.ErrorResponse(err.Error()), nil
 	}
 
@@ -303,51 +310,6 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 	chain := strings.Join(append([]string{pcc.Certificate}, pcc.Chain...), "\n")
 	b.Logger().Debug("cert Chain: " + strings.Join(pcc.Chain, ", "))
 
-	format := ""
-	privateKeyFormat, ok := data.GetOk("private_key_format")
-	if ok {
-		if privateKeyFormat == LEGACY_PEM {
-			format = "legacy-pem"
-		}
-	}
-
-	// Local generated
-	if !signCSR && !role.ServiceGenerated {
-		privateKeyPemBytes, err := certificate.GetPrivateKeyPEMBock(certReq.PrivateKey, format)
-		if err != nil {
-			return nil, err
-		}
-		privateKeyPem := string(pem.EncodeToMemory(privateKeyPemBytes))
-		pcc.PrivateKey = privateKeyPem
-	} else if role.ServiceGenerated {
-		// Service generated
-		privateKey, err := DecryptPkcs8PrivateKey(pcc.PrivateKey, keyPass)
-		if err != nil {
-			return nil, err
-		}
-		block, _ := pem.Decode([]byte(privateKey))
-		if privateKeyFormat == LEGACY_PEM {
-			encrypted, err := util.X509EncryptPEMBlock(rand.Reader, "RSA PRIVATE KEY", block.Bytes, []byte(keyPass), util.PEMCipherAES256)
-			if err != nil {
-				return nil, err
-			}
-			encryptedPem := pem.EncodeToMemory(encrypted)
-			privateKeyBytes, err := getPrivateKey(encryptedPem, keyPass)
-			if err != nil {
-				return nil, err
-			}
-			privateKey = string(privateKeyBytes)
-		}
-		pcc.PrivateKey = privateKey
-	} else {
-		b.Logger().Debug("CSR is being provided, not processing private key")
-	}
-
-	_, err = tls.X509KeyPair([]byte(pcc.Certificate), []byte(pcc.PrivateKey))
-	if err != nil {
-		fmt.Errorf("the certificate returned by Venafi did not contain the requested private key," +
-			" key pair has been discarded")
-	}
 	if role.StorePrivateKey && !signCSR {
 		entry, err = logical.StorageEntryJSON("", VenafiCert{
 			Certificate:      pcc.Certificate,
@@ -453,6 +415,66 @@ type requestData struct {
 	csrString    string
 	customFields []string
 	ttl          time.Duration
+}
+
+func issueCertificate(certReq *certificate.Request, keyPass string, cl endpoint.Connector, timeout time.Duration, role *roleEntry, format string, privateKeyFormat interface{}, signCSR bool) (pcc *certificate.PEMCollection, err error) {
+	requestID, err := cl.RequestCertificate(certReq)
+	if err != nil {
+		return nil, err
+	}
+
+	pickupReq := &certificate.Request{
+		PickupID: requestID,
+		Timeout:  timeout,
+	}
+
+	if role.ServiceGenerated {
+		pickupReq.FetchPrivateKey = true
+		pickupReq.KeyPassword = keyPass
+	}
+
+	var pemCollection *certificate.PEMCollection
+	pemCollection, err = cl.RetrieveCertificate(pickupReq)
+	if err != nil {
+		return nil, err
+	}
+
+	// Local generated
+	if !signCSR && !role.ServiceGenerated {
+		privateKeyPemBytes, err := certificate.GetPrivateKeyPEMBock(certReq.PrivateKey, format)
+		if err != nil {
+			return nil, err
+		}
+		privateKeyPem := string(pem.EncodeToMemory(privateKeyPemBytes))
+		pcc.PrivateKey = privateKeyPem
+	} else if role.ServiceGenerated {
+		// Service generated
+		privateKey, err := DecryptPkcs8PrivateKey(pemCollection.PrivateKey, keyPass)
+		if err != nil {
+			return nil, err
+		}
+		block, _ := pem.Decode([]byte(privateKey))
+		if privateKeyFormat == LEGACY_PEM {
+			encrypted, err := util.X509EncryptPEMBlock(rand.Reader, "RSA PRIVATE KEY", block.Bytes, []byte(keyPass), util.PEMCipherAES256)
+			if err != nil {
+				return nil, err
+			}
+			encryptedPem := pem.EncodeToMemory(encrypted)
+			privateKeyBytes, err := getPrivateKey(encryptedPem, keyPass)
+			if err != nil {
+				return nil, err
+			}
+			privateKey = string(privateKeyBytes)
+		}
+		pemCollection.PrivateKey = privateKey
+	}
+
+	_, err = tls.X509KeyPair([]byte(pemCollection.Certificate), []byte(pemCollection.PrivateKey))
+	if err != nil {
+		return nil, fmt.Errorf("the certificate returned by Venafi did not contain the requested private key," +
+			" key pair has been discarded")
+	}
+	return pemCollection, nil
 }
 
 func formRequest(reqData requestData, role *roleEntry, signCSR bool, logger hclog.Logger) (certReq *certificate.Request, err error) {
