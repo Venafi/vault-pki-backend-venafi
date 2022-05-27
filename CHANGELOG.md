@@ -1,3 +1,6 @@
+# v.0.10.4 (May 27, 2022)
+Fixed a thread locking bug
+
 # v0.10.3 (May 12, 2022)
 Fixed a bug about storing private keys behavior and validation of certificate mismatch
 

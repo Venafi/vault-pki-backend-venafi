@@ -16,8 +16,8 @@ github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802/go.mod h1:IVnqGOEym
 github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAElWljhcU=
 github.com/Venafi/vcert v3.18.4+incompatible h1:mDXSjd+EpXa8YEkEo9Oad19E270aiPJJMhjoKs63b+8=
 github.com/Venafi/vcert v3.18.4+incompatible/go.mod h1:3dpfrCI+31cDZosD+1UX8GFziVFORaegByXtzT1dwNo=
-github.com/Venafi/vcert/v4 v4.19.0 h1:/zIl9+s6uIjtI/LazPplrcSgThbwJkUx1XbyET3u8Iw=
-github.com/Venafi/vcert/v4 v4.19.0/go.mod h1:VcojF47VAzBnYHSRrb0SwOCmMpWJczajTuPiZNDJJSo=
+github.com/Venafi/vcert/v4 v4.20.1 h1:dPUJ7XZW7SXxM9ZA4qBw535mYdU5YlapOgrhFmByqoE=
+github.com/Venafi/vcert/v4 v4.20.1/go.mod h1:4Nec3twWisOdS1unpDZ93sfau9eVSDS8Ot+Ry/gg0es=
 github.com/alecthomas/template v0.0.0-20160405071501-a0175ee3bccc/go.mod h1:LOuyumcjzFXgccqObfd/Ljyb9UuFJ6TxHnclSeseNhc=
 github.com/alecthomas/units v0.0.0-20151022065526-2efee857e7cf/go.mod h1:ybxpYRFXyAe+OPACYpWeL0wqObRcbAqCMya13uyzqw0=
 github.com/armon/circbuf v0.0.0-20150827004946-bbbad097214e/go.mod h1:3U/XgcO3hCbHZ8TKRvWD2dDTCfh9M9ya+I9JpbB7O8o=
