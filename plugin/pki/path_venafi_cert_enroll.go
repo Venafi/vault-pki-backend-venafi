@@ -285,7 +285,6 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 
 	var pcc *certificate.PEMCollection
 	pcc, err = issueCertificate(certReq, keyPass, cl, timeout, role, format, privateKeyFormat, signCSR)
-
 	if err != nil {
 		if retry == true {
 			pcc, err = issueCertificate(certReq, keyPass, cl, timeout, role, format, privateKeyFormat, signCSR)
@@ -446,7 +445,7 @@ func issueCertificate(certReq *certificate.Request, keyPass string, cl endpoint.
 			return nil, err
 		}
 		privateKeyPem := string(pem.EncodeToMemory(privateKeyPemBytes))
-		pcc.PrivateKey = privateKeyPem
+		pemCollection.PrivateKey = privateKeyPem
 	} else if role.ServiceGenerated {
 		// Service generated
 		privateKey, err := DecryptPkcs8PrivateKey(pemCollection.PrivateKey, keyPass)
@@ -469,10 +468,12 @@ func issueCertificate(certReq *certificate.Request, keyPass string, cl endpoint.
 		pemCollection.PrivateKey = privateKey
 	}
 
-	_, err = tls.X509KeyPair([]byte(pemCollection.Certificate), []byte(pemCollection.PrivateKey))
-	if err != nil {
-		return nil, fmt.Errorf("the certificate returned by Venafi did not contain the requested private key," +
-			" key pair has been discarded")
+	if !signCSR {
+		_, err = tls.X509KeyPair([]byte(pemCollection.Certificate), []byte(pemCollection.PrivateKey))
+		if err != nil {
+			return nil, fmt.Errorf("the certificate returned by Venafi did not contain the requested private key," +
+				" key pair has been discarded")
+		}
 	}
 	return pemCollection, nil
 }
