@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2021 Venafi, Inc.
+ * Copyright 2018-2022 Venafi, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1065,7 +1065,8 @@ func (c *Connector) setContact(tppPolicy *policy.TppPolicy) (status string, err 
 
 func (c *Connector) resolveContacts(contacts []string) ([]string, error) {
 	var identities []string
-	for _, contact := range contacts {
+	uniqueContacts := getUniqueStringSlice(contacts)
+	for _, contact := range uniqueContacts {
 		identity, err := c.getIdentity(contact)
 		if err != nil {
 			return nil, err
@@ -1074,6 +1075,18 @@ func (c *Connector) resolveContacts(contacts []string) ([]string, error) {
 	}
 
 	return identities, nil
+}
+
+func getUniqueStringSlice(stringSlice []string) []string {
+	keys := make(map[string]bool)
+	var list []string
+	for _, entry := range stringSlice {
+		if _, found := keys[entry]; !found {
+			keys[entry] = true
+			list = append(list, entry)
+		}
+	}
+	return list
 }
 
 func (c *Connector) getIdentity(userName string) (*policy.IdentityEntry, error) {
@@ -1092,15 +1105,28 @@ func (c *Connector) getIdentity(userName string) (*policy.IdentityEntry, error) 
 		return nil, err
 	}
 
-	if len(resp.Identities) > 1 {
-		return nil, fmt.Errorf("only one Identity must be returned but it was returned more than one")
-	} else {
-		if len(resp.Identities) != 1 {
-			return nil, fmt.Errorf("it was not possible to find the user %s", userName)
+	return c.getIdentityMatching(resp.Identities, userName)
+}
+
+func (c *Connector) getIdentityMatching(identities []policy.IdentityEntry, identityName string) (*policy.IdentityEntry, error) {
+	var identityEntryMatching *policy.IdentityEntry
+
+	if len(identities) > 0 {
+		for i := range identities {
+			identityEntry := identities[i]
+			if identityEntry.Name == identityName {
+				identityEntryMatching = &identityEntry
+				break
+			}
 		}
 	}
 
-	return &resp.Identities[0], nil
+	//if the identity is not null
+	if identityEntryMatching != nil {
+		return identityEntryMatching, nil
+	} else {
+		return nil, fmt.Errorf("it was not possible to find the user %s", identityName)
+	}
 }
 
 func (c *Connector) browseIdentities(browseReq policy.BrowseIdentitiesRequest) (*policy.BrowseIdentitiesResponse, error) {
@@ -1634,6 +1660,43 @@ func (c *Connector) configDNToGuid(objectDN string) (guid string, err error) {
 	}
 	return resp.GUID, nil
 
+}
+
+func (c *Connector) findObjectsOfClass(req *findObjectsOfClassRequest) (*findObjectsOfClassResponse, error) {
+	statusCode, statusString, body, err := c.request("POST", urlResourceFindObjectsOfClass, req)
+	if err != nil {
+		return nil, err
+	}
+	response, err := parseFindObjectsOfClassResponse(statusCode, statusString, body)
+	if err != nil {
+		return nil, err
+	}
+	return &response, nil
+}
+
+// GetZonesByParent returns a list of valid zones for a TPP parent folder specified by parent
+func (c *Connector) GetZonesByParent(parent string) ([]string, error) {
+	var zones []string
+
+	parentFolderDn := parent
+	if !strings.HasPrefix(parentFolderDn, "\\VED\\Policy") {
+		parentFolderDn = fmt.Sprintf("\\VED\\Policy\\%s", parentFolderDn)
+	}
+
+	request := findObjectsOfClassRequest{
+		Class:    "Policy",
+		ObjectDN: parentFolderDn,
+	}
+	response, err := c.findObjectsOfClass(&request)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, folder := range response.PolicyObjects {
+		// folder.DN will always start with \VED\Policy but short form is preferrable since both are supported
+		zones = append(zones, strings.Replace(folder.DN, "\\VED\\Policy\\", "", 1))
+	}
+	return zones, nil
 }
 
 func createPolicyAttribute(c *Connector, at string, av []string, n string, l bool) (statusCode int, statusText string, body []byte, err error) {
