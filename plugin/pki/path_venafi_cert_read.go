@@ -2,7 +2,6 @@ package pki
 
 import (
 	"context"
-	"fmt"
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
 )
@@ -37,26 +36,17 @@ func (b *backend) pathVenafiCertRead(ctx context.Context, req *logical.Request, 
 		return logical.ErrorResponse("no common name specified on certificate"), nil
 	}
 
-	path := "certs/" + certUID
+	//var keyPassword string
+	//keyPasswordRaw, keyPasswordSet := data.GetOk("key_password")
+	//if keyPasswordSet {
+	//	keyPassword = keyPasswordRaw.(string)
+	//}
+	keyPassword := data.Get("key_password").(string)
 
-	entry, err := req.Storage.Get(ctx, path)
+	cert, err := readCertificate(b, ctx, req, certUID, keyPassword)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read Venafi certificate: %s", err)
-	}
-
-	if entry == nil {
-		return nil, fmt.Errorf("no entry found in path %s", path)
-	}
-
-	var cert VenafiCert
-	b.Logger().Debug("Getting venafi certificate")
-
-	if err := entry.DecodeJSON(&cert); err != nil {
-		b.Logger().Error("error reading venafi configuration: %s", err)
 		return nil, err
 	}
-	b.Logger().Debug("certificate is:" + cert.Certificate)
-	b.Logger().Debug("chain is:" + cert.CertificateChain)
 
 	respData := map[string]interface{}{
 		"certificate_uid":   certUID,
@@ -65,13 +55,9 @@ func (b *backend) pathVenafiCertRead(ctx context.Context, req *logical.Request, 
 		"certificate":       cert.Certificate,
 		"private_key":       cert.PrivateKey,
 	}
-	keyPassword := data.Get("key_password").(string)
+
 	if keyPassword != "" {
-		encryptedPrivateKeyPem, err := encryptPrivateKey(cert.PrivateKey, keyPassword)
-		if err != nil {
-			return nil, err
-		}
-		respData["private_key"] = encryptedPrivateKeyPem
+		respData["private_key"] = cert.PrivateKey
 	}
 
 	return &logical.Response{

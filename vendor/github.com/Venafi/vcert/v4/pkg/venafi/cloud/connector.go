@@ -18,6 +18,7 @@ package cloud
 
 import (
 	"archive/zip"
+	"math"
 	"bytes"
 	"crypto/rand"
 	"crypto/x509"
@@ -29,6 +30,7 @@ import (
 	"log"
 	"net/http"
 	netUrl "net/url"
+	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -96,6 +98,105 @@ func (c *Connector) RetrieveCertificateMetaData(dn string) (*certificate.Certifi
 
 func (c *Connector) SearchCertificates(req *certificate.SearchRequest) (*certificate.CertSearchResponse, error) {
 	panic("operation is not supported yet")
+}
+
+func (c *Connector) SearchCertificate(zone string, cn string, sans *certificate.Sans, valid_for time.Duration) (certificateInfo *certificate.CertificateInfo, err error) {
+	// get application id
+	app, _, err := c.getAppDetailsByName(zone)
+	if err != nil {
+		return nil, err
+	}
+
+	// convert a time.Duration to days
+	valid_for_days := math.Floor(valid_for.Hours() / 24)
+
+	// format arguments for request
+	req := &SearchRequest{
+		Expression: &Expression{
+			Operator: AND,
+			Operands: []Operand{
+				{
+					Field:    "subjectCN",
+					Operator: EQ,
+					Value:    cn,
+				},
+				{
+					Field:    "subjectAlternativeNameDns",
+					Operator: IN,
+					Values:   sans.DNS,
+				},
+				{
+					Field:    "validityPeriodDays",
+					Operator: GTE,
+					Value:    valid_for_days,
+				},
+			},
+		},
+	}
+
+	// perform request
+	searchResult, err := c.searchCertificates(req)
+	if err != nil {
+		return nil, err
+	}
+
+	// fail if no certificate is returned from api
+	if searchResult.Count == 0 {
+		return nil, verror.NoCertificateFoundError
+	}
+
+	// map (convert) response to an array of CertificateInfo, TODO: only add
+	// those certificates whose Zone matches ours
+	certificates := make([]*certificate.CertificateInfo, 0)
+	n := 0
+	for _, cert := range searchResult.Certificates {
+		// log.Printf("looping %v\n", util.GetJsonAsString(cert))
+		// TODO: filter based on applicationId (VaaS equivalent to TPP Zone)
+		if util.ArrayContainsString(cert.ApplicationIds, app.ApplicationId) {
+			certificates = append(certificates, &certificate.CertificateInfo{})
+			certificates[n].ID = cert.Id
+			certificates[n].CN = strings.Join(cert.SubjectCN, ",")
+			certificates[n].SANS = certificate.Sans{
+				DNS:   cert.SubjectAlternativeNamesByType["dNSName"],
+				Email: cert.SubjectAlternativeNamesByType["x400Address"],
+				IP:    cert.SubjectAlternativeNamesByType["iPAddress"],
+				URI:   cert.SubjectAlternativeNamesByType["uniformResourceIdentifier"],
+				UPN:   cert.SubjectAlternativeNamesByType["x400Address"],
+			}
+			certificates[n].Serial = cert.SerialNumber
+			certificates[n].Thumbprint = cert.Fingerprint
+			certificates[n].ValidFrom = cert.ValidityStart
+			certificates[n].ValidTo = cert.ValidityEnd
+			n = n + 1
+		}
+	}
+
+	// fail if no certificates found with matching zone
+	if n == 0 {
+		return nil, verror.NoCertificateWithMatchingZoneFoundError
+	}
+
+	// at this point all certificates belong to our zone, the next step is
+	// finding the newest valid certificate
+	var newestCertificate *certificate.CertificateInfo
+	for _, certificate := range certificates {
+		// log.Printf("looping %v\n", util.GetJsonAsString(certificate))
+		// exact match SANs
+		if reflect.DeepEqual(sans.DNS, certificate.SANS.DNS) {
+			// update the certificate to the newest match
+			if newestCertificate == nil || certificate.ValidTo.Unix() > newestCertificate.ValidTo.Unix() {
+				newestCertificate = certificate
+			}
+		}
+	}
+
+	// a valid certificate has been found, return it
+	if newestCertificate != nil {
+		return newestCertificate, nil
+	}
+
+	// fail, since no valid certificate was found at this point
+	return nil, verror.NoCertificateFoundError
 }
 
 func (c *Connector) IsCSRServiceGenerated(req *certificate.Request) (bool, error) {
@@ -455,6 +556,8 @@ func (c *Connector) createApplication(appName string, ps *policy.PolicySpecifica
 
 	var owners []policy.OwnerIdType
 	var error error
+	var statusCode int
+	var status string
 
 	//if users were passed to the PS, then it will needed to resolve the related Owners to set them
 	if len(ps.Users) > 0 {
@@ -480,9 +583,12 @@ func (c *Connector) createApplication(appName string, ps *policy.PolicySpecifica
 
 	url := c.getURL(urlAppRoot)
 
-	_, _, _, error = c.request("POST", url, appReq)
+	statusCode, status, _, error = c.request("POST", url, appReq)
 	if error != nil {
 		return nil, error
+	}
+	if statusCode != 201 {
+		return nil, fmt.Errorf("unexpected result %s attempting to create application %s", status, appName)
 	}
 
 	return &appReq, nil
@@ -679,9 +785,34 @@ func (c *Connector) ReadPolicyConfiguration() (policy *endpoint.Policy, err erro
 
 // ReadZoneConfiguration reads the Zone information needed for generating and requesting a certificate from Venafi Cloud
 func (c *Connector) ReadZoneConfiguration() (config *endpoint.ZoneConfiguration, err error) {
-	template, err := c.getTemplateByID()
-	if err != nil {
-		return
+	var template *certificateTemplate
+	var statusCode int
+
+	// to fully support the "headless registration" use case...
+	// if application does not exist and is for the default CIT, create the application
+	citAlias := c.zone.getTemplateAlias()
+	if citAlias == "Default" {
+		appName := c.zone.getApplicationName()
+		_, statusCode, err = c.getAppDetailsByName(appName)
+		if err != nil && statusCode == 404 {
+			log.Printf("creating application %s for issuing template %s", appName, citAlias)
+
+			ps := policy.PolicySpecification{}
+			template, err = getCit(c, citAlias)
+			if err != nil {
+				return
+			}
+			_, err = c.createApplication(appName, &ps, template)
+			if err != nil {
+				return
+			}
+		}
+	}
+	if template == nil {
+		template, err = c.getTemplateByID()
+		if err != nil {
+			return
+		}
 	}
 	config = getZoneConfiguration(template)
 	return config, nil
@@ -1259,9 +1390,9 @@ func (c *Connector) searchCertificatesByFingerprint(fp string) (*CertificateSear
 		Expression: &Expression{
 			Operands: []Operand{
 				{
-					"fingerprint",
-					MATCH,
-					fp,
+					Field:    "fingerprint",
+					Operator: MATCH,
+					Value:    fp,
 				},
 			},
 		},
@@ -1440,7 +1571,11 @@ func (c *Connector) getCertsBatch(page, pageSize int, withExpired bool) ([]certi
 	req := &SearchRequest{
 		Expression: &Expression{
 			Operands: []Operand{
-				{"appstackIds", MATCH, appDetails.ApplicationId},
+				{
+					Field:    "appstackIds",
+					Operator: MATCH,
+					Value:    appDetails.ApplicationId,
+				},
 			},
 			Operator: AND,
 		},
@@ -1448,9 +1583,9 @@ func (c *Connector) getCertsBatch(page, pageSize int, withExpired bool) ([]certi
 	}
 	if !withExpired {
 		req.Expression.Operands = append(req.Expression.Operands, Operand{
-			"validityEnd",
-			GTE,
-			time.Now().Format(time.RFC3339),
+			Field:    "validityEnd",
+			Operator: GTE,
+			Value:    time.Now().Format(time.RFC3339),
 		})
 	}
 	r, err := c.searchCertificates(req)

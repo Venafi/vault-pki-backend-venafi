@@ -7,7 +7,9 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"fmt"
+	"github.com/Venafi/vault-pki-backend-venafi/plugin/pki/vpkierror"
 	"github.com/Venafi/vcert/v4/pkg/util"
 	"log"
 	"math/rand"
@@ -911,9 +913,10 @@ func (e *testEnv) ReadCertificate(t *testing.T, data testData, configString vena
 
 func (e *testEnv) CheckThatThereIsNoCertificate(t *testing.T, certId string) {
 
+	path := "cert/" + certId
 	_, err := e.Backend.HandleRequest(e.Context, &logical.Request{
 		Operation: logical.ReadOperation,
-		Path:      "cert/" + certId,
+		Path:      path,
 		Storage:   e.Storage,
 	})
 
@@ -921,10 +924,8 @@ func (e *testEnv) CheckThatThereIsNoCertificate(t *testing.T, certId string) {
 		t.Fatal("should be no entry error if there is no certificate")
 	}
 
-	const noCertError = "no entry found in path"
-	certContain := strings.Contains(err.Error(), noCertError)
-	if !certContain {
-		t.Fatalf("error should contain %s substring but it is %s", noCertError, err)
+	if errors.As(err, &vpkierror.CertEntryNotFound{}) {
+		t.Fatalf("error should contain %s substring but it is %s", vpkierror.CertEntryNotFound{EntryPath: path}, err.Error())
 	}
 
 }

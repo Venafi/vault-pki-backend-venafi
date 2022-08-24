@@ -8,6 +8,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"github.com/Venafi/vault-pki-backend-venafi/plugin/pki/vpkierror"
 	"github.com/Venafi/vcert/v4"
 	"github.com/Venafi/vcert/v4/pkg/endpoint"
 	"github.com/Venafi/vcert/v4/pkg/util"
@@ -51,6 +52,25 @@ func getHexFormatted(buf []byte, sep string) (string, error) {
 			}
 		}
 		if _, err := fmt.Fprintf(&ret, "%02x", cur); err != nil {
+			return "", err
+		}
+	}
+	return ret.String(), nil
+}
+
+// addSeparatorToHexFormattedString gets a hexadecimal string and adds colon (:) every two characters
+// it returns a string with a colon every two chracters and any error during the convertion process
+// input: 6800b707811f0befb37f922b9e12f68eab8093
+// output: 68:00:b7:07:81:1f:0b:ef:b3:7f:92:2b:9e:12:f6:8e:ab:80:93
+func addSeparatorToHexFormattedString(s string, sep string) (string, error) {
+	var ret bytes.Buffer
+	for n, v := range s {
+		if n > 0 && n%2 == 0 {
+			if _, err := fmt.Fprintf(&ret, sep); err != nil {
+				return "", err
+			}
+		}
+		if _, err := fmt.Fprintf(&ret, "%c", v); err != nil {
 			return "", err
 		}
 	}
@@ -537,4 +557,53 @@ func encryptPkcs8PrivateKey(privateKey string, password string) (string, error) 
 	})
 	encryptedPrivateKeyPem := string(keyPemBytes)
 	return encryptedPrivateKeyPem, nil
+}
+
+// SearchCertificateByParams
+// should return best match
+//func SearchCertificateByParams(zone string, cn string, san_dns []string, force_error bool, force_empty bool) (certifateInfo *certificate.CertificateInfo, err error) {
+//	if force_error {
+//		return nil, fmt.Errorf("forcing error")
+//	}
+//	var certInfo *certificate.CertificateInfo
+//	if !force_empty {
+//		certInfo = &certificate.CertificateInfo{
+//			ID:     "",
+//			CN:     cn,
+//			SANS:   struct{ DNS, Email, IP, URI, UPN []string }{DNS: san_dns, Email: []string{}, IP: []string{}, URI: []string{}, UPN: []string{}},
+//			Serial: "",
+//		}
+//	}
+//	return certInfo, nil
+//}
+
+// GetCertificate from storage
+func readCertificate(b *backend, ctx context.Context, req *logical.Request, certUID string, keyPassword string) (cert *VenafiCert, err error) {
+	path := "certs/" + certUID
+
+	entry, err := req.Storage.Get(ctx, path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read Venafi certificate: %s", err)
+	}
+	if entry == nil {
+		return nil, vpkierror.CertEntryNotFound{EntryPath: path}
+	}
+	//var cert VenafiCert
+	b.Logger().Debug("Getting venafi certificate")
+
+	if err := entry.DecodeJSON(&cert); err != nil {
+		b.Logger().Error("error reading venafi configuration: %s", err)
+		return nil, err
+	}
+	b.Logger().Debug("certificate is:" + cert.Certificate)
+	b.Logger().Debug("chain is:" + cert.CertificateChain)
+
+	if keyPassword != "" {
+		encryptedPrivateKeyPem, err := encryptPrivateKey(cert.PrivateKey, keyPassword)
+		if err != nil {
+			return nil, err
+		}
+		cert.PrivateKey = encryptedPrivateKeyPem
+	}
+	return cert, nil
 }

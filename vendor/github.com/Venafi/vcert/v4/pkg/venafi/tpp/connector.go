@@ -24,13 +24,13 @@ import (
 	"log"
 	"net/http"
 	neturl "net/url"
+	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/Venafi/vcert/v4/pkg/policy"
-
 	"github.com/Venafi/vcert/v4/pkg/util"
 
 	"github.com/Venafi/vcert/v4/pkg/certificate"
@@ -532,7 +532,6 @@ func prepareRequest(req *certificate.Request, zone string) (tppReq certificateRe
 			expirationDate.Year(), expirationDate.Month(), expirationDate.Day(), expirationDate.Hour(), expirationDate.Minute(), expirationDate.Second())
 
 		tppReq.CASpecificAttributes = append(tppReq.CASpecificAttributes, nameValuePair{Name: expirationDateAttribute, Value: formattedExpirationDate})
-
 	}
 
 	for name, value := range customFieldsMap {
@@ -576,6 +575,14 @@ func prepareRequest(req *certificate.Request, zone string) (tppReq certificateRe
 		tppReq.KeyAlgorithm = "ECC"
 		tppReq.EllipticCurve = req.KeyCurve.String()
 	}
+
+	//Setting the certificate will be re-enabled.
+	//From https://docs.venafi.com/Docs/currentSDK/TopNav/Content/SDK/WebSDK/r-SDK-POST-Certificates-request.php
+	//Reenable (Optional) The action to control a previously disabled certificate:
+	//
+	//    - false: Default. Do not renew a previously disabled certificate.
+	//    - true: Clear the Disabled attribute, reenable, and then renew the certificate (in this request). Reuse the same CertificateDN, that is also known as a Certificate object.
+	tppReq.Reenable = true
 
 	return tppReq, err
 }
@@ -1480,6 +1487,76 @@ func (c *Connector) SearchCertificates(req *certificate.SearchRequest) (*certifi
 		return nil, err
 	}
 	return searchResult, nil
+}
+
+func (c *Connector) SearchCertificate(zone string, cn string, sans *certificate.Sans, valid_for time.Duration) (certificateInfo *certificate.CertificateInfo, err error) {
+	// format arguments for request
+	//
+	// this might be better replaced by a FormatSearchCertificateArguments
+	// function with respective unit tests for correctness
+	//
+	// get future (or past) date for certificate validation
+	date := time.Now().Add(valid_for)
+	// create request arguments
+	req := make([]string, 0)
+	req = append(req, fmt.Sprintf("CN=%s", cn))
+	req = append(req, fmt.Sprintf("SAN-DNS=%s", strings.Join(sans.DNS, ",")))
+	req = append(req, fmt.Sprintf("&ValidToGreater=%s", neturl.QueryEscape(date.Format(time.RFC3339))))
+
+	// perform request
+	url := fmt.Sprintf("%s?%s", urlResourceCertificateSearch, strings.Join(req, "&"))
+	statusCode, _, body, err := c.request("GET", urlResource(url), nil)
+	if err != nil {
+		return nil, err
+	}
+	searchResult, err := ParseSearchCertificateResponse(statusCode, body)
+	if err != nil {
+		return nil, err
+	}
+
+	// fail if no certificate is returned from api
+	if searchResult.Count == 0 {
+		return nil, verror.NoCertificateFoundError
+	}
+
+	// map (convert) response to an array of CertificateInfo, only add those
+	// certificates whose Zone matches ours
+	certificates := make([]*certificate.CertificateInfo, 0)
+	n := 0
+	for _, cert := range searchResult.Certificates {
+		if cert.ParentDn == getPolicyDN(zone) {
+			certificates = append(certificates, &certificate.CertificateInfo{})
+			certificates[n] = &cert.X509
+			certificates[n].ID = cert.Guid
+			n = n + 1
+		}
+	}
+
+	// fail if no certificates found with matching zone
+	if n == 0 {
+		return nil, verror.NoCertificateWithMatchingZoneFoundError
+	}
+
+	// at this point all certificates belong to our zone, the next step is
+	// finding the newest valid certificate
+	var newestCertificate *certificate.CertificateInfo
+	for _, certificate := range certificates {
+		// exact match SANs
+		if reflect.DeepEqual(sans.DNS, certificate.SANS.DNS) {
+			// update the certificate to the newest match
+			if newestCertificate == nil || certificate.ValidTo.Unix() > newestCertificate.ValidTo.Unix() {
+				newestCertificate = certificate
+			}
+		}
+	}
+
+	// a valid certificate has been found, return it
+	if newestCertificate != nil {
+		return newestCertificate, nil
+	}
+
+	// fail, since no valid certificate was found at this point
+	return nil, verror.NoCertificateFoundError
 }
 
 func (c *Connector) SetHTTPClient(client *http.Client) {

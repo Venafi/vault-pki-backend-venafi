@@ -342,12 +342,18 @@ type ImportResponse struct {
 	PrivateKeyVaultId  int    `json:",omitempty"`
 }
 
+type Sans struct {
+	DNS   []string
+	Email []string `json:",omitempty"`
+	IP    []string `json:",omitempty"`
+	URI   []string `json:",omitempty"`
+	UPN   []string `json:",omitempty"`
+}
+
 type CertificateInfo struct {
-	ID   string
-	CN   string
-	SANS struct {
-		DNS, Email, IP, URI, UPN []string
-	}
+	ID         string `json:",omitempty"`
+	CN         string
+	SANS       Sans
 	Serial     string
 	Thumbprint string
 	ValidFrom  time.Time

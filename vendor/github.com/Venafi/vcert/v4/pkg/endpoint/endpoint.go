@@ -26,6 +26,7 @@ import (
 	"net"
 	"net/http"
 	"regexp"
+	"time"
 
 	"github.com/Venafi/vcert/v4/pkg/policy"
 
@@ -105,6 +106,8 @@ type Connector interface {
 	RetrieveSSHCertificate(req *certificate.SshCertRequest) (response *certificate.SshCertificateObject, err error)
 	RetrieveSshConfig(ca *certificate.SshCaTemplateRequest) (*certificate.SshConfig, error)
 	SearchCertificates(req *certificate.SearchRequest) (*certificate.CertSearchResponse, error)
+	// Returns 1 valid (or nil) certificate
+	SearchCertificate(zone string, cn string, sans *certificate.Sans, valid_for time.Duration) (*certificate.CertificateInfo, error)
 	RetrieveAvailableSSHTemplates() ([]certificate.SshAvaliableTemplate, error)
 	RetrieveCertificateMetaData(dn string) (*certificate.CertificateMetaData, error)
 }
@@ -217,14 +220,14 @@ func NewZoneConfiguration() *ZoneConfiguration {
 func (p *Policy) ValidateCertificateRequest(request *certificate.Request) error {
 
 	const (
-		emailError            = "email addresses %v do not match regular expessions: %v"
-		ipError               = "IP addresses %v do not match regular expessions: %v"
-		uriError              = "URIs %v do not match regular expessions: %v"
-		organizationError     = "organization %v doesn't match regular expessions: %v"
-		organizationUnitError = "organization unit %v doesn't match regular expessions: %v"
-		countryError          = "country %v doesn't match regular expessions: %v"
-		locationError         = "location %v doesn't match regular expessions: %v"
-		provinceError         = "state (province) %v doesn't match regular expessions: %v"
+		emailError            = "email addresses %v do not match regular expressions: %v"
+		ipError               = "IP addresses %v do not match regular expressions: %v"
+		uriError              = "URIs %v do not match regular expressions: %v"
+		organizationError     = "organization %v doesn't match regular expressions: %v"
+		organizationUnitError = "organization unit %v doesn't match regular expressions: %v"
+		countryError          = "country %v doesn't match regular expressions: %v"
+		locationError         = "location %v doesn't match regular expressions: %v"
+		provinceError         = "state (province) %v doesn't match regular expressions: %v"
 		keyError              = "the requested Key Type and Size do not match any of the allowed Key Types and Sizes"
 	)
 	err := p.SimpleValidateCertificateRequest(*request)
@@ -329,7 +332,7 @@ func (p *Policy) SimpleValidateCertificateRequest(request certificate.Request) e
 	csr := request.GetCSR()
 	const (
 		cnError   = "common name %s is not allowed in this policy: %v"
-		SANsError = "DNS SANs %v do not match regular expessions: %v"
+		SANsError = "DNS SANs %v do not match regular expressions: %v"
 	)
 	if len(csr) > 0 {
 		pemBlock, _ := pem.Decode(csr)

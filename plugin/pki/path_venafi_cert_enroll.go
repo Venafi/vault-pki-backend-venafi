@@ -7,9 +7,12 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"errors"
 	"fmt"
+	"github.com/Venafi/vault-pki-backend-venafi/plugin/pki/vpkierror"
 	"github.com/Venafi/vcert/v4/pkg/endpoint"
 	"github.com/Venafi/vcert/v4/pkg/util"
+	"github.com/Venafi/vcert/v4/pkg/verror"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/vault/sdk/helper/consts"
 	"net"
@@ -219,6 +222,69 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 
 		reqData.ttl = currentTTL
 
+	}
+
+	if role.PreventReissue == true && &role.MinimumRemainingValidity != nil && role.StorePrivateKey == true && (role.StoreBy == storeBySerialString || role.StoreBySerial == true) {
+		b.Logger().Debug("Preventing re-issuance if certificate is already stored")
+		cfg, err := b.getConfig(ctx, req, roleName, false)
+		if err != nil {
+			return logical.ErrorResponse(err.Error()), nil
+		}
+		b.Logger().Debug("Looking if certificate exist in the platform")
+		var certInfo *certificate.CertificateInfo
+		sans := &certificate.Sans{
+			DNS: reqData.altNames,
+		}
+		certInfo, err = cl.SearchCertificate(cfg.Zone, reqData.commonName, sans, role.MinimumRemainingValidity)
+		if err != nil {
+			if !(err == verror.NoCertificateFoundError || err == verror.NoCertificateWithMatchingZoneFoundError) {
+				return logical.ErrorResponse(err.Error()), nil
+			}
+			////catch the scenario when certificate is not found
+			//var regexNoCertificateFound = regexp.MustCompile(fmt.Sprintf("%s|%s", matchingCriteria, matchingZone))
+			//strErr := (err).Error()
+			//if !regexNoCertificateFound.MatchString(strErr) {
+			//	return logical.ErrorResponse(err.Error()), nil
+			//}
+
+		}
+		if certInfo != nil {
+			b.Logger().Debug("Looking for certificate in storage")
+			serialNumber, err := addSeparatorToHexFormattedString(certInfo.Serial, ":")
+			//serialNumber, err := getHexFormatted([]byte(certInfo.Serial), ":")
+			if err != nil {
+				return logical.ErrorResponse(err.Error()), nil
+			}
+			serialNormalized := normalizeSerial(serialNumber)
+			cert, err := readCertificate(b, ctx, req, serialNormalized, reqData.keyPassword)
+			if err != nil {
+				// We want to ignore error from plugin that is related to the certificate not being in storage. If it is
+				// we would like to issue a new one instead
+				if !(errors.As(err, &vpkierror.CertEntryNotFound{})) {
+					return logical.ErrorResponse(err.Error()), nil
+				}
+			}
+			if cert != nil {
+				respData := map[string]interface{}{
+					"certificate_uid":   serialNormalized,
+					"serial_number":     serialNumber,
+					"certificate_chain": cert.CertificateChain,
+					"certificate":       cert.Certificate,
+					"private_key":       cert.PrivateKey,
+				}
+				var logResp *logical.Response
+				logResp = b.Secret(SecretCertsType).Response(
+					respData,
+					map[string]interface{}{
+						"serial_number": serialNumber,
+					})
+				return logResp, nil
+			}
+			// if we arrive here it means that we could NOT find a certificate in storage, so we ignored previous error
+			// and we are going to exit the prevent-reissue code block and we will try to issue a new certificate
+		}
+		// if certInfo is equal to nil but we arrived here, means we skipped the error (since VCert returns error if certificate is not found,
+		// so we won't try to open storage and we will issue a new certificate
 	}
 
 	certReq, err = formRequest(reqData, role, signCSR, b.Logger())
@@ -682,4 +748,6 @@ Sign Venafi certificate
 	pathVenafiCertSignDesc = `
 Sign Venafi certificate
 `
+	matchingCriteria = `No certificate with matching criteria found`
+	matchingZone     = `No certificate with matching zone found`
 )
