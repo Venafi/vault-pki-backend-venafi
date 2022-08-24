@@ -520,7 +520,7 @@ func (r *roleEntry) ToResponseData() map[string]interface{} {
 		"max_ttl":                    int64(r.MaxTTL.Seconds()),
 		"generate_lease":             r.GenerateLease,
 		"chain_option":               r.ChainOption,
-		"minimum_remaining_validity": int64(r.MinimumRemainingValidity.Seconds()),
+		"minimum_remaining_validity": r.MinimumRemainingValidity.String(),
 		"prevent_reissue":            r.PreventReissue,
 	}
 	return responseData

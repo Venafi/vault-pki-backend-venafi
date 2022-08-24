@@ -225,66 +225,12 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 	}
 
 	if role.PreventReissue == true && &role.MinimumRemainingValidity != nil && role.StorePrivateKey == true && (role.StoreBy == storeBySerialString || role.StoreBySerial == true) {
-		b.Logger().Debug("Preventing re-issuance if certificate is already stored")
-		cfg, err := b.getConfig(ctx, req, roleName, false)
-		if err != nil {
-			return logical.ErrorResponse(err.Error()), nil
+		// if we don't receive a logica response, whenever is an error or the actual certificate found in storage
+		// means we need to issue a new one
+		logicalResp := preventReissue(b, ctx, req, &reqData, &cl, role, roleName)
+		if logicalResp != nil {
+			return logicalResp, nil
 		}
-		b.Logger().Debug("Looking if certificate exist in the platform")
-		var certInfo *certificate.CertificateInfo
-		sans := &certificate.Sans{
-			DNS: reqData.altNames,
-		}
-		certInfo, err = cl.SearchCertificate(cfg.Zone, reqData.commonName, sans, role.MinimumRemainingValidity)
-		if err != nil {
-			if !(err == verror.NoCertificateFoundError || err == verror.NoCertificateWithMatchingZoneFoundError) {
-				return logical.ErrorResponse(err.Error()), nil
-			}
-			////catch the scenario when certificate is not found
-			//var regexNoCertificateFound = regexp.MustCompile(fmt.Sprintf("%s|%s", matchingCriteria, matchingZone))
-			//strErr := (err).Error()
-			//if !regexNoCertificateFound.MatchString(strErr) {
-			//	return logical.ErrorResponse(err.Error()), nil
-			//}
-
-		}
-		if certInfo != nil {
-			b.Logger().Debug("Looking for certificate in storage")
-			serialNumber, err := addSeparatorToHexFormattedString(certInfo.Serial, ":")
-			//serialNumber, err := getHexFormatted([]byte(certInfo.Serial), ":")
-			if err != nil {
-				return logical.ErrorResponse(err.Error()), nil
-			}
-			serialNormalized := normalizeSerial(serialNumber)
-			cert, err := readCertificate(b, ctx, req, serialNormalized, reqData.keyPassword)
-			if err != nil {
-				// We want to ignore error from plugin that is related to the certificate not being in storage. If it is
-				// we would like to issue a new one instead
-				if !(errors.As(err, &vpkierror.CertEntryNotFound{})) {
-					return logical.ErrorResponse(err.Error()), nil
-				}
-			}
-			if cert != nil {
-				respData := map[string]interface{}{
-					"certificate_uid":   serialNormalized,
-					"serial_number":     serialNumber,
-					"certificate_chain": cert.CertificateChain,
-					"certificate":       cert.Certificate,
-					"private_key":       cert.PrivateKey,
-				}
-				var logResp *logical.Response
-				logResp = b.Secret(SecretCertsType).Response(
-					respData,
-					map[string]interface{}{
-						"serial_number": serialNumber,
-					})
-				return logResp, nil
-			}
-			// if we arrive here it means that we could NOT find a certificate in storage, so we ignored previous error
-			// and we are going to exit the prevent-reissue code block and we will try to issue a new certificate
-		}
-		// if certInfo is equal to nil but we arrived here, means we skipped the error (since VCert returns error if certificate is not found,
-		// so we won't try to open storage and we will issue a new certificate
 	}
 
 	certReq, err = formRequest(reqData, role, signCSR, b.Logger())
@@ -544,6 +490,59 @@ func issueCertificate(certReq *certificate.Request, keyPass string, cl endpoint.
 	return pemCollection, nil
 }
 
+func preventReissue(b *backend, ctx context.Context, req *logical.Request, reqData *requestData, cl *endpoint.Connector, role *roleEntry, roleName string) *logical.Response {
+	b.Logger().Debug("Preventing re-issuance if certificate is already stored")
+	cfg, err := b.getConfig(ctx, req, roleName, false)
+	if err != nil {
+		return logical.ErrorResponse(err.Error())
+	}
+	b.Logger().Debug("Looking if certificate exist in the platform")
+	var certInfo *certificate.CertificateInfo
+	sans := &certificate.Sans{
+		DNS: reqData.altNames,
+	}
+
+	certInfo, err = (*cl).SearchCertificate(cfg.Zone, reqData.commonName, sans, role.MinimumRemainingValidity)
+	if err != nil && !(err == verror.NoCertificateFoundError || err == verror.NoCertificateWithMatchingZoneFoundError) {
+		return logical.ErrorResponse(err.Error())
+	}
+	if certInfo != nil {
+		b.Logger().Debug("Looking for certificate in storage")
+		serialNumber, err := addSeparatorToHexFormattedString(certInfo.Serial, ":")
+		if err != nil {
+			return logical.ErrorResponse(err.Error())
+		}
+		serialNormalized := normalizeSerial(serialNumber)
+		cert, err := loadCertificateFromStorage(b, ctx, req, serialNormalized, reqData.keyPassword)
+		// We want to ignore error from plugin that is related to the certificate not being in storage. If it is
+		// we would like to issue a new one instead
+		if err != nil && !(errors.As(err, &vpkierror.CertEntryNotFound{})) {
+			return logical.ErrorResponse(err.Error())
+		}
+		if cert != nil {
+			respData := map[string]interface{}{
+				"certificate_uid":   serialNormalized,
+				"serial_number":     serialNumber,
+				"certificate_chain": cert.CertificateChain,
+				"certificate":       cert.Certificate,
+				"private_key":       cert.PrivateKey,
+			}
+			var logResp *logical.Response
+			logResp = b.Secret(SecretCertsType).Response(
+				respData,
+				map[string]interface{}{
+					"serial_number": serialNumber,
+				})
+			return logResp
+		}
+		// if we arrive here it means that we could NOT find a certificate in storage, so we ignored previous error
+		// and we are going to exit the prevent-reissue code block and we will try to issue a new certificate
+	}
+	// if certInfo is equal to nil but we arrived here, means we skipped the error (since VCert returns error if certificate is not found,
+	// so we won't try to open storage and we will issue a new certificate
+	return nil
+}
+
 func formRequest(reqData requestData, role *roleEntry, signCSR bool, logger hclog.Logger) (certReq *certificate.Request, err error) {
 	if !signCSR {
 		if len(reqData.commonName) == 0 && len(reqData.altNames) == 0 {
@@ -748,6 +747,4 @@ Sign Venafi certificate
 	pathVenafiCertSignDesc = `
 Sign Venafi certificate
 `
-	matchingCriteria = `No certificate with matching criteria found`
-	matchingZone     = `No certificate with matching zone found`
 )

@@ -559,26 +559,7 @@ func encryptPkcs8PrivateKey(privateKey string, password string) (string, error) 
 	return encryptedPrivateKeyPem, nil
 }
 
-// SearchCertificateByParams
-// should return best match
-//func SearchCertificateByParams(zone string, cn string, san_dns []string, force_error bool, force_empty bool) (certifateInfo *certificate.CertificateInfo, err error) {
-//	if force_error {
-//		return nil, fmt.Errorf("forcing error")
-//	}
-//	var certInfo *certificate.CertificateInfo
-//	if !force_empty {
-//		certInfo = &certificate.CertificateInfo{
-//			ID:     "",
-//			CN:     cn,
-//			SANS:   struct{ DNS, Email, IP, URI, UPN []string }{DNS: san_dns, Email: []string{}, IP: []string{}, URI: []string{}, UPN: []string{}},
-//			Serial: "",
-//		}
-//	}
-//	return certInfo, nil
-//}
-
-// GetCertificate from storage
-func readCertificate(b *backend, ctx context.Context, req *logical.Request, certUID string, keyPassword string) (cert *VenafiCert, err error) {
+func loadCertificateFromStorage(b *backend, ctx context.Context, req *logical.Request, certUID string, keyPassword string) (cert *VenafiCert, err error) {
 	path := "certs/" + certUID
 
 	entry, err := req.Storage.Get(ctx, path)

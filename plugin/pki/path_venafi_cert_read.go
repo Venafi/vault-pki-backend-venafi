@@ -36,14 +36,9 @@ func (b *backend) pathVenafiCertRead(ctx context.Context, req *logical.Request, 
 		return logical.ErrorResponse("no common name specified on certificate"), nil
 	}
 
-	//var keyPassword string
-	//keyPasswordRaw, keyPasswordSet := data.GetOk("key_password")
-	//if keyPasswordSet {
-	//	keyPassword = keyPasswordRaw.(string)
-	//}
 	keyPassword := data.Get("key_password").(string)
 
-	cert, err := readCertificate(b, ctx, req, certUID, keyPassword)
+	cert, err := loadCertificateFromStorage(b, ctx, req, certUID, keyPassword)
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +52,11 @@ func (b *backend) pathVenafiCertRead(ctx context.Context, req *logical.Request, 
 	}
 
 	if keyPassword != "" {
-		respData["private_key"] = cert.PrivateKey
+		encryptedPrivateKeyPem, err := encryptPrivateKey(cert.PrivateKey, keyPassword)
+		if err != nil {
+			return nil, err
+		}
+		respData["private_key"] = encryptedPrivateKeyPem
 	}
 
 	return &logical.Response{
