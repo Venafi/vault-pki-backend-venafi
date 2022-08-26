@@ -224,8 +224,8 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 
 	}
 
-	if role.PreventReissue == true && &role.MinimumRemainingValidity != nil && role.StorePrivateKey == true && (role.StoreBy == storeBySerialString || role.StoreBySerial == true) {
-		// if we don't receive a logica response, whenever is an error or the actual certificate found in storage
+	if &role.MinimumRemainingValidity != nil && role.MinimumRemainingValidity != time.Duration(0) && role.StorePrivateKey == true && (role.StoreBy == storeBySerialString || role.StoreBySerial == true) {
+		// if we don't receive a logic response, whenever is an error or the actual certificate found in storage
 		// means we need to issue a new one
 		logicalResp := preventReissue(b, ctx, req, &reqData, &cl, role, roleName)
 		if logicalResp != nil {
@@ -513,6 +513,7 @@ func preventReissue(b *backend, ctx context.Context, req *logical.Request, reqDa
 			return logical.ErrorResponse(err.Error())
 		}
 		serialNormalized := normalizeSerial(serialNumber)
+		b.Logger().Debug("Loading certificate from storage")
 		cert, err := loadCertificateFromStorage(b, ctx, req, serialNormalized, reqData.keyPassword)
 		// We want to ignore error from plugin that is related to the certificate not being in storage. If it is
 		// we would like to issue a new one instead
@@ -522,7 +523,7 @@ func preventReissue(b *backend, ctx context.Context, req *logical.Request, reqDa
 		if cert != nil {
 			respData := map[string]interface{}{
 				"certificate_uid":   serialNormalized,
-				"serial_number":     serialNumber,
+				"serial_number":     cert.SerialNumber,
 				"certificate_chain": cert.CertificateChain,
 				"certificate":       cert.Certificate,
 				"private_key":       cert.PrivateKey,

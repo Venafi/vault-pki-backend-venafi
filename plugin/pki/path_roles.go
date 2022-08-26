@@ -129,12 +129,7 @@ attached to them. Defaults to "false".`,
 			},
 			"minimum_remaining_validity": {
 				Type:        framework.TypeDurationSecond,
-				Description: `Only used when prevent_reissue=true. When set, is used to determinate if certificate issuance is needed comparing certificate validity against desired remaining validity`,
-			},
-			"prevent_reissue": {
-				Type:        framework.TypeBool,
-				Default:     false,
-				Description: `When set to true, we prevent to issue a certificate if one is already stored in Vault's' storage. store_by=serial, store_pkey=true, valid_window are required to use this capability`,
+				Description: `When set, is used to determinate if certificate issuance is needed comparing certificate validity against desired remaining validity`,
 			},
 		},
 
@@ -332,15 +327,9 @@ func (b *backend) pathRoleUpdate(ctx context.Context, req *logical.Request, data
 	}
 
 	_, isSet = data.GetOk("minimum_remaining_validity")
-	minimum_remaining_validity := time.Duration(data.Get("minimum_remaining_validity").(int)) * time.Second
-	if isSet && (entry.MinimumRemainingValidity != minimum_remaining_validity) {
-		entry.MinimumRemainingValidity = minimum_remaining_validity
-	}
-
-	_, isSet = data.GetOk("prevent_reissue")
-	prevent_reissue := data.Get("prevent_reissue").(bool)
-	if isSet && (entry.PreventReissue != prevent_reissue) {
-		entry.PreventReissue = prevent_reissue
+	minimumRemainingValidity := time.Duration(data.Get("minimum_remaining_validity").(int)) * time.Second
+	if isSet && (entry.MinimumRemainingValidity != minimumRemainingValidity) {
+		entry.MinimumRemainingValidity = minimumRemainingValidity
 	}
 
 	err = validateEntry(entry)
@@ -385,7 +374,6 @@ func (b *backend) pathRoleCreate(ctx context.Context, req *logical.Request, data
 			VenafiSecret:             data.Get("venafi_secret").(string),
 			Zone:                     data.Get("zone").(string),
 			MinimumRemainingValidity: time.Duration(data.Get("minimum_remaining_validity").(int)) * time.Second,
-			PreventReissue:           data.Get("prevent_reissue").(bool),
 		}
 	}
 
@@ -504,7 +492,6 @@ type roleEntry struct {
 	VenafiSecret             string        `json:"venafi_secret"`
 	Zone                     string        `json:"zone"`
 	MinimumRemainingValidity time.Duration `json:"minimum_remaining_validity"`
-	PreventReissue           bool          `json:"prevent_reissue"`
 }
 
 func (r *roleEntry) ToResponseData() map[string]interface{} {
@@ -520,8 +507,7 @@ func (r *roleEntry) ToResponseData() map[string]interface{} {
 		"max_ttl":                    int64(r.MaxTTL.Seconds()),
 		"generate_lease":             r.GenerateLease,
 		"chain_option":               r.ChainOption,
-		"minimum_remaining_validity": r.MinimumRemainingValidity.String(),
-		"prevent_reissue":            r.PreventReissue,
+		"minimum_remaining_validity": shortDurationString(r.MinimumRemainingValidity),
 	}
 	return responseData
 }
