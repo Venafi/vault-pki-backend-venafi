@@ -127,7 +127,7 @@ attached to them. Defaults to "false".`,
 				Description: `When true, settings of an existing role will be retained unless they are specified in the update.
                               By default unspecified settings are returned to their default values`,
 			},
-			"minimum_remaining_validity": {
+			"min_cert_time_left": {
 				Type:        framework.TypeDurationSecond,
 				Description: `When set, is used to determinate if certificate issuance is needed comparing certificate validity against desired remaining validity`,
 			},
@@ -326,10 +326,10 @@ func (b *backend) pathRoleUpdate(ctx context.Context, req *logical.Request, data
 		entry.Zone = zone
 	}
 
-	_, isSet = data.GetOk("minimum_remaining_validity")
-	minimumRemainingValidity := time.Duration(data.Get("minimum_remaining_validity").(int)) * time.Second
-	if isSet && (entry.MinimumRemainingValidity != minimumRemainingValidity) {
-		entry.MinimumRemainingValidity = minimumRemainingValidity
+	_, isSet = data.GetOk("min_cert_time_left")
+	minCertTimeLeft := time.Duration(data.Get("min_cert_time_left").(int)) * time.Second
+	if isSet && (entry.MinCertTimeLeft != minCertTimeLeft) {
+		entry.MinCertTimeLeft = minCertTimeLeft
 	}
 
 	err = validateEntry(entry)
@@ -356,24 +356,24 @@ func (b *backend) pathRoleCreate(ctx context.Context, req *logical.Request, data
 
 	} else {
 		entry = &roleEntry{
-			ChainOption:              data.Get("chain_option").(string),
-			StoreByCN:                data.Get("store_by_cn").(bool),
-			StoreBySerial:            data.Get("store_by_serial").(bool),
-			StoreBy:                  data.Get("store_by").(string),
-			NoStore:                  data.Get("no_store").(bool),
-			ServiceGenerated:         data.Get("service_generated_cert").(bool),
-			StorePrivateKey:          data.Get("store_pkey").(bool),
-			KeyType:                  data.Get("key_type").(string),
-			KeyBits:                  data.Get("key_bits").(int),
-			KeyCurve:                 data.Get("key_curve").(string),
-			MaxTTL:                   time.Duration(data.Get("max_ttl").(int)) * time.Second,
-			TTL:                      time.Duration(data.Get("ttl").(int)) * time.Second,
-			IssuerHint:               data.Get("issuer_hint").(string),
-			GenerateLease:            data.Get("generate_lease").(bool),
-			ServerTimeout:            time.Duration(data.Get("server_timeout").(int)) * time.Second,
-			VenafiSecret:             data.Get("venafi_secret").(string),
-			Zone:                     data.Get("zone").(string),
-			MinimumRemainingValidity: time.Duration(data.Get("minimum_remaining_validity").(int)) * time.Second,
+			ChainOption:      data.Get("chain_option").(string),
+			StoreByCN:        data.Get("store_by_cn").(bool),
+			StoreBySerial:    data.Get("store_by_serial").(bool),
+			StoreBy:          data.Get("store_by").(string),
+			NoStore:          data.Get("no_store").(bool),
+			ServiceGenerated: data.Get("service_generated_cert").(bool),
+			StorePrivateKey:  data.Get("store_pkey").(bool),
+			KeyType:          data.Get("key_type").(string),
+			KeyBits:          data.Get("key_bits").(int),
+			KeyCurve:         data.Get("key_curve").(string),
+			MaxTTL:           time.Duration(data.Get("max_ttl").(int)) * time.Second,
+			TTL:              time.Duration(data.Get("ttl").(int)) * time.Second,
+			IssuerHint:       data.Get("issuer_hint").(string),
+			GenerateLease:    data.Get("generate_lease").(bool),
+			ServerTimeout:    time.Duration(data.Get("server_timeout").(int)) * time.Second,
+			VenafiSecret:     data.Get("venafi_secret").(string),
+			Zone:             data.Get("zone").(string),
+			MinCertTimeLeft:  time.Duration(data.Get("min_cert_time_left").(int)) * time.Second,
 		}
 	}
 
@@ -470,44 +470,44 @@ func getCredentialsWarnings(b *backend, ctx context.Context, s logical.Storage, 
 type roleEntry struct {
 
 	//Venafi values
-	ChainOption              string        `json:"chain_option"`
-	StoreByCN                bool          `json:"store_by_cn"`
-	StoreBySerial            bool          `json:"store_by_serial"`
-	StoreBy                  string        `json:"store_by"`
-	NoStore                  bool          `json:"no_store"`
-	ServiceGenerated         bool          `json:"service_generated_cert"`
-	StorePrivateKey          bool          `json:"store_pkey"`
-	KeyType                  string        `json:"key_type"`
-	KeyBits                  int           `json:"key_bits"`
-	KeyCurve                 string        `json:"key_curve"`
-	LeaseMax                 string        `json:"lease_max"`
-	Lease                    string        `json:"lease"`
-	TTL                      time.Duration `json:"ttl_duration"`
-	MaxTTL                   time.Duration `json:"max_ttl_duration"`
-	IssuerHint               string        `json:"issuer_hint"`
-	GenerateLease            bool          `json:"generate_lease,omitempty"`
-	DeprecatedMaxTTL         string        `json:"max_ttl"`
-	DeprecatedTTL            string        `json:"ttl"`
-	ServerTimeout            time.Duration `json:"server_timeout"`
-	VenafiSecret             string        `json:"venafi_secret"`
-	Zone                     string        `json:"zone"`
-	MinimumRemainingValidity time.Duration `json:"minimum_remaining_validity"`
+	ChainOption      string        `json:"chain_option"`
+	StoreByCN        bool          `json:"store_by_cn"`
+	StoreBySerial    bool          `json:"store_by_serial"`
+	StoreBy          string        `json:"store_by"`
+	NoStore          bool          `json:"no_store"`
+	ServiceGenerated bool          `json:"service_generated_cert"`
+	StorePrivateKey  bool          `json:"store_pkey"`
+	KeyType          string        `json:"key_type"`
+	KeyBits          int           `json:"key_bits"`
+	KeyCurve         string        `json:"key_curve"`
+	LeaseMax         string        `json:"lease_max"`
+	Lease            string        `json:"lease"`
+	TTL              time.Duration `json:"ttl_duration"`
+	MaxTTL           time.Duration `json:"max_ttl_duration"`
+	IssuerHint       string        `json:"issuer_hint"`
+	GenerateLease    bool          `json:"generate_lease,omitempty"`
+	DeprecatedMaxTTL string        `json:"max_ttl"`
+	DeprecatedTTL    string        `json:"ttl"`
+	ServerTimeout    time.Duration `json:"server_timeout"`
+	VenafiSecret     string        `json:"venafi_secret"`
+	Zone             string        `json:"zone"`
+	MinCertTimeLeft  time.Duration `json:"min_cert_time_left"`
 }
 
 func (r *roleEntry) ToResponseData() map[string]interface{} {
 	responseData := map[string]interface{}{
-		"venafi_secret":              r.VenafiSecret,
-		"role_zone":                  r.Zone,
-		"store_by":                   r.StoreBy,
-		"no_store":                   r.NoStore,
-		"service_generated_cert":     r.ServiceGenerated,
-		"store_pkey":                 r.StorePrivateKey,
-		"ttl":                        int64(r.TTL.Seconds()),
-		"issuer_hint":                r.IssuerHint,
-		"max_ttl":                    int64(r.MaxTTL.Seconds()),
-		"generate_lease":             r.GenerateLease,
-		"chain_option":               r.ChainOption,
-		"minimum_remaining_validity": shortDurationString(r.MinimumRemainingValidity),
+		"venafi_secret":          r.VenafiSecret,
+		"role_zone":              r.Zone,
+		"store_by":               r.StoreBy,
+		"no_store":               r.NoStore,
+		"service_generated_cert": r.ServiceGenerated,
+		"store_pkey":             r.StorePrivateKey,
+		"ttl":                    int64(r.TTL.Seconds()),
+		"issuer_hint":            r.IssuerHint,
+		"max_ttl":                int64(r.MaxTTL.Seconds()),
+		"generate_lease":         r.GenerateLease,
+		"chain_option":           r.ChainOption,
+		"min_cert_time_left":     shortDurationString(r.MinCertTimeLeft),
 	}
 	return responseData
 }

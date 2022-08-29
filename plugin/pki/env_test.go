@@ -924,7 +924,7 @@ func (e *testEnv) CheckThatThereIsNoCertificate(t *testing.T, certId string) {
 		t.Fatal("should be no entry error if there is no certificate")
 	}
 
-	if errors.As(err, &vpkierror.CertEntryNotFound{}) {
+	if !errors.As(err, &vpkierror.CertEntryNotFound{}) {
 		t.Fatalf("error should contain %s substring but it is %s", vpkierror.CertEntryNotFound{EntryPath: path}, err.Error())
 	}
 

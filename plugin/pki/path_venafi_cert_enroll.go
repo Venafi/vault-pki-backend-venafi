@@ -224,7 +224,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 
 	}
 
-	if &role.MinimumRemainingValidity != nil && role.MinimumRemainingValidity != time.Duration(0) && role.StorePrivateKey == true && (role.StoreBy == storeBySerialString || role.StoreBySerial == true) {
+	if &role.MinCertTimeLeft != nil && role.MinCertTimeLeft != time.Duration(0) && role.StorePrivateKey == true && (role.StoreBy == storeBySerialString || role.StoreBySerial == true) {
 		// if we don't receive a logic response, whenever is an error or the actual certificate found in storage
 		// means we need to issue a new one
 		logicalResp := preventReissue(b, ctx, req, &reqData, &cl, role, roleName)
@@ -502,7 +502,7 @@ func preventReissue(b *backend, ctx context.Context, req *logical.Request, reqDa
 		DNS: reqData.altNames,
 	}
 
-	certInfo, err = (*cl).SearchCertificate(cfg.Zone, reqData.commonName, sans, role.MinimumRemainingValidity)
+	certInfo, err = (*cl).SearchCertificate(cfg.Zone, reqData.commonName, sans, role.MinCertTimeLeft)
 	if err != nil && !(err == verror.NoCertificateFoundError || err == verror.NoCertificateWithMatchingZoneFoundError) {
 		return logical.ErrorResponse(err.Error())
 	}
@@ -548,9 +548,6 @@ func formRequest(reqData requestData, role *roleEntry, signCSR bool, logger hclo
 	if !signCSR {
 		if len(reqData.commonName) == 0 && len(reqData.altNames) == 0 {
 			return certReq, fmt.Errorf("no domains specified on certificate")
-		}
-		if len(reqData.commonName) == 0 && len(reqData.altNames) > 0 {
-			reqData.commonName = reqData.altNames[0]
 		}
 		if !sliceContains(reqData.altNames, reqData.commonName) {
 			logger.Debug(fmt.Sprintf("Adding CN %s to SAN %s because it wasn't included.", reqData.commonName, reqData.altNames))
