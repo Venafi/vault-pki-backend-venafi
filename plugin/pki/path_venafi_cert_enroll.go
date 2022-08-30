@@ -498,14 +498,19 @@ func preventReissue(b *backend, ctx context.Context, req *logical.Request, reqDa
 	}
 	b.Logger().Debug("Looking if certificate exist in the platform")
 	var certInfo *certificate.CertificateInfo
-	if (*cl).GetType() == endpoint.ConnectorTypeTPP {
-		reqData.commonName = reqData.altNames[0]
-	}
+	// creating new variables, so we don't mess up with reqData values since we may send that during request or modify them during issuing operation
+	commonName := reqData.commonName
 	sans := &certificate.Sans{
 		DNS: reqData.altNames,
 	}
+	if (*cl).GetType() == endpoint.ConnectorTypeTPP {
+		if !sliceContains(sans.DNS, commonName) && commonName != "" { // Go can compare if en empty string exist in the slice, so we omit that case
+			b.Logger().Debug(fmt.Sprintf("Adding CN %s to SAN %s because it wasn't included.", reqData.commonName, reqData.altNames))
+			sans.DNS = append(sans.DNS, commonName)
+		}
+	}
 
-	certInfo, err = (*cl).SearchCertificate(cfg.Zone, reqData.commonName, sans, role.MinCertTimeLeft)
+	certInfo, err = (*cl).SearchCertificate(cfg.Zone, commonName, sans, role.MinCertTimeLeft)
 	if err != nil && !(err == verror.NoCertificateFoundError || err == verror.NoCertificateWithMatchingZoneFoundError) {
 		return logical.ErrorResponse(err.Error())
 	}
@@ -549,20 +554,23 @@ func preventReissue(b *backend, ctx context.Context, req *logical.Request, reqDa
 
 func formRequest(reqData requestData, role *roleEntry, cl *endpoint.Connector, signCSR bool, logger hclog.Logger) (certReq *certificate.Request, err error) {
 	if !signCSR {
-		if len(reqData.commonName) == 0 && len(reqData.altNames) == 0 {
+		if len(reqData.altNames) == 0 && reqData.commonName == "" {
 			return certReq, fmt.Errorf("no domains specified on certificate")
 		}
-		if !sliceContains(reqData.altNames, reqData.commonName) {
+		if !sliceContains(reqData.altNames, reqData.commonName) && reqData.commonName != "" { // Go can compare if en empty string exist in the slice, so we omit that case
 			logger.Debug(fmt.Sprintf("Adding CN %s to SAN %s because it wasn't included.", reqData.commonName, reqData.altNames))
 			reqData.altNames = append(reqData.altNames, reqData.commonName)
 		}
 
 		certReq = &certificate.Request{
-			Subject: pkix.Name{
-				CommonName: reqData.commonName,
-			},
 			CsrOrigin:   certificate.LocalGeneratedCSR,
 			KeyPassword: reqData.keyPassword,
+		}
+
+		if reqData.commonName != "" {
+			certReq.Subject = pkix.Name{
+				CommonName: reqData.commonName,
+			}
 		}
 
 		if len(reqData.commonName) == 0 && len(reqData.altNames) > 0 && (*cl).GetType() == endpoint.ConnectorTypeTPP {

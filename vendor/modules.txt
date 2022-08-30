@@ -1,6 +1,6 @@
 # github.com/Venafi/vcert v3.18.4+incompatible
 github.com/Venafi/vcert/test
-# github.com/Venafi/vcert/v4 v4.21.1-0.20220826014128-64e15546c977
+# github.com/Venafi/vcert/v4 v4.21.1-0.20220830140746-01cfee4b58e4
 github.com/Venafi/vcert/v4
 github.com/Venafi/vcert/v4/pkg/certificate
 github.com/Venafi/vcert/v4/pkg/endpoint

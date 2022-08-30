@@ -4,7 +4,7 @@ go 1.13
 
 require (
 	github.com/Venafi/vcert v3.18.4+incompatible
-	github.com/Venafi/vcert/v4 v4.21.1-0.20220826014128-64e15546c977
+	github.com/Venafi/vcert/v4 v4.21.1-0.20220830140746-01cfee4b58e4
 	github.com/hashicorp/go-hclog v0.14.1
 	github.com/hashicorp/vault/api v1.0.4
 	github.com/hashicorp/vault/sdk v0.1.13

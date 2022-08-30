@@ -18,7 +18,6 @@ package cloud
 
 import (
 	"archive/zip"
-	"math"
 	"bytes"
 	"crypto/rand"
 	"crypto/x509"
@@ -28,9 +27,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"math"
 	"net/http"
 	netUrl "net/url"
-	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -100,7 +99,7 @@ func (c *Connector) SearchCertificates(req *certificate.SearchRequest) (*certifi
 	panic("operation is not supported yet")
 }
 
-func (c *Connector) SearchCertificate(zone string, cn string, sans *certificate.Sans, valid_for time.Duration) (certificateInfo *certificate.CertificateInfo, err error) {
+func (c *Connector) SearchCertificate(zone string, cn string, sans *certificate.Sans, certMinTimeLeft time.Duration) (certificateInfo *certificate.CertificateInfo, err error) {
 	appName := GetAppNameFromZone(zone)
 	// get application id
 	app, _, err := c.getAppDetailsByName(appName)
@@ -109,7 +108,7 @@ func (c *Connector) SearchCertificate(zone string, cn string, sans *certificate.
 	}
 
 	// convert a time.Duration to days
-	valid_for_days := math.Floor(valid_for.Hours() / 24)
+	certMinTimeDays := math.Floor(certMinTimeLeft.Hours() / 24)
 
 	// format arguments for request
 	req := &SearchRequest{
@@ -129,7 +128,7 @@ func (c *Connector) SearchCertificate(zone string, cn string, sans *certificate.
 				{
 					Field:    "validityPeriodDays",
 					Operator: GTE,
-					Value:    valid_for_days,
+					Value:    certMinTimeDays,
 				},
 			},
 		},
@@ -178,26 +177,8 @@ func (c *Connector) SearchCertificate(zone string, cn string, sans *certificate.
 	}
 
 	// at this point all certificates belong to our zone, the next step is
-	// finding the newest valid certificate
-	var newestCertificate *certificate.CertificateInfo
-	for _, certificate := range certificates {
-		// log.Printf("looping %v\n", util.GetJsonAsString(certificate))
-		// exact match SANs
-		if reflect.DeepEqual(sans.DNS, certificate.SANS.DNS) {
-			// update the certificate to the newest match
-			if newestCertificate == nil || certificate.ValidTo.Unix() > newestCertificate.ValidTo.Unix() {
-				newestCertificate = certificate
-			}
-		}
-	}
-
-	// a valid certificate has been found, return it
-	if newestCertificate != nil {
-		return newestCertificate, nil
-	}
-
-	// fail, since no valid certificate was found at this point
-	return nil, verror.NoCertificateFoundError
+	// finding the newest valid certificate matching the provided sans
+	return certificate.FindNewestCertificateWithSans(certificates, sans)
 }
 
 func (c *Connector) IsCSRServiceGenerated(req *certificate.Request) (bool, error) {
