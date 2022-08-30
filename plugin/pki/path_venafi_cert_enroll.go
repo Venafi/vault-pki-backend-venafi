@@ -233,7 +233,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 		}
 	}
 
-	certReq, err = formRequest(reqData, role, signCSR, b.Logger())
+	certReq, err = formRequest(reqData, role, &cl, signCSR, b.Logger())
 	if err != nil {
 		return logical.ErrorResponse(err.Error()), nil
 	}
@@ -498,6 +498,9 @@ func preventReissue(b *backend, ctx context.Context, req *logical.Request, reqDa
 	}
 	b.Logger().Debug("Looking if certificate exist in the platform")
 	var certInfo *certificate.CertificateInfo
+	if (*cl).GetType() == endpoint.ConnectorTypeTPP {
+		reqData.commonName = reqData.altNames[0]
+	}
 	sans := &certificate.Sans{
 		DNS: reqData.altNames,
 	}
@@ -544,7 +547,7 @@ func preventReissue(b *backend, ctx context.Context, req *logical.Request, reqDa
 	return nil
 }
 
-func formRequest(reqData requestData, role *roleEntry, signCSR bool, logger hclog.Logger) (certReq *certificate.Request, err error) {
+func formRequest(reqData requestData, role *roleEntry, cl *endpoint.Connector, signCSR bool, logger hclog.Logger) (certReq *certificate.Request, err error) {
 	if !signCSR {
 		if len(reqData.commonName) == 0 && len(reqData.altNames) == 0 {
 			return certReq, fmt.Errorf("no domains specified on certificate")
@@ -553,12 +556,17 @@ func formRequest(reqData requestData, role *roleEntry, signCSR bool, logger hclo
 			logger.Debug(fmt.Sprintf("Adding CN %s to SAN %s because it wasn't included.", reqData.commonName, reqData.altNames))
 			reqData.altNames = append(reqData.altNames, reqData.commonName)
 		}
+
 		certReq = &certificate.Request{
 			Subject: pkix.Name{
 				CommonName: reqData.commonName,
 			},
 			CsrOrigin:   certificate.LocalGeneratedCSR,
 			KeyPassword: reqData.keyPassword,
+		}
+
+		if len(reqData.commonName) == 0 && len(reqData.altNames) > 0 && (*cl).GetType() == endpoint.ConnectorTypeTPP {
+			certReq.FriendlyName = reqData.altNames[0]
 		}
 
 		if role.ServiceGenerated {
