@@ -528,7 +528,7 @@ func preventReissue(b *backend, ctx context.Context, req *logical.Request, reqDa
 		if err != nil && !(errors.As(err, &vpkierror.CertEntryNotFound{})) {
 			return logical.ErrorResponse(err.Error())
 		}
-		if cert != nil {
+		if cert != nil && cert.PrivateKey != "" {
 			respData := map[string]interface{}{
 				"certificate_uid":   serialNormalized,
 				"serial_number":     cert.SerialNumber,
