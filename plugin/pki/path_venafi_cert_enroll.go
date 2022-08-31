@@ -503,7 +503,10 @@ func preventReissue(b *backend, ctx context.Context, req *logical.Request, reqDa
 	sans := &certificate.Sans{
 		DNS: reqData.altNames,
 	}
+	// During search, if VaaS doesn't provide the CN and the CIT restricts the CN, then we will return an error since it's not supported.
 	if (*cl).GetType() == endpoint.ConnectorTypeTPP {
+		// if the CN is not inside the SAN DNS List, we added in order to search for since this functionality
+		// is also added formRequest function of this package
 		if !sliceContains(sans.DNS, commonName) && commonName != "" { // Go can compare if en empty string exist in the slice, so we omit that case
 			b.Logger().Debug(fmt.Sprintf("Adding CN %s to SAN %s because it wasn't included.", reqData.commonName, reqData.altNames))
 			sans.DNS = append(sans.DNS, commonName)

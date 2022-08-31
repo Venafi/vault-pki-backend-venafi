@@ -343,6 +343,33 @@ reload_id    d8180af4-01e0-d4d8-10ce-0daf69fbb6ed
 with the same version of the plugin to avoid inconsistent, unexpected, and
 possibly erroneous results.
 
+## Prevent Re-issue
+
+In order to prevent an issuance of a new certificate if current certificate exists in Vault's storage, we added a capability
+to return that certificate instead. To issue this feature you must set:
+
+- `min_cert_time_left`: Golang's duration format string (e.g. 24h, 23h5m20s, 10000s, etc.)
+- `store_by="serial"`
+- `store_pkey=true`
+
+If certificate was successfully loaded from Vault storage, you will encounter `Loading certificate from storage` message
+in logs when `[DEBUG]` mode is set:
+
+```
+2022-08-30T13:41:49.007-0500 [DEBUG] secrets.venafi-pki-backend.venafi-pki-backend_5df77702.venafi-pki-backend.venafi-pki-backend: Loading certificate from storage: timestamp=2022-08-30T13:41:49.006-0500
+2022-08-30T13:41:49.008-0500 [DEBUG] secrets.venafi-pki-backend.venafi-pki-backend_5df77702.venafi-pki-backend.venafi-pki-backend: Getting venafi certificate: timestamp=2022-08-30T13:41:49.008-0500
+2022-08-30T13:41:49.010-0500 [DEBUG] secrets.venafi-pki-backend.venafi-pki-backend_5df77702.venafi-pki-backend.venafi-pki-backend: certificate is:-----BEGIN CERTIFICATE-----
+MIIHvjCCBaagAwIBAgITbQCpUfV8kBfjsOaP8QAAAKlR9TANBgkqhkiG9w0BAQsF
+ADBbMRMwEQYKCZImiZPyLGQBGRYDY29tMRYwFAYKCZImiZPyLGQBGRYGdmVuYWZp
+MRUwEwYKCZImiZPyLGQBGRYFdmVucWExFTATBgNVBAMTDFFBIFZlbmFmaSBDQTAe
+Fw0yMjA4MzAxODMxNDNaFw0yNDA4MjkxODMxNDNaMIHAMQswCQYDVQQGEwJVUzEN
+MAsGA1UECBMEVXRhaDEXMBUGA1UEBxMOU2FsdCBMYWtlIENpdHkxFDASBgNVBAoT
+C1ZlbmFmaSBJbmMuMRQwEgYDVQQLEwtFbmdpbmVlcmluZzEbMBkGA1UECxMSUHJv
+ZHVjdCBNYW5hZ2VtZW50MRowGAYDVQQLExFRdWFsaXR5IEFzc3VyYW5jZTEkMCIG
+A1UEAxMbbm9wcml2YXRla2V5LnZlbmFmaS5leGFtcGxlMIIBIjANBgkqhkiG9w0B
+```
+
+
 ## License
 
 Copyright &copy; Venafi, Inc. All rights reserved.

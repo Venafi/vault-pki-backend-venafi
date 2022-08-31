@@ -100,7 +100,7 @@ func (c *Connector) SearchCertificates(req *certificate.SearchRequest) (*certifi
 }
 
 func (c *Connector) SearchCertificate(zone string, cn string, sans *certificate.Sans, certMinTimeLeft time.Duration) (certificateInfo *certificate.CertificateInfo, err error) {
-	appName := GetAppNameFromZone(zone)
+	appName := getAppNameFromZone(zone)
 	// get application id
 	app, _, err := c.getAppDetailsByName(appName)
 	if err != nil {
@@ -153,20 +153,8 @@ func (c *Connector) SearchCertificate(zone string, cn string, sans *certificate.
 		// log.Printf("looping %v\n", util.GetJsonAsString(cert))
 		// TODO: filter based on applicationId (VaaS equivalent to TPP Zone)
 		if util.ArrayContainsString(cert.ApplicationIds, app.ApplicationId) {
-			certificates = append(certificates, &certificate.CertificateInfo{})
-			certificates[n].ID = cert.Id
-			certificates[n].CN = strings.Join(cert.SubjectCN, ",")
-			certificates[n].SANS = certificate.Sans{
-				DNS:   cert.SubjectAlternativeNamesByType["dNSName"],
-				Email: cert.SubjectAlternativeNamesByType["x400Address"],
-				IP:    cert.SubjectAlternativeNamesByType["iPAddress"],
-				URI:   cert.SubjectAlternativeNamesByType["uniformResourceIdentifier"],
-				UPN:   cert.SubjectAlternativeNamesByType["x400Address"],
-			}
-			certificates[n].Serial = cert.SerialNumber
-			certificates[n].Thumbprint = cert.Fingerprint
-			certificates[n].ValidFrom = cert.ValidityStart
-			certificates[n].ValidTo = cert.ValidityEnd
+			match := cert.ToCertificateInfo()
+			certificates = append(certificates, &match)
 			n = n + 1
 		}
 	}
