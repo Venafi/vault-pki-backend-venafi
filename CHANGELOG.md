@@ -1,3 +1,6 @@
+# v0.10.5 (August 30, 2022)
+Added feature in order to prevent an issuance of the certificate if it is already inside Vault storage 
+
 # v.0.10.4 (May 27, 2022)
 Fixed a thread locking bug
 

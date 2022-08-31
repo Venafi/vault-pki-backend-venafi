@@ -26,7 +26,7 @@ build: get
 	env GOOS=linux   GOARCH=amd64 go build $(GO_LDFLAGS) -o bin/linux/vcert         ./cmd/vcert
 	env GOOS=linux   GOARCH=386   go build $(GO_LDFLAGS) -o bin/linux/vcert86       ./cmd/vcert
 	env GOOS=darwin  GOARCH=amd64 go build $(GO_LDFLAGS) -o bin/darwin/vcert        ./cmd/vcert
-	env GOOS=darwin  GOARCH=arm64 go build $(GO_LDFLAGS) -o bin/darwin/vcert_arm        ./cmd/vcert
+	env GOOS=darwin  GOARCH=arm64 go build $(GO_LDFLAGS) -o bin/darwin/vcert_arm    ./cmd/vcert
 	env GOOS=windows GOARCH=amd64 go build $(GO_LDFLAGS) -o bin/windows/vcert.exe   ./cmd/vcert
 	env GOOS=windows GOARCH=386   go build $(GO_LDFLAGS) -o bin/windows/vcert86.exe ./cmd/vcert
 
@@ -74,10 +74,11 @@ cmd_test: get
 collect_artifacts:
 	rm -rf artifacts
 	mkdir -p artifacts
-	zip -j "artifacts/vcert_$(VERSION)_linux.zip" "bin/linux/vcert" || exit 1
-	zip -j "artifacts/vcert_$(VERSION)_linux86.zip" "bin/linux/vcert86" || exit 1
-	zip -j "artifacts/vcert_$(VERSION)_darwin.zip" "bin/darwin/vcert" || exit 1
-	zip -j "artifacts/vcert_$(VERSION)_darwin_arm.zip" "bin/darwin/vcert_arm" || exit 1
+	# we are assuming that signature are in the path were the make file was executed (not necessarily should be in the root of project)
+	zip -j "artifacts/vcert_$(VERSION)_linux.zip" "bin/linux/vcert" "vcert_linux.sig" || exit 1
+	zip -j "artifacts/vcert_$(VERSION)_linux86.zip" "bin/linux/vcert86" "vcert_linux86.sig" || exit 1
+	zip -j "artifacts/vcert_$(VERSION)_darwin.zip" "bin/darwin/vcert" "vcert_darwin.sig" || exit 1
+	zip -j "artifacts/vcert_$(VERSION)_darwin_arm.zip" "bin/darwin/vcert_arm" "vcert_darwin_arm.sig" || exit 1
 	zip -j "artifacts/vcert_$(VERSION)_windows.zip" "bin/windows/vcert.exe" || exit 1
 	zip -j "artifacts/vcert_$(VERSION)_windows86.zip" "bin/windows/vcert86.exe" || exit 1
 

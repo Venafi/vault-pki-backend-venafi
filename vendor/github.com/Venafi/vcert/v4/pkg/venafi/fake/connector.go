@@ -47,6 +47,10 @@ func (c *Connector) SearchCertificates(req *certificate.SearchRequest) (*certifi
 	panic("operation is not supported yet")
 }
 
+func (c *Connector) SearchCertificate(zone string, cn string, sans *certificate.Sans, certMinTimeLeft time.Duration) (certificateInfo *certificate.CertificateInfo, err error) {
+	panic("operation is not supported yet")
+}
+
 func (c *Connector) IsCSRServiceGenerated(req *certificate.Request) (bool, error) {
 	panic("operation is not supported yet")
 }
@@ -344,23 +348,23 @@ func (c *Connector) ImportCertificate(req *certificate.ImportRequest) (*certific
 
 func (c *Connector) ReadPolicyConfiguration() (policy *endpoint.Policy, err error) {
 	policy = &endpoint.Policy{
-		[]string{".*"},
-		[]string{".*"},
-		[]string{".*"},
-		[]string{".*"},
-		[]string{".*"},
-		[]string{".*"},
-		[]endpoint.AllowedKeyConfiguration{
-			{certificate.KeyTypeRSA, certificate.AllSupportedKeySizes(), nil},
-			{certificate.KeyTypeECDSA, nil, certificate.AllSupportedCurves()},
+		SubjectCNRegexes: []string{".*"},
+		SubjectORegexes:  []string{".*"},
+		SubjectOURegexes: []string{".*"},
+		SubjectSTRegexes: []string{".*"},
+		SubjectLRegexes:  []string{".*"},
+		SubjectCRegexes:  []string{".*"},
+		AllowedKeyConfigurations: []endpoint.AllowedKeyConfiguration{
+			{KeyType: certificate.KeyTypeRSA, KeySizes: certificate.AllSupportedKeySizes(), KeyCurves: nil},
+			{KeyType: certificate.KeyTypeECDSA, KeySizes: nil, KeyCurves: certificate.AllSupportedCurves()},
 		},
-		[]string{".*"},
-		[]string{".*"},
-		[]string{".*"},
-		[]string{".*"},
-		[]string{".*"},
-		true,
-		true,
+		DnsSanRegExs:   []string{".*"},
+		IpSanRegExs:    []string{".*"},
+		EmailSanRegExs: []string{".*"},
+		UriSanRegExs:   []string{".*"},
+		UpnSanRegExs:   []string{".*"},
+		AllowWildcards: true,
+		AllowKeyReuse:  true,
 	}
 	return
 }

@@ -7,9 +7,12 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"errors"
 	"fmt"
+	"github.com/Venafi/vault-pki-backend-venafi/plugin/pki/vpkierror"
 	"github.com/Venafi/vcert/v4/pkg/endpoint"
 	"github.com/Venafi/vcert/v4/pkg/util"
+	"github.com/Venafi/vcert/v4/pkg/verror"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/vault/sdk/helper/consts"
 	"net"
@@ -221,7 +224,16 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 
 	}
 
-	certReq, err = formRequest(reqData, role, signCSR, b.Logger())
+	if &role.MinCertTimeLeft != nil && role.MinCertTimeLeft != time.Duration(0) && role.StorePrivateKey == true && (role.StoreBy == storeBySerialString || role.StoreBySerial == true) {
+		// if we don't receive a logic response, whenever is an error or the actual certificate found in storage
+		// means we need to issue a new one
+		logicalResp := preventReissue(b, ctx, req, &reqData, &cl, role, roleName)
+		if logicalResp != nil {
+			return logicalResp, nil
+		}
+	}
+
+	certReq, err = formRequest(reqData, role, &cl, signCSR, b.Logger())
 	if err != nil {
 		return logical.ErrorResponse(err.Error()), nil
 	}
@@ -478,24 +490,94 @@ func issueCertificate(certReq *certificate.Request, keyPass string, cl endpoint.
 	return pemCollection, nil
 }
 
-func formRequest(reqData requestData, role *roleEntry, signCSR bool, logger hclog.Logger) (certReq *certificate.Request, err error) {
+func preventReissue(b *backend, ctx context.Context, req *logical.Request, reqData *requestData, cl *endpoint.Connector, role *roleEntry, roleName string) *logical.Response {
+	b.Logger().Debug("Preventing re-issuance if certificate is already stored")
+	cfg, err := b.getConfig(ctx, req, roleName, false)
+	if err != nil {
+		return logical.ErrorResponse(err.Error())
+	}
+	b.Logger().Debug("Looking if certificate exist in the platform")
+	var certInfo *certificate.CertificateInfo
+	// creating new variables, so we don't mess up with reqData values since we may send that during request or modify them during issuing operation
+	commonName := reqData.commonName
+	sans := &certificate.Sans{
+		DNS: reqData.altNames,
+	}
+	// During search, if VaaS doesn't provide the CN and the CIT restricts the CN, then we will return an error since it's not supported.
+	if (*cl).GetType() == endpoint.ConnectorTypeTPP {
+		// if the CN is not inside the SAN DNS List, we added in order to search for since this functionality
+		// is also added formRequest function of this package
+		if !sliceContains(sans.DNS, commonName) && commonName != "" { // Go can compare if en empty string exist in the slice, so we omit that case
+			b.Logger().Debug(fmt.Sprintf("Adding CN %s to SAN %s because it wasn't included.", reqData.commonName, reqData.altNames))
+			sans.DNS = append(sans.DNS, commonName)
+		}
+	}
+
+	certInfo, err = (*cl).SearchCertificate(cfg.Zone, commonName, sans, role.MinCertTimeLeft)
+	if err != nil && !(err == verror.NoCertificateFoundError || err == verror.NoCertificateWithMatchingZoneFoundError) {
+		return logical.ErrorResponse(err.Error())
+	}
+	if certInfo != nil {
+		b.Logger().Debug("Looking for certificate in storage")
+		serialNumber, err := addSeparatorToHexFormattedString(certInfo.Serial, ":")
+		if err != nil {
+			return logical.ErrorResponse(err.Error())
+		}
+		serialNormalized := normalizeSerial(serialNumber)
+		b.Logger().Debug("Loading certificate from storage")
+		cert, err := loadCertificateFromStorage(b, ctx, req, serialNormalized, reqData.keyPassword)
+		// We want to ignore error from plugin that is related to the certificate not being in storage. If it is
+		// we would like to issue a new one instead
+		if err != nil && !(errors.As(err, &vpkierror.CertEntryNotFound{})) {
+			return logical.ErrorResponse(err.Error())
+		}
+		if cert != nil && cert.PrivateKey != "" {
+			respData := map[string]interface{}{
+				"certificate_uid":   serialNormalized,
+				"serial_number":     cert.SerialNumber,
+				"certificate_chain": cert.CertificateChain,
+				"certificate":       cert.Certificate,
+				"private_key":       cert.PrivateKey,
+			}
+			var logResp *logical.Response
+			logResp = b.Secret(SecretCertsType).Response(
+				respData,
+				map[string]interface{}{
+					"serial_number": serialNumber,
+				})
+			return logResp
+		}
+		// if we arrive here it means that we could NOT find a certificate in storage, so we ignored previous error
+		// and we are going to exit the prevent-reissue code block and we will try to issue a new certificate
+	}
+	// if certInfo is equal to nil but we arrived here, means we skipped the error (since VCert returns error if certificate is not found,
+	// so we won't try to open storage and we will issue a new certificate
+	return nil
+}
+
+func formRequest(reqData requestData, role *roleEntry, cl *endpoint.Connector, signCSR bool, logger hclog.Logger) (certReq *certificate.Request, err error) {
 	if !signCSR {
-		if len(reqData.commonName) == 0 && len(reqData.altNames) == 0 {
+		if len(reqData.altNames) == 0 && reqData.commonName == "" {
 			return certReq, fmt.Errorf("no domains specified on certificate")
 		}
-		if len(reqData.commonName) == 0 && len(reqData.altNames) > 0 {
-			reqData.commonName = reqData.altNames[0]
-		}
-		if !sliceContains(reqData.altNames, reqData.commonName) {
+		if !sliceContains(reqData.altNames, reqData.commonName) && reqData.commonName != "" { // Go can compare if en empty string exist in the slice, so we omit that case
 			logger.Debug(fmt.Sprintf("Adding CN %s to SAN %s because it wasn't included.", reqData.commonName, reqData.altNames))
 			reqData.altNames = append(reqData.altNames, reqData.commonName)
 		}
+
 		certReq = &certificate.Request{
-			Subject: pkix.Name{
-				CommonName: reqData.commonName,
-			},
 			CsrOrigin:   certificate.LocalGeneratedCSR,
 			KeyPassword: reqData.keyPassword,
+		}
+
+		if reqData.commonName != "" {
+			certReq.Subject = pkix.Name{
+				CommonName: reqData.commonName,
+			}
+		}
+
+		if len(reqData.commonName) == 0 && len(reqData.altNames) > 0 && (*cl).GetType() == endpoint.ConnectorTypeTPP {
+			certReq.FriendlyName = reqData.altNames[0]
 		}
 
 		if role.ServiceGenerated {

@@ -114,7 +114,7 @@ attached to them. Defaults to "false".`,
 			},
 			"server_timeout": {
 				Type:        framework.TypeInt,
-				Description: "Timeout of waiting certificate",
+				Description: "Timeout of waiting certificate (seconds)",
 				Default:     180,
 			},
 			"venafi_secret": {
@@ -126,6 +126,10 @@ attached to them. Defaults to "false".`,
 				Type: framework.TypeBool,
 				Description: `When true, settings of an existing role will be retained unless they are specified in the update.
                               By default unspecified settings are returned to their default values`,
+			},
+			"min_cert_time_left": {
+				Type:        framework.TypeDurationSecond,
+				Description: `When set, is used to determinate if certificate issuance is needed comparing certificate validity against desired remaining validity`,
 			},
 		},
 
@@ -322,6 +326,12 @@ func (b *backend) pathRoleUpdate(ctx context.Context, req *logical.Request, data
 		entry.Zone = zone
 	}
 
+	_, isSet = data.GetOk("min_cert_time_left")
+	minCertTimeLeft := time.Duration(data.Get("min_cert_time_left").(int)) * time.Second
+	if isSet && (entry.MinCertTimeLeft != minCertTimeLeft) {
+		entry.MinCertTimeLeft = minCertTimeLeft
+	}
+
 	err = validateEntry(entry)
 	if err != nil {
 		return nil, err
@@ -363,6 +373,7 @@ func (b *backend) pathRoleCreate(ctx context.Context, req *logical.Request, data
 			ServerTimeout:    time.Duration(data.Get("server_timeout").(int)) * time.Second,
 			VenafiSecret:     data.Get("venafi_secret").(string),
 			Zone:             data.Get("zone").(string),
+			MinCertTimeLeft:  time.Duration(data.Get("min_cert_time_left").(int)) * time.Second,
 		}
 	}
 
@@ -480,6 +491,7 @@ type roleEntry struct {
 	ServerTimeout    time.Duration `json:"server_timeout"`
 	VenafiSecret     string        `json:"venafi_secret"`
 	Zone             string        `json:"zone"`
+	MinCertTimeLeft  time.Duration `json:"min_cert_time_left"`
 }
 
 func (r *roleEntry) ToResponseData() map[string]interface{} {
@@ -495,6 +507,7 @@ func (r *roleEntry) ToResponseData() map[string]interface{} {
 		"max_ttl":                int64(r.MaxTTL.Seconds()),
 		"generate_lease":         r.GenerateLease,
 		"chain_option":           r.ChainOption,
+		"min_cert_time_left":     shortDurationString(r.MinCertTimeLeft),
 	}
 	return responseData
 }
