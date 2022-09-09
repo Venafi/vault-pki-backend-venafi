@@ -167,6 +167,7 @@ func getAppNameFromZone(zone string) string {
 	return zone[:lastSlash]
 }
 
+// TODO: test this function
 func formatSearchCertificateArguments(cn string, sans *certificate.Sans, certMinTimeLeft time.Duration) *SearchRequest {
 	// convert a time.Duration to days
 	certMinTimeDays := math.Floor(certMinTimeLeft.Hours() / 24)
@@ -185,7 +186,6 @@ func formatSearchCertificateArguments(cn string, sans *certificate.Sans, certMin
 		},
 	}
 
-	// only if a list of SANS-DNS is provided, we add the field to the search request
 	if sans != nil && sans.DNS != nil {
 		addOperand(req, Operand{
 			Field:    "subjectAlternativeNameDns",
