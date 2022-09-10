@@ -2,6 +2,7 @@ package pki
 
 import (
 	"testing"
+	"time"
 )
 
 func TestFakeRolesConfigurations(t *testing.T) {
@@ -170,6 +171,460 @@ func TestTokenIntegration(t *testing.T) {
 	t.Run("TPP Token revoke certificate by cn", integrationTestEnv.TokenIntegrationRevokeCertificateCN)
 	t.Run("TPP Token revoke certificate by serial", integrationTestEnv.TokenIntegrationRevokeCertificateSerial)
 
+}
+
+func TestTPPpreventReissuance(t *testing.T) {
+	regDuration := time.Duration(24) * time.Hour
+	// CASE: should be the SAME - same CN and SAN
+	t.Run("TPP Token enroll same certificate and prevent-reissue", func(t *testing.T) {
+		t.Parallel()
+		integrationTestEnv, err := newIntegrationTestEnv()
+		if err != nil {
+			t.Fatal(err)
+		}
+		data := testData{minCertTimeLeft: regDuration}
+		integrationTestEnv.PreventReissuance(t, data, venafiConfigToken)
+	})
+	// CASE: should be different - same CN but 1 additional SAN
+	t.Run("TPP Token second enroll certificate with extra SAN DNS and should not prevent-reissue", func(t *testing.T) {
+		t.Parallel()
+		integrationTestEnv, err := newIntegrationTestEnv()
+		if err != nil {
+			t.Fatal(err)
+		}
+		data := testData{minCertTimeLeft: regDuration}
+		integrationTestEnv.PreventReissuanceCNwithExtraSANDNS(t, data, venafiConfigToken)
+	})
+	// CASE: should be different - same CN and missing 1 SAN of 3
+	t.Run("TPP Token second enroll certificate and removing one SAN DNS from list and should not prevent-reissue", func(t *testing.T) {
+		t.Parallel()
+		integrationTestEnv, err := newIntegrationTestEnv()
+		if err != nil {
+			t.Fatal(err)
+		}
+		data := testData{minCertTimeLeft: regDuration}
+		integrationTestEnv.PreventReissuanceCNandRemovingSANDNS(t, data, venafiConfigToken)
+	})
+	// CASE: should be the SAME - same CN and no SANs
+	t.Run("TPP Token certificate with CN only and no SAN DNS second enroll should be prevented", func(t *testing.T) {
+		t.Parallel()
+		integrationTestEnv, err := newIntegrationTestEnv()
+		if err != nil {
+			t.Fatal(err)
+		}
+		data := testData{minCertTimeLeft: regDuration}
+		integrationTestEnv.PreventReissuanceCNnoSANSDNS(t, data, venafiConfigToken)
+	})
+	// CASE: should be different - same CN and SAN but just barely not sufficiently valid
+	t.Run("TPP Token second enroll same certificate with TTL that is not sufficient for set valid time and should not prevent-reissue",
+		func(t *testing.T) {
+			t.Parallel()
+			integrationTestEnv, err := newIntegrationTestEnv()
+			if err != nil {
+				t.Fatal(err)
+			}
+			data := testData{
+				minCertTimeLeft: time.Duration(24) * time.Hour,
+				ttl:             time.Duration(23) * time.Hour,
+			}
+			integrationTestEnv.PreventReissuanceTTLnotValid(t, data, venafiConfigToken)
+		})
+	// CASE: should be the SAME - same CN and SAN and just barely sufficiently valid
+	t.Run("TPP Token second enroll same certificate wit TTL with barely sufficient valid time and should prevent-reissue", func(t *testing.T) {
+		t.Parallel()
+		integrationTestEnv, err := newIntegrationTestEnv()
+		if err != nil {
+			t.Fatal(err)
+		}
+		// we set a TLL less than a time we consider a certificate to be valid, so we always issue a new one
+		data := testData{
+			minCertTimeLeft: time.Duration(24) * time.Hour,
+			ttl:             time.Duration(25) * time.Hour,
+		}
+		integrationTestEnv.PreventReissuanceTTLvalid(t, data, venafiConfigToken)
+	})
+	// CASE: should be the SAME - same CN and same 3 SANs
+	t.Run("TPP Token second enroll certificate with three SAN DNS and should prevent-reissue", func(t *testing.T) {
+		t.Parallel()
+		integrationTestEnv, err := newIntegrationTestEnv()
+		if err != nil {
+			t.Fatal(err)
+		}
+		data := testData{minCertTimeLeft: regDuration}
+		integrationTestEnv.PreventReissuanceCNwithThreeSANDNS(t, data, venafiConfigToken)
+	})
+	// CASE: should be different - different CN and same 3 SANs
+	t.Run("TPP Token second enroll certificate with three SAN DNS but different CN and should not prevent-reissue", func(t *testing.T) {
+		t.Parallel()
+		integrationTestEnv, err := newIntegrationTestEnv()
+		if err != nil {
+			t.Fatal(err)
+		}
+		data := testData{minCertTimeLeft: regDuration}
+		integrationTestEnv.PreventReissuanceCNwithDifferentCNandThreeSANDNS(t, data, venafiConfigToken)
+	})
+	// CASE: should be the SAME - no CN and same 3 SANs
+	t.Run("TPP Token second enroll certificate with three SAN DNS but no CN and should prevent-reissue", func(t *testing.T) {
+		t.Parallel()
+		integrationTestEnv, err := newIntegrationTestEnv()
+		if err != nil {
+			t.Fatal(err)
+		}
+		data := testData{minCertTimeLeft: regDuration}
+		integrationTestEnv.PreventReissuanceCNwithNoCNandThreeSANDNS(t, data, venafiConfigToken)
+	})
+	// Service generated CSR
+	// CASE: should be the SAME - same CN and SAN
+	t.Run("Service Generated CSR - TPP Token enroll same certificate and prevent-reissue", func(t *testing.T) {
+		t.Parallel()
+		integrationTestEnv, err := newIntegrationTestEnv()
+		if err != nil {
+			t.Fatal(err)
+		}
+		data := testData{
+			serviceGeneratedCert: true,
+			minCertTimeLeft:      regDuration,
+		}
+		integrationTestEnv.PreventReissuance(t, data, venafiConfigToken)
+	})
+	// CASE: should be different - same CN but 1 additional SAN
+	t.Run("Service Generated CSR - TPP Token second enroll certificate with extra SAN DNS and should not prevent-reissue",
+		func(t *testing.T) {
+			t.Parallel()
+			integrationTestEnv, err := newIntegrationTestEnv()
+			if err != nil {
+				t.Fatal(err)
+			}
+			data := testData{
+				serviceGeneratedCert: true,
+				minCertTimeLeft:      regDuration,
+			}
+			integrationTestEnv.PreventReissuanceCNwithExtraSANDNS(t, data, venafiConfigToken)
+		})
+	// CASE: should be different - same CN and missing 1 SAN of 3
+	t.Run("Service Generated CSR - TPP Token second enroll certificate and removing one SAN DNS from list and should not prevent-reissue",
+		func(t *testing.T) {
+			t.Parallel()
+			integrationTestEnv, err := newIntegrationTestEnv()
+			if err != nil {
+				t.Fatal(err)
+			}
+			data := testData{
+				serviceGeneratedCert: true,
+				minCertTimeLeft:      regDuration,
+			}
+			integrationTestEnv.PreventReissuanceCNandRemovingSANDNS(t, data, venafiConfigToken)
+		})
+	// CASE: should be the SAME - same CN and no SANs
+	t.Run("Service Generated CSR - TPP Token certificate with CN only and no SAN DNS second enroll should be prevented",
+		func(t *testing.T) {
+			t.Parallel()
+			integrationTestEnv, err := newIntegrationTestEnv()
+			if err != nil {
+				t.Fatal(err)
+			}
+			data := testData{
+				serviceGeneratedCert: true,
+				minCertTimeLeft:      regDuration,
+			}
+			integrationTestEnv.PreventReissuanceCNnoSANSDNS(t, data, venafiConfigToken)
+		})
+	// CASE: should be different - same CN and SAN but just barely not sufficiently valid
+	t.Run("Service Generated CSR - TPP Token second enroll same certificate with TTL that is not sufficient for set valid time and should not prevent-reissue",
+		func(t *testing.T) {
+			t.Parallel()
+			integrationTestEnv, err := newIntegrationTestEnv()
+			if err != nil {
+				t.Fatal(err)
+			}
+			data := testData{
+				serviceGeneratedCert: true,
+				minCertTimeLeft:      time.Duration(24) * time.Hour,
+				ttl:                  time.Duration(23) * time.Hour,
+			}
+			integrationTestEnv.PreventReissuanceTTLnotValid(t, data, venafiConfigToken)
+		})
+	// CASE: should be the SAME - same CN and SAN and just barely sufficiently valid
+	t.Run("Service Generated CSR - TPP Token second enroll same certificate wit TTL with barely sufficient valid time and should prevent-reissue",
+		func(t *testing.T) {
+			t.Parallel()
+			integrationTestEnv, err := newIntegrationTestEnv()
+			if err != nil {
+				t.Fatal(err)
+			}
+			data := testData{
+				serviceGeneratedCert: true,
+				minCertTimeLeft:      time.Duration(24) * time.Hour,
+				ttl:                  time.Duration(25) * time.Hour,
+			}
+			integrationTestEnv.PreventReissuanceTTLvalid(t, data, venafiConfigToken)
+		})
+	// CASE: should be the SAME - same CN and same 3 SANs
+	t.Run("Service Generated CSR - TPP Token second enroll certificate with three SAN DNS and should prevent-reissue",
+		func(t *testing.T) {
+			t.Parallel()
+			integrationTestEnv, err := newIntegrationTestEnv()
+			if err != nil {
+				t.Fatal(err)
+			}
+			data := testData{
+				serviceGeneratedCert: true,
+				minCertTimeLeft:      regDuration,
+			}
+			integrationTestEnv.PreventReissuanceCNwithThreeSANDNS(t, data, venafiConfigToken)
+		})
+	// CASE: should be different - different CN and same 3 SANs
+	t.Run("Service Generated CSR - TPP Token second enroll certificate with three SAN DNS but different CN and should not prevent-reissue",
+		func(t *testing.T) {
+			t.Parallel()
+			integrationTestEnv, err := newIntegrationTestEnv()
+			if err != nil {
+				t.Fatal(err)
+			}
+			data := testData{
+				serviceGeneratedCert: true,
+				minCertTimeLeft:      regDuration,
+			}
+			integrationTestEnv.PreventReissuanceCNwithDifferentCNandThreeSANDNS(t, data, venafiConfigToken)
+		})
+	// CASE: should be the SAME - no CN and same 3 SANs
+	t.Run("Service Generated CSR - TPP Token second enroll certificate with three SAN DNS but no CN and should prevent-reissue",
+		func(t *testing.T) {
+			t.Parallel()
+			integrationTestEnv, err := newIntegrationTestEnv()
+			if err != nil {
+				t.Fatal(err)
+			}
+			data := testData{
+				serviceGeneratedCert: true,
+				minCertTimeLeft:      regDuration,
+			}
+			integrationTestEnv.PreventReissuanceCNwithNoCNandThreeSANDNS(t, data, venafiConfigToken)
+		})
+}
+
+func TestVaasPreventReissuance(t *testing.T) {
+	regDuration := time.Duration(24) * time.Hour
+	// CASE: should be the SAME - same CN and SAN
+	t.Run("VaaS enroll same certificate and prevent-reissue", func(t *testing.T) {
+		t.Parallel()
+		integrationTestEnv, err := newIntegrationTestEnv()
+		if err != nil {
+			t.Fatal(err)
+		}
+		data := testData{minCertTimeLeft: regDuration}
+		integrationTestEnv.PreventReissuance(t, data, venafiConfigCloud)
+	})
+	// CASE: should be different - same CN but 1 additional SAN
+	t.Run("VaaS second enroll certificate with extra SAN DNS and should not prevent-reissue", func(t *testing.T) {
+		t.Parallel()
+		integrationTestEnv, err := newIntegrationTestEnv()
+		if err != nil {
+			t.Fatal(err)
+		}
+		data := testData{minCertTimeLeft: regDuration}
+		integrationTestEnv.PreventReissuanceCNwithExtraSANDNS(t, data, venafiConfigCloud)
+	})
+	// CASE: should be different - same CN and missing 1 SAN of 3
+	t.Run("VaaS second enroll certificate and removing one SAN DNS from list and should not prevent-reissue", func(t *testing.T) {
+		t.Parallel()
+		integrationTestEnv, err := newIntegrationTestEnv()
+		if err != nil {
+			t.Fatal(err)
+		}
+		data := testData{minCertTimeLeft: regDuration}
+		integrationTestEnv.PreventReissuanceCNandRemovingSANDNS(t, data, venafiConfigCloud)
+	})
+	// CASE: should be the SAME - same CN and no SANs
+	t.Run("VaaS certificate with CN only and no SAN DNS second enroll should be prevented", func(t *testing.T) {
+		t.Parallel()
+		integrationTestEnv, err := newIntegrationTestEnv()
+		if err != nil {
+			t.Fatal(err)
+		}
+		data := testData{minCertTimeLeft: regDuration}
+		integrationTestEnv.PreventReissuanceCNnoSANSDNS(t, data, venafiConfigCloud)
+	})
+	t.Run("VaaS second enroll same certificate with TTL that is not sufficient for set valid time and should not prevent-reissue",
+		func(t *testing.T) {
+			t.Parallel()
+			integrationTestEnv, err := newIntegrationTestEnv()
+			if err != nil {
+				t.Fatal(err)
+			}
+			data := testData{
+				// for VaaS use case we need to set and extra 24 hours since value is truncated (2184hrs = 91 days)
+				minCertTimeLeft: time.Duration(2184) * time.Hour,
+			}
+			integrationTestEnv.PreventReissuanceTTLnotValid(t, data, venafiConfigCloud)
+		})
+	// CASE: should be the SAME - same CN and SAN and just barely sufficiently valid
+	t.Run("VaaS second enroll same certificate wit TTL with barely sufficient valid time and should prevent-reissue", func(t *testing.T) {
+		t.Parallel()
+		integrationTestEnv, err := newIntegrationTestEnv()
+		if err != nil {
+			t.Fatal(err)
+		}
+		data := testData{minCertTimeLeft: time.Duration(2159) * time.Hour}
+		integrationTestEnv.PreventReissuanceTTLvalid(t, data, venafiConfigCloud)
+	})
+	// CASE: should be the SAME - same CN and same 3 SANs
+	t.Run("VaaS second enroll certificate with three SAN DNS and should prevent-reissue", func(t *testing.T) {
+		t.Parallel()
+		integrationTestEnv, err := newIntegrationTestEnv()
+		if err != nil {
+			t.Fatal(err)
+		}
+		data := testData{minCertTimeLeft: regDuration}
+		integrationTestEnv.PreventReissuanceCNwithThreeSANDNS(t, data, venafiConfigCloud)
+	})
+	// CASE: should be different - different CN and same 3 SANs
+	t.Run("VaaS second enroll certificate with three SAN DNS but different CN and should not prevent-reissue", func(t *testing.T) {
+		t.Parallel()
+		integrationTestEnv, err := newIntegrationTestEnv()
+		if err != nil {
+			t.Fatal(err)
+		}
+		data := testData{minCertTimeLeft: regDuration}
+		integrationTestEnv.PreventReissuanceCNwithDifferentCNandThreeSANDNS(t, data, venafiConfigCloud)
+	})
+	// CASE: should be the SAME - no CN and same 3 SANs
+	t.Run("VaaS second enroll certificate with three SAN DNS but no CN and should prevent-reissue", func(t *testing.T) {
+		t.Parallel()
+		integrationTestEnv, err := newIntegrationTestEnv()
+		if err != nil {
+			t.Fatal(err)
+		}
+		data := testData{minCertTimeLeft: regDuration}
+		integrationTestEnv.PreventReissuanceCNwithNoCNandThreeSANDNS(t, data, venafiConfigCloud)
+	})
+	// Service generated CSR
+	// CASE: should be the SAME - same CN and SAN
+	t.Run("Service Generated CSR - VaaS enroll same certificate and prevent-reissue", func(t *testing.T) {
+		t.Parallel()
+		integrationTestEnv, err := newIntegrationTestEnv()
+		if err != nil {
+			t.Fatal(err)
+		}
+		data := testData{
+			serviceGeneratedCert: true,
+			minCertTimeLeft:      regDuration,
+		}
+		integrationTestEnv.PreventReissuance(t, data, venafiConfigCloud)
+	})
+	// CASE: should be different - same CN but 1 additional SAN
+	t.Run("Service Generated CSR - VaaS second enroll certificate with extra SAN DNS and should not prevent-reissue",
+		func(t *testing.T) {
+			t.Parallel()
+			integrationTestEnv, err := newIntegrationTestEnv()
+			if err != nil {
+				t.Fatal(err)
+			}
+			data := testData{
+				serviceGeneratedCert: true,
+				minCertTimeLeft:      regDuration,
+			}
+			integrationTestEnv.PreventReissuanceCNwithExtraSANDNS(t, data, venafiConfigCloud)
+		})
+	// CASE: should be different - same CN and missing 1 SAN of 3
+	t.Run("Service Generated CSR - VaaS second enroll certificate and removing one SAN DNS from list and should not prevent-reissue",
+		func(t *testing.T) {
+			t.Parallel()
+			integrationTestEnv, err := newIntegrationTestEnv()
+			if err != nil {
+				t.Fatal(err)
+			}
+			data := testData{
+				serviceGeneratedCert: true,
+				minCertTimeLeft:      regDuration,
+			}
+			integrationTestEnv.PreventReissuanceCNandRemovingSANDNS(t, data, venafiConfigCloud)
+		})
+	// CASE: should be the SAME - same CN and no SANs
+	t.Run("Service Generated CSR - VaaS certificate with CN only and no SAN DNS second enroll should be prevented",
+		func(t *testing.T) {
+			t.Parallel()
+			integrationTestEnv, err := newIntegrationTestEnv()
+			if err != nil {
+				t.Fatal(err)
+			}
+			data := testData{
+				serviceGeneratedCert: true,
+				minCertTimeLeft:      regDuration,
+			}
+			integrationTestEnv.PreventReissuanceCNnoSANSDNS(t, data, venafiConfigCloud)
+		})
+	t.Run("Service Generated CSR - VaaS second enroll same certificate with TTL that is not sufficient for set valid time and should not prevent-reissue",
+		func(t *testing.T) {
+			t.Parallel()
+			integrationTestEnv, err := newIntegrationTestEnv()
+			if err != nil {
+				t.Fatal(err)
+			}
+			data := testData{
+				serviceGeneratedCert: true,
+				// for VaaS use case we need to set and extra 24 hours since value is truncated (2184hrs = 91 days)
+				minCertTimeLeft: time.Duration(2184) * time.Hour,
+			}
+			integrationTestEnv.PreventReissuanceTTLnotValid(t, data, venafiConfigCloud)
+		})
+	// CASE: should be the SAME - same CN and SAN and just barely sufficiently valid
+	t.Run("Service Generated CSR - VaaS second enroll same certificate wit TTL with barely sufficient valid time and should prevent-reissue",
+		func(t *testing.T) {
+			t.Parallel()
+			integrationTestEnv, err := newIntegrationTestEnv()
+			if err != nil {
+				t.Fatal(err)
+			}
+			data := testData{
+				serviceGeneratedCert: true,
+				minCertTimeLeft:      time.Duration(2159) * time.Hour,
+			}
+			integrationTestEnv.PreventReissuanceTTLvalid(t, data, venafiConfigCloud)
+		})
+	// CASE: should be the SAME - same CN and same 3 SANs
+	t.Run("Service Generated CSR - VaaS second enroll certificate with three SAN DNS and should prevent-reissue",
+		func(t *testing.T) {
+			t.Parallel()
+			integrationTestEnv, err := newIntegrationTestEnv()
+			if err != nil {
+				t.Fatal(err)
+			}
+			data := testData{
+				serviceGeneratedCert: true,
+				minCertTimeLeft:      regDuration,
+			}
+			integrationTestEnv.PreventReissuanceCNwithThreeSANDNS(t, data, venafiConfigCloud)
+		})
+	// CASE: should be different - different CN and same 3 SANs
+	t.Run("Service Generated CSR - VaaS second enroll certificate with three SAN DNS but different CN and should not prevent-reissue",
+		func(t *testing.T) {
+			t.Parallel()
+			integrationTestEnv, err := newIntegrationTestEnv()
+			if err != nil {
+				t.Fatal(err)
+			}
+			data := testData{
+				serviceGeneratedCert: true,
+				minCertTimeLeft:      regDuration,
+			}
+			integrationTestEnv.PreventReissuanceCNwithDifferentCNandThreeSANDNS(t, data, venafiConfigCloud)
+		})
+	// CASE: should be the SAME - no CN and same 3 SANs
+	t.Skip("Currently we skip this scenario as VaaS currently doesn't support it (probable bug)")
+	t.Run("Service Generated CSR - VaaS second enroll certificate with three SAN DNS but no CN and should prevent-reissue",
+		func(t *testing.T) {
+			t.Parallel()
+			integrationTestEnv, err := newIntegrationTestEnv()
+			if err != nil {
+				t.Fatal(err)
+			}
+			data := testData{
+				serviceGeneratedCert: true,
+				minCertTimeLeft:      regDuration,
+			}
+			integrationTestEnv.PreventReissuanceCNwithNoCNandThreeSANDNS(t, data, venafiConfigCloud)
+		})
 }
 
 func TestZoneOverride(t *testing.T) {
