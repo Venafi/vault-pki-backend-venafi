@@ -1,4 +1,4 @@
-# v0.10.6 (September 9, 2022)
+# v0.10.6 (September 12, 2022)
 Adds bug fix for Prevent-reissue feature to work on VaaS
 
 # v0.10.5 (August 30, 2022)
