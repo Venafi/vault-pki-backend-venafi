@@ -22,8 +22,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"reflect"
-	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -610,8 +608,4 @@ func sha1sum(s string) string {
 	buffer := []byte(s)
 	hash.Write(buffer)
 	return hex.EncodeToString(hash.Sum(nil))
-}
-
-func GetFunctionName(i interface{}) string {
-	return runtime.FuncForPC(reflect.ValueOf(i).Pointer()).Name()
 }
