@@ -12,6 +12,6 @@ func TestSHA1SUM(t *testing.T) {
 	s := "hello"
 	SHA1SUMvalue := sha1sum(s)
 	if SHA1SUMstringValue != SHA1SUMvalue {
-		t.Fatalf("sha1sum function is not outputting expected values")
+		t.Fatalf("sha1sum function is not outputting expected value")
 	}
 }
