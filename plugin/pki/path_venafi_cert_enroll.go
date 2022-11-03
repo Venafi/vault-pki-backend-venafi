@@ -9,22 +9,23 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"github.com/Venafi/vcert/v4"
+	"net"
+	"regexp"
+	"strings"
+	"time"
+
 	"github.com/Venafi/vault-pki-backend-venafi/plugin/pki/vpkierror"
+	"github.com/Venafi/vcert/v4/pkg/certificate"
 	"github.com/Venafi/vcert/v4/pkg/endpoint"
 	"github.com/Venafi/vcert/v4/pkg/util"
 	"github.com/Venafi/vcert/v4/pkg/verror"
 	"github.com/hashicorp/go-hclog"
-	"github.com/hashicorp/vault/sdk/helper/consts"
-	"net"
-	"regexp"
-	"sort"
-	"strings"
-	"sync"
-	"time"
-
-	"github.com/Venafi/vcert/v4/pkg/certificate"
 	"github.com/hashicorp/vault/sdk/framework"
+	"github.com/hashicorp/vault/sdk/helper/consts"
 	"github.com/hashicorp/vault/sdk/logical"
+	"sort"
+	"sync"
 )
 
 type SyncedResponse struct {
@@ -175,7 +176,6 @@ func (b *backend) pathVenafiSign(ctx context.Context, req *logical.Request, data
 }
 
 func (b *backend) pathVenafiCertObtain(ctx context.Context, logicalRequest *logical.Request, data *framework.FieldData, role *roleEntry, signCSR bool) (
-
 	*logical.Response, error) {
 
 	var logResp *logical.Response
@@ -187,6 +187,13 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, logicalRequest *logi
 	if err != nil {
 		b.Logger().Error("error creating Venafi connector: %s", err.Error())
 		return nil, err
+	}
+
+	if connector.GetType() == endpoint.ConnectorTypeTPP {
+		err = validateAccessToken(b, ctx, &connector, cfg, logicalRequest, role)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	reqData, err := populateReqData(data, role)
@@ -385,51 +392,9 @@ func populateReqData(data *framework.FieldData, role *roleEntry) (*requestData, 
 
 func createCertificateRequest(b *backend, connector *endpoint.Connector, ctx context.Context, logicRequest *logical.Request, role *roleEntry, certReq *certificate.Request) error {
 	b.Logger().Info("Creating certificate request")
-
 	err := (*connector).GenerateRequest(nil, certReq)
-	if (err != nil) && ((*connector).GetType() == endpoint.ConnectorTypeTPP) {
-		msg := err.Error()
-
-		// catch the scenario when token is expired and deleted.
-		var regex = regexp.MustCompile("(expired|invalid)_token")
-
-		// validate if the error is related to an expired access token, at this moment the only way can validate this is using the error message
-		// and verify if that message describes errors related to expired access token.
-		code := getStatusCode(msg)
-		if code == HTTP_UNAUTHORIZED && regex.MatchString(msg) {
-			cfg, err := b.getConfig(ctx, logicRequest, role, true)
-
-			if err != nil {
-				return err
-			}
-
-			if cfg.Credentials.RefreshToken != "" {
-				err = updateAccessToken(cfg, b, ctx, logicRequest, role.Name)
-
-				if err != nil {
-					return err
-				}
-
-				// everything went fine so get the new client with the new refreshed access token
-				var newConnector endpoint.Connector
-				newConnector, _, err = b.ClientVenafi(ctx, logicRequest, role)
-				if err != nil {
-					return err
-				}
-				connector = &newConnector
-
-				b.Logger().Debug("Making certificate request again")
-
-				err = (*connector).GenerateRequest(nil, certReq)
-				if err != nil {
-					return err
-				}
-			} else {
-				return fmt.Errorf("access token is expired. Tried to get new access token, but refresh token is empty")
-			}
-		} else {
-			return err
-		}
+	if err != nil {
+		return err
 	}
 	return nil
 }
@@ -1009,6 +974,32 @@ func sanitizeRequestData(reqData *requestData, logger hclog.Logger) {
 	removeDuplicateSANDNS(reqData, logger)
 	addCNtoDNSList(reqData, logger)
 	orderSANDNS(reqData, logger)
+}
+
+func validateAccessToken(b *backend, ctx context.Context, connector *endpoint.Connector, cfg *vcert.Config, logReq *logical.Request, role *roleEntry) error {
+
+	refreshNeeded, _, err := isTokenRefreshNeeded(b, ctx, logReq.Storage, role.VenafiSecret)
+	if err != nil {
+		return err
+	}
+	if refreshNeeded {
+		if b.System().ReplicationState().HasState(consts.ReplicationPerformanceStandby | consts.ReplicationPerformanceSecondary) {
+			// only the leader can handle token refreshing
+			return logical.ErrReadOnly
+		}
+		err = updateAccessToken(b, ctx, logReq, cfg, role)
+		if err != nil {
+			return err
+		}
+		// reload the client since the access token changed
+		var newConnector endpoint.Connector
+		newConnector, cfg, err = b.ClientVenafi(ctx, logReq, role)
+		if err != nil {
+			return err
+		}
+		connector = &newConnector
+	}
+	return nil
 }
 
 type requestData struct {
