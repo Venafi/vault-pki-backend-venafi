@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"crypto/sha1"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/hex"
 	"encoding/pem"
 	"fmt"
 	"github.com/Venafi/vault-pki-backend-venafi/plugin/pki/vpkierror"
@@ -599,4 +601,11 @@ func shortDurationString(d time.Duration) string {
 		s = s[:len(s)-2]
 	}
 	return s
+}
+
+func sha1sum(s string) string {
+	hash := sha1.New()
+	buffer := []byte(s)
+	hash.Write(buffer)
+	return hex.EncodeToString(hash.Sum(nil))
 }
