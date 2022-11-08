@@ -386,6 +386,7 @@ func populateReqData(data *framework.FieldData, role *roleEntry) (*requestData, 
 
 		}
 		reqData.ttl = currentTTL
+
 	}
 	return &reqData, nil
 }

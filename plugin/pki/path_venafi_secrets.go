@@ -225,6 +225,12 @@ func (b *backend) pathVenafiSecretCreate(ctx context.Context, req *logical.Reque
 			}
 
 			if i == 0 && tokenInfo.Refresh_token != "" {
+				// ensure refresh interval is proactive by not allowing it to be longer than access token is valid
+				maxInterval := time.Until(time.Unix(int64(tokenInfo.Expires), 0)).Round(time.Minute) - time.Duration(30)*time.Second
+				if maxInterval < entry.RefreshInterval {
+					entry.RefreshInterval = maxInterval
+				}
+
 				entry.RefreshToken = entry.RefreshToken2
 				entry.RefreshToken2 = tokenInfo.Refresh_token
 				entry.NextRefresh = time.Now().Add(entry.RefreshInterval)
