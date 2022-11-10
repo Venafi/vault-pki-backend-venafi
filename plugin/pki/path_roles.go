@@ -53,7 +53,7 @@ Example for Venafi Cloud: e33f3e40-4e7e-11ea-8da3-b3c196ebeb0b`,
 
 			"store_by": {
 				Type:        framework.TypeString,
-				Description: `The attribute by which certificates are stored in the backend.  "serial" (default) and "cn" are the only valid values.`,
+				Description: `The attribute by which certificates are stored in the backend.  "serial" (default), "cn" and "hash" are the only valid values.`,
 			},
 
 			"no_store": {
@@ -155,6 +155,7 @@ attached to them. Defaults to "false".`,
 
 const (
 	storeByCNString                              = "cn"
+	storeByHASHstring                            = "hash"
 	storeBySerialString                          = "serial"
 	errorTextValueMustBeLess                     = `"ttl" value must be less than "max_ttl" value`
 	errorTextStoreByAndStoreByCNOrSerialConflict = `Can't specify both story_by and store_by_cn or store_by_serial options '`
@@ -433,7 +434,7 @@ func validateEntry(entry *roleEntry) (err error) {
 		return fmt.Errorf(errorTextNoStoreAndStoreByConflict)
 	}
 	if entry.StoreBy != "" {
-		if (entry.StoreBy != storeBySerialString) && (entry.StoreBy != storeByCNString) {
+		if (entry.StoreBy != storeBySerialString) && (entry.StoreBy != storeByCNString) && (entry.StoreBy != storeByHASHstring) {
 			return fmt.Errorf(
 				fmt.Sprintf(errTextStoreByWrongOption, storeBySerialString, storeByCNString, entry.StoreBy),
 			)

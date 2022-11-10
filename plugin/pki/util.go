@@ -257,12 +257,10 @@ func updateAccessToken(cfg *vcert.Config, b *backend, ctx context.Context, req *
 		Scope:        "certificate:manage,revoke",
 	})
 	if resp.Access_token != "" && resp.Refresh_token != "" {
-
 		err := storeAccessData(b, ctx, req, roleName, resp)
 		if err != nil {
 			return err
 		}
-
 	} else {
 		return err
 	}
@@ -608,4 +606,29 @@ func sha1sum(s string) string {
 	buffer := []byte(s)
 	hash.Write(buffer)
 	return hex.EncodeToString(hash.Sum(nil))
+}
+
+// we may want to enhance this function when we update to Go 1.18, since generics are only supported starting from that version
+func removeDuplicateStr(strSlice *[]string) {
+	allKeys := make(map[string]bool)
+	var list []string
+	for _, item := range *strSlice {
+		if _, value := allKeys[item]; !value {
+			allKeys[item] = true
+			list = append(list, item)
+		}
+	}
+	*strSlice = list
+}
+
+func stringSlicesEqual(a []string, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i, v := range a {
+		if v != b[i] {
+			return false
+		}
+	}
+	return true
 }
