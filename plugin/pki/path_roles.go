@@ -161,7 +161,7 @@ const (
 	errorTextStoreByAndStoreByCNOrSerialConflict = `Can't specify both story_by and store_by_cn or store_by_serial options '`
 	errorTextNoStoreAndStoreByCNOrSerialConflict = `Can't specify both no_store and store_by_cn or store_by_serial options '`
 	errorTextNoStoreAndStoreByConflict           = `Can't specify both no_store and store_by options '`
-	errTextStoreByWrongOption                    = "Option store_by can be %s or %s, not %s"
+	errTextStoreByWrongOption                    = "Option store_by can be %s, %s or %s, not %s"
 	errorTextVenafiSecretEmpty                   = `"venafi_secret" argument is required`
 )
 
@@ -436,7 +436,7 @@ func validateEntry(entry *roleEntry) (err error) {
 	if entry.StoreBy != "" {
 		if (entry.StoreBy != storeBySerialString) && (entry.StoreBy != storeByCNString) && (entry.StoreBy != storeByHASHstring) {
 			return fmt.Errorf(
-				fmt.Sprintf(errTextStoreByWrongOption, storeBySerialString, storeByCNString, entry.StoreBy),
+				fmt.Sprintf(errTextStoreByWrongOption, storeBySerialString, storeByCNString, storeByHASHstring, entry.StoreBy),
 			)
 		}
 	}

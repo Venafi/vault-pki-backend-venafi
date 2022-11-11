@@ -106,7 +106,7 @@ func TestRoleValidate(t *testing.T) {
 	if err == nil {
 		t.Fatalf("Expecting error")
 	}
-	expectingError := fmt.Sprintf(errTextStoreByWrongOption, storeBySerialString, storeByCNString, "sebial")
+	expectingError := fmt.Sprintf(errTextStoreByWrongOption, storeBySerialString, storeByCNString, storeByHASHstring, "sebial")
 	if err.Error() != expectingError {
 		t.Fatalf("Expecting error %s but got %s", expectingError, err)
 	}
