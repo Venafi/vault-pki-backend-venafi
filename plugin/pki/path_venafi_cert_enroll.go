@@ -304,6 +304,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, logicalRequest *logi
 			if !signCSR && role.StoreBy == storeByHASHstring {
 				b.recoverBroadcast(cert, logResp, certId, err)
 			}
+
 			b.Logger().Error("error storing certificate: %s", err.Error())
 			return nil, err
 		}
