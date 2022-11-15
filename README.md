@@ -168,6 +168,11 @@ Venafi secrets engine:
    other available options for the Venafi secret after it is created, use
    `vault path-help venafi-pki/venafi/:name`.
 
+    :pushpin: **NOTE**: When obtaining a `access_token` and `refresh_token` from
+    Trust Protection Platform, make sure you use the same _client id_ when
+    configuring the Venafi secret in Vault. Default the `client_id` is set to
+    "hashicorp-vault-by-venafi".
+
    **Trust Protection Platform**:
 
    ```
