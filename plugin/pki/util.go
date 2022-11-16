@@ -256,6 +256,7 @@ func updateAccessToken(cfg *vcert.Config, b *backend, ctx context.Context, req *
 		ClientId:     "hashicorp-vault-by-venafi",
 		Scope:        "certificate:manage,revoke",
 	})
+
 	if resp.Access_token != "" && resp.Refresh_token != "" {
 		err := storeAccessData(b, ctx, req, roleName, resp)
 		if err != nil {

@@ -653,11 +653,11 @@ func (e *testEnv) IssueCertificateAndSaveSerial(t *testing.T, data testData, con
 		data.privateKey = resp.Data["private_key"].(string)
 	}
 
-	//it is needed to determine if we're checking cloud signed certificate in checkStandartCert
+	// it is needed to determine if we're checking cloud signed certificate in checkStandartCert
 	data.provider = configString
 
 	checkStandardCert(t, data)
-	//save certificate serial for the next test
+	// save certificate serial for the next test
 	e.CertificateSerial = resp.Data["serial_number"].(string)
 	e.CertId = resp.Data["certificate_uid"].(string)
 }

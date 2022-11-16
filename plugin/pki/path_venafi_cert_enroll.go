@@ -370,6 +370,10 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 	expirationTime := parsedCertificate.NotAfter
 	expirationSec := expirationTime.Unix()
 
+	// where "certificate_uid" is determined by "store_by" attribute defined at the role:
+	// store_by = "cn" -> string conformed by -> "certificate request's common name"
+	// store_by = "serial" -> string conformed by -> "generated certificate's serial"
+	// store_by = "hash" -> hash string conformed by -> "Common Name + SAN DNS + Zone"
 	respData := map[string]interface{}{
 		"certificate_uid":   certId,
 		"common_name":       reqData.commonName,
