@@ -471,6 +471,7 @@ func getCredentialsWarnings(b *backend, ctx context.Context, s logical.Storage, 
 type roleEntry struct {
 
 	//Venafi values
+	Name             string
 	ChainOption      string        `json:"chain_option"`
 	StoreByCN        bool          `json:"store_by_cn"`
 	StoreBySerial    bool          `json:"store_by_serial"`

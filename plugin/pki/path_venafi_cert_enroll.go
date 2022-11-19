@@ -123,6 +123,7 @@ func (b *backend) pathVenafiIssue(ctx context.Context, req *logical.Request, dat
 	b.Logger().Debug(fmt.Sprintf("Using role: %s", roleName))
 	// Get the role
 	role, err := b.getRole(ctx, req.Storage, roleName)
+	role.Name = roleName
 	if err != nil {
 		return nil, err
 	}
@@ -134,7 +135,7 @@ func (b *backend) pathVenafiIssue(ctx context.Context, req *logical.Request, dat
 		return logical.ErrorResponse("role key type \"any\" not allowed for issuing certificates, only signing"), nil
 	}
 
-	return b.pathVenafiCertObtain(ctx, req, data, role, roleName, false)
+	return b.pathVenafiCertObtain(ctx, req, data, role, false)
 }
 
 // pathSign issues a certificate from a submitted CSR, subject to role
@@ -144,6 +145,8 @@ func (b *backend) pathVenafiSign(ctx context.Context, req *logical.Request, data
 
 	// Get the role
 	role, err := b.getRole(ctx, req.Storage, roleName)
+	role.Name = roleName
+
 	if err != nil {
 		return nil, err
 	}
@@ -151,10 +154,10 @@ func (b *backend) pathVenafiSign(ctx context.Context, req *logical.Request, data
 		return logical.ErrorResponse(fmt.Sprintf("unknown role: %s", roleName)), nil
 	}
 
-	return b.pathVenafiCertObtain(ctx, req, data, role, roleName, true)
+	return b.pathVenafiCertObtain(ctx, req, data, role, true)
 }
 
-func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request, data *framework.FieldData, role *roleEntry, roleName string, signCSR bool) (
+func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request, data *framework.FieldData, role *roleEntry, signCSR bool) (
 	*logical.Response, error) {
 	// When utilizing performance standbys in Vault Enterprise, this forces the call to be redirected to the primary since
 	// a storage call is made after the API calls to issue the certificate.  This prevents the certificate from being
@@ -262,7 +265,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 			}
 
 			if cfg.Credentials.RefreshToken != "" {
-				err = updateAccessToken(cfg, b, ctx, req, roleName)
+				err = updateAccessToken(cfg, b, ctx, req, role.Name)
 
 				if err != nil {
 					return logical.ErrorResponse(err.Error()), nil
@@ -799,7 +802,7 @@ func getCertIdHash(reqData requestData, zone string, logger hclog.Logger) string
 	return s
 }
 
-func addCNtoSANDNS(reqData *requestData, logger hclog.Logger) {
+func addCNtoDNSList(reqData *requestData, logger hclog.Logger) {
 	if !sliceContains(reqData.altNames, reqData.commonName) && reqData.commonName != "" { // Go can compare if en empty string exist in the slice, so we omit that case
 		logger.Debug(fmt.Sprintf("Adding CN %s to SAN %s because it wasn't included.", reqData.commonName, reqData.altNames))
 		reqData.altNames = append(reqData.altNames, reqData.commonName)
@@ -819,7 +822,7 @@ func orderSANDNS(reqData *requestData, logger hclog.Logger) {
 func sanitizeRequestData(reqData *requestData, logger hclog.Logger) {
 	logger.Debug("Sanitizing request data")
 	removeDuplicateSANDNS(reqData, logger)
-	addCNtoSANDNS(reqData, logger)
+	addCNtoDNSList(reqData, logger)
 	orderSANDNS(reqData, logger)
 }
 
