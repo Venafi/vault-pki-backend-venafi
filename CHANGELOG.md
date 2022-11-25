@@ -1,3 +1,6 @@
+# v0.11.0 (November 25, 2022)
+Added feature in order to prevent an issuance of the certificate if it is already inside Vault storage, using a hash string generated. All operation are done locally.
+
 # v0.10.6 (September 12, 2022)
 Adds bug fix for Prevent-reissue feature to work on VaaS
 
