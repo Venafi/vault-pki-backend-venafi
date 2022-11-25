@@ -53,7 +53,7 @@ Example for Venafi Cloud: e33f3e40-4e7e-11ea-8da3-b3c196ebeb0b`,
 
 			"store_by": {
 				Type:        framework.TypeString,
-				Description: `The attribute by which certificates are stored in the backend.  "serial" (default) and "cn" are the only valid values.`,
+				Description: `The attribute by which certificates are stored in the backend.  "serial" (default), "cn" and "hash" are the only valid values.`,
 			},
 
 			"no_store": {
@@ -155,12 +155,13 @@ attached to them. Defaults to "false".`,
 
 const (
 	storeByCNString                              = "cn"
+	storeByHASHstring                            = "hash"
 	storeBySerialString                          = "serial"
 	errorTextValueMustBeLess                     = `"ttl" value must be less than "max_ttl" value`
 	errorTextStoreByAndStoreByCNOrSerialConflict = `Can't specify both story_by and store_by_cn or store_by_serial options '`
 	errorTextNoStoreAndStoreByCNOrSerialConflict = `Can't specify both no_store and store_by_cn or store_by_serial options '`
 	errorTextNoStoreAndStoreByConflict           = `Can't specify both no_store and store_by options '`
-	errTextStoreByWrongOption                    = "Option store_by can be %s or %s, not %s"
+	errTextStoreByWrongOption                    = "Option store_by can be %s, %s or %s, not %s"
 	errorTextVenafiSecretEmpty                   = `"venafi_secret" argument is required`
 )
 
@@ -433,9 +434,9 @@ func validateEntry(entry *roleEntry) (err error) {
 		return fmt.Errorf(errorTextNoStoreAndStoreByConflict)
 	}
 	if entry.StoreBy != "" {
-		if (entry.StoreBy != storeBySerialString) && (entry.StoreBy != storeByCNString) {
+		if (entry.StoreBy != storeBySerialString) && (entry.StoreBy != storeByCNString) && (entry.StoreBy != storeByHASHstring) {
 			return fmt.Errorf(
-				fmt.Sprintf(errTextStoreByWrongOption, storeBySerialString, storeByCNString, entry.StoreBy),
+				fmt.Sprintf(errTextStoreByWrongOption, storeBySerialString, storeByCNString, storeByHASHstring, entry.StoreBy),
 			)
 		}
 	}
@@ -470,6 +471,7 @@ func getCredentialsWarnings(b *backend, ctx context.Context, s logical.Storage, 
 type roleEntry struct {
 
 	//Venafi values
+	Name             string
 	ChainOption      string        `json:"chain_option"`
 	StoreByCN        bool          `json:"store_by_cn"`
 	StoreBySerial    bool          `json:"store_by_serial"`

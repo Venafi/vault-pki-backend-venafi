@@ -30,6 +30,7 @@ type testEnv struct {
 	TestRandString    string
 	RoleName          string
 	CertificateSerial string
+	CertId            string
 	VenafiSecretName  string
 }
 
@@ -652,13 +653,13 @@ func (e *testEnv) IssueCertificateAndSaveSerial(t *testing.T, data testData, con
 		data.privateKey = resp.Data["private_key"].(string)
 	}
 
-	//it is need to determine if we're checking cloud signed certificate in checkStandartCert
+	// it is needed to determine if we're checking cloud signed certificate in checkStandartCert
 	data.provider = configString
 
 	checkStandardCert(t, data)
-
-	//save certificate serial for the next test
+	// save certificate serial for the next test
 	e.CertificateSerial = resp.Data["serial_number"].(string)
+	e.CertId = resp.Data["certificate_uid"].(string)
 }
 
 func (e *testEnv) IssueCertificateAndValidateTTL(t *testing.T, data testData) {
@@ -2133,6 +2134,201 @@ func checkStandardCert(t *testing.T, data testData) {
 		}
 	}
 
+}
+
+func (e *testEnv) PreventReissuanceLocal(t *testing.T, data testData, config venafiConfigString) {
+
+	randString := e.TestRandString
+	domain := "vfidev.com"
+	data.cn = randString + "." + domain
+	commonName := data.cn
+	data.dnsNS = "maria-" + commonName + "," + "rose-" + commonName + "," + "bob-" + commonName + "," + "bob-" + commonName + "," + "shina-" + commonName
+	data.storeBy = "hash"
+	data.storePkey = true
+
+	e.writeVenafiToBackend(t, config)
+	e.writeRoleToBackendWithData(t, config, data)
+	e.IssueCertificateAndSaveSerial(t, data, config)
+	currentCertificateSerial := e.CertificateSerial
+	e.IssueCertificateAndSaveSerial(t, data, config)
+	nextCertificateSerial := e.CertificateSerial
+	if currentCertificateSerial != nextCertificateSerial {
+		// means that we went to issue another certificate which shouldn't have happened
+		// as we intend to present the one in storage
+		t.Fatal("The serials are different")
+	}
+}
+
+func (e *testEnv) PreventReissuanceLocalCNwithExtraSANDNS(t *testing.T, data testData, config venafiConfigString) {
+
+	randString := e.TestRandString
+	domain := "vfidev.com"
+	data.cn = randString + "." + domain
+	data.dnsNS = "alt-" + data.cn
+	data.storeBy = "hash"
+	data.storePkey = true
+
+	e.writeVenafiToBackend(t, config)
+	e.writeRoleToBackendWithData(t, config, data)
+	e.IssueCertificateAndSaveSerial(t, data, config)
+	currentCertificateSerial := e.CertificateSerial
+	data.dnsNS = data.dnsNS + ",alt2-" + data.cn
+	e.IssueCertificateAndSaveSerial(t, data, config)
+	nextCertificateSerial := e.CertificateSerial
+	if currentCertificateSerial == nextCertificateSerial {
+		// since a new SAN DNS was provided in second run, we should have issued
+		// another certificate, so serials should be different
+		t.Fatal("The serials are equal")
+	}
+}
+
+func (e *testEnv) PreventReissuanceLocalCNandRemovingSANDNS(t *testing.T, data testData, config venafiConfigString) {
+
+	randString := e.TestRandString
+	domain := "vfidev.com"
+	data.cn = randString + "." + domain
+	data.dnsNS = "alt-" + data.cn + ",alt2-" + data.cn + ",alt3-" + data.cn
+	data.storeBy = "hash"
+	data.storePkey = true
+
+	e.writeVenafiToBackend(t, config)
+	e.writeRoleToBackendWithData(t, config, data)
+	e.IssueCertificateAndSaveSerial(t, data, config)
+	currentCertificateSerial := e.CertificateSerial
+	data.dnsNS = "alt-" + data.cn + ",alt2-" + data.cn
+	e.IssueCertificateAndSaveSerial(t, data, config)
+	nextCertificateSerial := e.CertificateSerial
+	if currentCertificateSerial == nextCertificateSerial {
+		// since SAN DNS was removed in second run, we should have issued
+		// another certificate, so serials should be different
+		t.Fatal("The serials are equal")
+	}
+}
+
+func (e *testEnv) PreventReissuanceLocalCNandNoSANSDNS(t *testing.T, data testData, config venafiConfigString) {
+
+	randString := e.TestRandString
+	domain := "vfidev.com"
+	data.cn = randString + "." + domain
+	data.storeBy = "hash"
+	data.storePkey = true
+
+	e.writeVenafiToBackend(t, config)
+	e.writeRoleToBackendWithData(t, config, data)
+	e.IssueCertificateAndSaveSerial(t, data, config)
+	currentCertificateSerial := e.CertificateSerial
+	e.IssueCertificateAndSaveSerial(t, data, config)
+	nextCertificateSerial := e.CertificateSerial
+	if currentCertificateSerial != nextCertificateSerial {
+		// means that we went to issue another certificate which shouldn't have happened
+		// as we intend to present the one in storage
+		t.Fatal("The serials are different")
+	}
+}
+
+func (e *testEnv) PreventReissuanceLocalTTLnotValid(t *testing.T, data testData, config venafiConfigString) {
+
+	randString := e.TestRandString
+	domain := "vfidev.com"
+	data.cn = randString + "." + domain
+	data.dnsNS = "alt-" + data.cn
+	data.storeBy = "hash"
+	data.storePkey = true
+
+	e.writeVenafiToBackend(t, config)
+	e.writeRoleToBackendWithData(t, config, data)
+	e.IssueCertificateAndSaveSerial(t, data, config)
+	currentCertificateSerial := e.CertificateSerial
+	e.IssueCertificateAndSaveSerial(t, data, config)
+	nextCertificateSerial := e.CertificateSerial
+	if currentCertificateSerial == nextCertificateSerial {
+		// since TTL is less than time we consider a certificate to be valid, we should have issued
+		// another certificate, so serials should be different
+		t.Fatal("The serials are equal")
+	}
+}
+
+func (e *testEnv) PreventReissuanceLocalTTLvalid(t *testing.T, data testData, config venafiConfigString) {
+
+	randString := e.TestRandString
+	domain := "vfidev.com"
+	data.cn = randString + "." + domain
+	data.dnsNS = "alt-" + data.cn
+	data.storeBy = "hash"
+	data.storePkey = true
+
+	e.writeVenafiToBackend(t, config)
+	e.writeRoleToBackendWithData(t, config, data)
+	e.IssueCertificateAndSaveSerial(t, data, config)
+	currentCertificateSerial := e.CertificateSerial
+	e.IssueCertificateAndSaveSerial(t, data, config)
+	nextCertificateSerial := e.CertificateSerial
+	if currentCertificateSerial != nextCertificateSerial {
+		// since TTL is within than time we consider a certificate to be valid, we should have not issued
+		// another certificate, so serials should be equal
+		t.Fatal("The serials are different")
+	}
+}
+func (e *testEnv) PreventReissuanceLocalCNwithThreeSANDNS(t *testing.T, data testData, config venafiConfigString) {
+
+	randString := e.TestRandString
+	domain := "vfidev.com"
+	data.cn = randString + "." + domain
+	data.dnsNS = "alt-" + data.cn + "," + "alt2-" + data.cn + "," + "alt3" + data.cn
+	data.storeBy = "hash"
+	data.storePkey = true
+
+	e.writeVenafiToBackend(t, config)
+	e.writeRoleToBackendWithData(t, config, data)
+	e.IssueCertificateAndSaveSerial(t, data, config)
+	currentCertificateSerial := e.CertificateSerial
+	e.IssueCertificateAndSaveSerial(t, data, config)
+	nextCertificateSerial := e.CertificateSerial
+	if currentCertificateSerial != nextCertificateSerial {
+		t.Fatal("The serials are different")
+	}
+}
+
+func (e *testEnv) PreventReissuanceLocalCNwithDifferentCNandThreeSANDNS(t *testing.T, data testData, config venafiConfigString) {
+
+	randString := e.TestRandString
+	domain := "vfidev.com"
+	data.cn = randString + "." + domain
+	data.dnsNS = "alt-" + data.cn + "," + "alt2-" + data.cn + "," + "alt3" + data.cn
+	data.storeBy = "hash"
+	data.storePkey = true
+
+	e.writeVenafiToBackend(t, config)
+	e.writeRoleToBackendWithData(t, config, data)
+	e.IssueCertificateAndSaveSerial(t, data, config)
+	currentCertificateSerial := e.CertificateSerial
+	data.cn = e.TestRandString
+	e.IssueCertificateAndSaveSerial(t, data, config)
+	nextCertificateSerial := e.CertificateSerial
+	if currentCertificateSerial == nextCertificateSerial {
+		t.Fatal("The serials are equal")
+	}
+}
+
+func (e *testEnv) PreventReissuanceLocalCNwithNoCNandThreeSANDNS(t *testing.T, data testData, config venafiConfigString) {
+
+	randString := e.TestRandString
+	domain := "vfidev.com"
+	commonName := randString + "." + domain
+	data.cn = ""
+	data.dnsNS = "alt-" + commonName + "," + "alt2-" + commonName + "," + "alt3" + commonName
+	data.storeBy = "hash"
+	data.storePkey = true
+
+	e.writeVenafiToBackend(t, config)
+	e.writeRoleToBackendWithData(t, config, data)
+	e.IssueCertificateAndSaveSerial(t, data, config)
+	currentCertificateSerial := e.CertificateSerial
+	e.IssueCertificateAndSaveSerial(t, data, config)
+	nextCertificateSerial := e.CertificateSerial
+	if currentCertificateSerial != nextCertificateSerial {
+		t.Fatal("The serials are different")
+	}
 }
 
 func newIntegrationTestEnv() (*testEnv, error) {

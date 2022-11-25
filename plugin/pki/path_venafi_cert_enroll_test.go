@@ -28,3 +28,26 @@ func TestOriginInRequest(t *testing.T) {
 		t.Fatalf("Expected %s in request custom fields origin", utilityName)
 	}
 }
+
+func TestSanitizeCertRequest(t *testing.T) {
+	integrationTestEnv, err := newIntegrationTestEnv()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	sn := "test"       // site name
+	sd := "venafi.com" // site domain
+	cn := sn + sd
+	reqData := requestData{
+		commonName: cn,
+		altNames:   []string{"maria-" + sd, "rose-" + sd, "rose-" + sd, "bob-" + sd, "bob-" + sd, "shina-" + sd},
+	}
+	correctReqData := requestData{
+		commonName: cn,
+		altNames:   []string{"bob-" + sd, "maria-" + sd, "rose-" + sd, "shina-" + sd, cn},
+	}
+	sanitizeRequestData(&reqData, integrationTestEnv.Backend.Logger())
+	if reqData.commonName != correctReqData.commonName || !stringSlicesEqual(reqData.altNames, correctReqData.altNames) {
+		t.Fatalf("Expected %s in request custom fields origin", utilityName)
+	}
+}

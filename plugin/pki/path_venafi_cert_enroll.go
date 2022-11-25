@@ -17,6 +17,7 @@ import (
 	"github.com/hashicorp/vault/sdk/helper/consts"
 	"net"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -119,9 +120,10 @@ If not specified the role default is used. Cannot be larger than the role max TT
 
 func (b *backend) pathVenafiIssue(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
 	roleName := data.Get("role").(string)
-
+	b.Logger().Debug(fmt.Sprintf("Using role: %s", roleName))
 	// Get the role
 	role, err := b.getRole(ctx, req.Storage, roleName)
+	role.Name = roleName
 	if err != nil {
 		return nil, err
 	}
@@ -143,6 +145,8 @@ func (b *backend) pathVenafiSign(ctx context.Context, req *logical.Request, data
 
 	// Get the role
 	role, err := b.getRole(ctx, req.Storage, roleName)
+	role.Name = roleName
+
 	if err != nil {
 		return nil, err
 	}
@@ -163,11 +167,8 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 		return nil, logical.ErrReadOnly
 	}
 
-	b.Logger().Debug("Getting the role\n")
-	roleName := data.Get("role").(string)
-
 	b.Logger().Debug("Creating Venafi client:")
-	cl, timeout, err := b.ClientVenafi(ctx, req.Storage, data, req, roleName)
+	cl, cfg, timeout, err := b.ClientVenafi(ctx, req, role)
 	if err != nil {
 		return logical.ErrorResponse(err.Error()), nil
 	}
@@ -210,7 +211,6 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 	}
 
 	if ttl, ok := data.GetOk("ttl"); ok {
-
 		currentTTL := time.Duration(ttl.(int)) * time.Second
 		//if specified role is greater than role's max ttl, then
 		//role's max ttl will be used.
@@ -219,15 +219,23 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 			currentTTL = role.MaxTTL
 
 		}
-
 		reqData.ttl = currentTTL
+	}
 
+	var certId string
+	if !role.NoStore && role.StoreBy == storeByHASHstring {
+		certId = getCertIdHash(reqData, cfg.Zone, b.Logger())
 	}
 
 	if &role.MinCertTimeLeft != nil && role.MinCertTimeLeft != time.Duration(0) && role.StorePrivateKey == true && (role.StoreBy == storeBySerialString || role.StoreBySerial == true) {
 		// if we don't receive a logic response, whenever is an error or the actual certificate found in storage
 		// means we need to issue a new one
-		logicalResp := preventReissue(b, ctx, req, &reqData, &cl, role, roleName)
+		logicalResp := preventReissue(b, ctx, req, &reqData, &cl, role, cfg.Zone)
+		if logicalResp != nil {
+			return logicalResp, nil
+		}
+	} else if &role.MinCertTimeLeft != nil && role.MinCertTimeLeft != time.Duration(0) && role.StorePrivateKey == true && role.StoreBy == storeByHASHstring {
+		logicalResp := preventReissueLocal(b, ctx, req, &reqData, role, certId)
 		if logicalResp != nil {
 			return logicalResp, nil
 		}
@@ -250,21 +258,21 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 		//and verify if that message describes errors related to expired access token.
 		code := getStatusCode(msg)
 		if code == HTTP_UNAUTHORIZED && regex.MatchString(msg) {
-			cfg, err := b.getConfig(ctx, req, roleName, true)
+			cfg, err := b.getConfig(ctx, req, role, true)
 
 			if err != nil {
 				return logical.ErrorResponse(err.Error()), nil
 			}
 
 			if cfg.Credentials.RefreshToken != "" {
-				err = updateAccessToken(cfg, b, ctx, req, roleName)
+				err = updateAccessToken(cfg, b, ctx, req, role.Name)
 
 				if err != nil {
 					return logical.ErrorResponse(err.Error()), nil
 				}
 
 				//everything went fine so get the new client with the new refreshed access token
-				cl, timeout, err = b.ClientVenafi(ctx, req.Storage, data, req, roleName)
+				cl, _, timeout, err = b.ClientVenafi(ctx, req, role)
 				if err != nil {
 					return logical.ErrorResponse(err.Error()), nil
 				}
@@ -339,28 +347,22 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 		return nil, err
 	}
 
-	//if no_store is not specified
 	if !role.NoStore {
 		if role.StoreBy == storeByCNString {
-			//Writing certificate to the storage with CN
-			b.Logger().Debug("Writing certificate to the certs/" + reqData.commonName)
-			entry.Key = "certs/" + reqData.commonName
-
-			if err := req.Storage.Put(ctx, entry); err != nil {
-				b.Logger().Error("Error putting entry to storage: " + err.Error())
-				return nil, err
-			}
+			// Writing certificate to the storage with CN
+			certId = reqData.commonName
+		} else if role.StoreBy == storeByHASHstring {
+			// do nothing as we already calculated the hash above
 		} else {
 			//Writing certificate to the storage with Serial Number
-			b.Logger().Debug("Putting certificate to the certs: " + normalizeSerial(serialNumber))
-			entry.Key = "certs/" + normalizeSerial(serialNumber)
-
-			if err := req.Storage.Put(ctx, entry); err != nil {
-				b.Logger().Error("Error putting entry to storage: " + err.Error())
-				return nil, err
-			}
+			certId = normalizeSerial(serialNumber)
 		}
-
+		b.Logger().Debug("Writing certificate to the certs/" + certId)
+		entry.Key = "certs/" + certId
+		if err := req.Storage.Put(ctx, entry); err != nil {
+			b.Logger().Error("Error putting entry to storage: " + err.Error())
+			return nil, err
+		}
 	}
 
 	issuingCA := ""
@@ -371,7 +373,12 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 	expirationTime := parsedCertificate.NotAfter
 	expirationSec := expirationTime.Unix()
 
+	// where "certificate_uid" is determined by "store_by" attribute defined at the role:
+	// store_by = "cn" -> string conformed by -> "certificate request's common name"
+	// store_by = "serial" -> string conformed by -> "generated certificate's serial"
+	// store_by = "hash" -> hash string conformed by -> "Common Name + SAN DNS + Zone"
 	respData := map[string]interface{}{
+		"certificate_uid":   certId,
 		"common_name":       reqData.commonName,
 		"serial_number":     serialNumber,
 		"certificate_chain": chain,
@@ -380,6 +387,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 		"issuing_ca":        issuingCA,
 		"expiration":        expirationSec,
 	}
+
 	if !signCSR {
 		keyPassword := data.Get("key_password").(string)
 		if keyPassword == "" {
@@ -490,28 +498,19 @@ func issueCertificate(certReq *certificate.Request, keyPass string, cl endpoint.
 	return pemCollection, nil
 }
 
-func preventReissue(b *backend, ctx context.Context, req *logical.Request, reqData *requestData, cl *endpoint.Connector, role *roleEntry, roleName string) *logical.Response {
+func preventReissue(b *backend, ctx context.Context, req *logical.Request, reqData *requestData, cl *endpoint.Connector, role *roleEntry, zone string) *logical.Response {
 	b.Logger().Debug("Preventing re-issuance if certificate is already stored")
-	cfg, err := b.getConfig(ctx, req, roleName, false)
-	if err != nil {
-		return logical.ErrorResponse(err.Error())
-	}
 	b.Logger().Debug("Looking if certificate exist in the platform")
-	var certInfo *certificate.CertificateInfo
+
+	sanitizeRequestData(reqData, b.Logger())
 	// creating new variables, so we don't mess up with reqData values since we may send that during request or modify them during issuing operation
 	commonName := reqData.commonName
 	sans := &certificate.Sans{
 		DNS: reqData.altNames,
 	}
-	// During search, if VaaS doesn't provide the CN and the CIT restricts the CN, then we will return an error since it's not supported.
-	// if the CN is not inside the SAN DNS List, we added in order to search for since this functionality
-	// is also added formRequest function of this package
-	if !sliceContains(sans.DNS, commonName) && commonName != "" { // Go can compare if en empty string exist in the slice, so we omit that case
-		b.Logger().Debug(fmt.Sprintf("Adding CN %s to SAN %s because it wasn't included.", reqData.commonName, reqData.altNames))
-		sans.DNS = append(sans.DNS, commonName)
-	}
 
-	certInfo, err = (*cl).SearchCertificate(cfg.Zone, commonName, sans, role.MinCertTimeLeft)
+	// During search, if VaaS doesn't provide the CN and the CIT restricts the CN, then we will return an error since it's not supported.
+	certInfo, err := (*cl).SearchCertificate(zone, commonName, sans, role.MinCertTimeLeft)
 	if err != nil && !(err == verror.NoCertificateFoundError || err == verror.NoCertificateWithMatchingZoneFoundError) {
 		return logical.ErrorResponse(err.Error())
 	}
@@ -553,15 +552,58 @@ func preventReissue(b *backend, ctx context.Context, req *logical.Request, reqDa
 	return nil
 }
 
+func preventReissueLocal(b *backend, ctx context.Context, req *logical.Request, reqData *requestData, role *roleEntry, certId string) *logical.Response {
+	b.Logger().Debug("Preventing re-issuance if certificate is already stored locally")
+	b.Logger().Debug("Looking for certificate in storage")
+	sanitizeRequestData(reqData, b.Logger())
+
+	b.Logger().Debug("Loading certificate from storage")
+	venafiCert, err := loadCertificateFromStorage(b, ctx, req, certId, reqData.keyPassword)
+	// We want to ignore error from plugin that is related to the certificate not being in storage. If it is
+	// we would like to issue a new one instead
+	if err != nil && !(errors.As(err, &vpkierror.CertEntryNotFound{})) {
+		return logical.ErrorResponse(err.Error())
+	}
+	if venafiCert != nil && venafiCert.PrivateKey != "" {
+		// we want to know is current certificate is about to expire
+		certPem := venafiCert.Certificate
+		block, _ := pem.Decode([]byte(certPem))
+		cert, _ := x509.ParseCertificate(block.Bytes)
+		currentTime := time.Now()
+		currentDuration := cert.NotAfter.Sub(currentTime)
+
+		roleDuration := role.MinCertTimeLeft
+		if currentDuration > roleDuration {
+			respData := map[string]interface{}{
+				"certificate_uid":   certId,
+				"serial_number":     venafiCert.SerialNumber,
+				"certificate_chain": venafiCert.CertificateChain,
+				"certificate":       venafiCert.Certificate,
+				"private_key":       venafiCert.PrivateKey,
+			}
+			var logResp *logical.Response
+			serialNumber, err := addSeparatorToHexFormattedString(venafiCert.SerialNumber, ":")
+			if err != nil {
+				return logical.ErrorResponse(err.Error())
+			}
+			logResp = b.Secret(SecretCertsType).Response(
+				respData,
+				map[string]interface{}{
+					"serial_number": serialNumber,
+				})
+			return logResp
+		}
+	}
+	// if we were not able to find a certificate or certificate is not valid (about to expire or expired), we let issuance occur.
+	return nil
+}
+
 func formRequest(reqData requestData, role *roleEntry, cl *endpoint.Connector, signCSR bool, logger hclog.Logger) (certReq *certificate.Request, err error) {
 	if !signCSR {
 		if len(reqData.altNames) == 0 && reqData.commonName == "" {
 			return certReq, fmt.Errorf("no domains specified on certificate")
 		}
-		if !sliceContains(reqData.altNames, reqData.commonName) && reqData.commonName != "" { // Go can compare if en empty string exist in the slice, so we omit that case
-			logger.Debug(fmt.Sprintf("Adding CN %s to SAN %s because it wasn't included.", reqData.commonName, reqData.altNames))
-			reqData.altNames = append(reqData.altNames, reqData.commonName)
-		}
+		sanitizeRequestData(&reqData, logger)
 
 		certReq = &certificate.Request{
 			CsrOrigin:   certificate.LocalGeneratedCSR,
@@ -734,6 +776,54 @@ func isValidCustomFields(customFields []string) bool {
 	}
 
 	return true
+}
+
+func getCertIdHash(reqData requestData, zone string, logger hclog.Logger) string {
+	logger.Debug("Creating hash for certificate ID")
+	s := ""
+	if reqData.commonName != "" {
+		s = s + reqData.commonName + ";"
+	}
+
+	// unless it's a common name, we want the sans to be separated by comma
+	if len(reqData.altNames) > 0 {
+		orderSANDNS(&reqData, logger)
+		for index, altName := range reqData.altNames {
+			if index == len(reqData.altNames)-1 {
+				s = s + altName
+			}
+			s = s + altName + ","
+		}
+	}
+
+	s = s + ";" + zone
+
+	s = sha1sum(s)
+	return s
+}
+
+func addCNtoDNSList(reqData *requestData, logger hclog.Logger) {
+	if !sliceContains(reqData.altNames, reqData.commonName) && reqData.commonName != "" { // Go can compare if en empty string exist in the slice, so we omit that case
+		logger.Debug(fmt.Sprintf("Adding CN %s to SAN %s because it wasn't included.", reqData.commonName, reqData.altNames))
+		reqData.altNames = append(reqData.altNames, reqData.commonName)
+	}
+}
+
+func removeDuplicateSANDNS(reqData *requestData, logger hclog.Logger) {
+	logger.Debug("Removing duplicate SAN DNS from request data")
+	altNames := &reqData.altNames
+	removeDuplicateStr(altNames)
+}
+func orderSANDNS(reqData *requestData, logger hclog.Logger) {
+	logger.Debug("ordering SAN DNS")
+	sort.Strings(reqData.altNames)
+}
+
+func sanitizeRequestData(reqData *requestData, logger hclog.Logger) {
+	logger.Debug("Sanitizing request data")
+	removeDuplicateSANDNS(reqData, logger)
+	addCNtoDNSList(reqData, logger)
+	orderSANDNS(reqData, logger)
 }
 
 type VenafiCert struct {

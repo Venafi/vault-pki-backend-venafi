@@ -5,55 +5,30 @@ import (
 	"fmt"
 	"github.com/Venafi/vcert/v4"
 	"github.com/Venafi/vcert/v4/pkg/endpoint"
-	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
 	"io/ioutil"
 	"time"
 )
 
-func (b *backend) ClientVenafi(ctx context.Context, s logical.Storage, data *framework.FieldData, req *logical.Request, roleName string) (
-	endpoint.Connector, time.Duration, error) {
-	b.Logger().Debug(fmt.Sprintf("Using role: %s", roleName))
-	if roleName == "" {
-		return nil, 0, fmt.Errorf("missing role name")
-	}
+func (b *backend) ClientVenafi(ctx context.Context, req *logical.Request, role *roleEntry) (
+	endpoint.Connector, *vcert.Config, time.Duration, error) {
 
-	role, err := b.getRole(ctx, req.Storage, roleName)
+	cfg, err := b.getConfig(ctx, req, role, false)
 	if err != nil {
-		return nil, 0, err
-	}
-	if role == nil {
-		return nil, 0, fmt.Errorf("unknown role %v", role)
-	}
-
-	cfg, err := b.getConfig(ctx, req, roleName, false)
-	if err != nil {
-		return nil, 0, err
+		return nil, nil, 0, err
 	}
 
 	client, err := vcert.NewClient(cfg)
 	if err != nil {
-		return nil, 0, fmt.Errorf("failed to get Venafi issuer client: %s", err)
+		return nil, nil, 0, fmt.Errorf("failed to get Venafi issuer client: %s", err)
 	}
 
-	return client, role.ServerTimeout, nil
+	return client, cfg, role.ServerTimeout, nil
 
 }
 
-func (b *backend) getConfig(ctx context.Context, req *logical.Request, roleName string, includeRefreshToken bool) (*vcert.Config, error) {
+func (b *backend) getConfig(ctx context.Context, req *logical.Request, role *roleEntry, includeRefreshToken bool) (*vcert.Config, error) {
 	var cfg *vcert.Config
-	b.Logger().Debug(fmt.Sprintf("Using role: %s", roleName))
-	if roleName == "" {
-		return nil, fmt.Errorf("missing role name")
-	}
-
-	role, err := b.getRole(ctx, req.Storage, roleName)
-	if err != nil {
-		return nil, err
-	}
-	if role == nil {
-		return nil, fmt.Errorf("unknown role %v", role)
-	}
 
 	venafiSecret, err := b.getVenafiSecret(ctx, req.Storage, role.VenafiSecret)
 	if err != nil {
@@ -73,7 +48,7 @@ func (b *backend) getConfig(ctx context.Context, req *logical.Request, roleName 
 		trustBundlePEM = string(trustBundle)
 	}
 
-	//If the role has a Zone declared, it takes priority over the Zone in the Venafi secret
+	// If the role has a Zone declared, it takes priority over the Zone in the Venafi secret
 	var zone string
 	if role.Zone != "" {
 		b.Logger().Debug(fmt.Sprintf("Using role zone: [%s]. Overrides venafi Secret zone: [%s]", role.Zone, venafiSecret.Zone))

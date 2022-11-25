@@ -69,12 +69,13 @@ func (b *backend) venafiCertRevoke(ctx context.Context, req *logical.Request, d 
 	}
 
 	b.Logger().Debug("Creating Venafi client:")
-	cl, _, err := b.ClientVenafi(ctx, req.Storage, d, req, roleName)
+	cl, cfg, _, err := b.ClientVenafi(ctx, req, role)
+
 	if err != nil {
 		return logical.ErrorResponse(err.Error()), nil
 	}
 
-	dn, err := getDn(b, &cl, ctx, req, roleName, id, role.StoreByCN || strings.ToLower(role.StoreBy) == "cn")
+	dn, err := getDn(b, &cl, ctx, req, cfg.Zone, id, role.StoreBy)
 
 	if err != nil {
 		return logical.ErrorResponse(err.Error()), nil
@@ -148,34 +149,38 @@ func isCertificateStored(ctx context.Context, req *logical.Request, id string, r
 	return true, nil
 }
 
-func getDn(b *backend, c *endpoint.Connector, ctx context.Context, req *logical.Request, rn, id string, storeByCN bool) (string, error) {
+func getDn(b *backend, c *endpoint.Connector, ctx context.Context, req *logical.Request, zone string, CertId string, storeByType string) (string, error) {
 
-	if !storeByCN {
-		return getDnFromSerial(c, id)
-	}
+	dn := CertId
+	switch storeByType {
+	case storeBySerialString:
+		return getDnFromSerial(c, CertId)
+	case storeByCNString:
+		if (*c).GetType() == endpoint.ConnectorTypeTPP {
 
-	dn := id
-	if (*c).GetType() == endpoint.ConnectorTypeTPP {
-		cfg, err := b.getConfig(ctx, req, rn, false)
+			if !strings.HasPrefix(zone, util.PathSeparator) {
+				zone = util.PathSeparator + zone
+			}
+
+			if !strings.HasPrefix(zone, policy.RootPath) {
+				zone = policy.RootPath + zone
+
+			}
+
+			if !strings.HasPrefix(dn, zone) {
+				dn = fmt.Sprintf("%s\\%s", zone, CertId)
+			}
+
+		}
+	case storeByHASHstring:
+		cert, err := loadCertificateFromStorage(b, ctx, req, CertId, "")
 		if err != nil {
 			return "", err
 		}
-
-		zone := cfg.Zone
-
-		if !strings.HasPrefix(zone, util.PathSeparator) {
-			zone = util.PathSeparator + zone
-		}
-
-		if !strings.HasPrefix(zone, policy.RootPath) {
-			zone = policy.RootPath + zone
-
-		}
-
-		if !strings.HasPrefix(dn, zone) {
-			dn = fmt.Sprintf("%s\\%s", zone, id)
-		}
-
+		serialNumber := strings.ReplaceAll(cert.SerialNumber, ":", "")
+		return getDnFromSerial(c, serialNumber)
+	default:
+		return "", fmt.Errorf("unknown role type of uid for storage")
 	}
 
 	return dn, nil
