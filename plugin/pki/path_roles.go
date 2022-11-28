@@ -130,6 +130,12 @@ attached to them. Defaults to "false".`,
 			"min_cert_time_left": {
 				Type:        framework.TypeDurationSecond,
 				Description: `When set, is used to determinate if certificate issuance is needed comparing certificate validity against desired remaining validity`,
+				Default:     time.Duration(30*24) * time.Hour,
+			},
+			"no_cache": {
+				Type:        framework.TypeBool,
+				Description: `When false, certificate requests will be looked into Vault's storage to prevent their issuance'`,
+				Default:     true,
 			},
 		},
 
@@ -333,6 +339,12 @@ func (b *backend) pathRoleUpdate(ctx context.Context, req *logical.Request, data
 		entry.MinCertTimeLeft = minCertTimeLeft
 	}
 
+	_, isSet = data.GetOk("no_cache")
+	noCache := data.Get("no_cache").(bool)
+	if isSet && (entry.NoCache != noCache) {
+		entry.NoCache = noCache
+	}
+
 	err = validateEntry(entry)
 	if err != nil {
 		return nil, err
@@ -375,6 +387,7 @@ func (b *backend) pathRoleCreate(ctx context.Context, req *logical.Request, data
 			VenafiSecret:     data.Get("venafi_secret").(string),
 			Zone:             data.Get("zone").(string),
 			MinCertTimeLeft:  time.Duration(data.Get("min_cert_time_left").(int)) * time.Second,
+			NoCache:          data.Get("no_cache").(bool),
 		}
 	}
 
@@ -494,6 +507,7 @@ type roleEntry struct {
 	VenafiSecret     string        `json:"venafi_secret"`
 	Zone             string        `json:"zone"`
 	MinCertTimeLeft  time.Duration `json:"min_cert_time_left"`
+	NoCache          bool          `json:"no_cache"`
 }
 
 func (r *roleEntry) ToResponseData() map[string]interface{} {
@@ -510,6 +524,7 @@ func (r *roleEntry) ToResponseData() map[string]interface{} {
 		"generate_lease":         r.GenerateLease,
 		"chain_option":           r.ChainOption,
 		"min_cert_time_left":     shortDurationString(r.MinCertTimeLeft),
+		"no_cache":               r.NoCache,
 	}
 	return responseData
 }

@@ -57,6 +57,7 @@ type testData struct {
 	serviceGeneratedCert bool
 	privateKeyFormat     string
 	minCertTimeLeft      time.Duration
+	noCache              bool
 }
 
 const (
@@ -1888,6 +1889,26 @@ func (e *testEnv) PreventReissuance(t *testing.T, data testData, config venafiCo
 	}
 }
 
+func (e *testEnv) NotPreventReissuance(t *testing.T, data testData, config venafiConfigString) {
+
+	randString := e.TestRandString
+	domain := "vfidev.com"
+	data.cn = randString + "." + domain
+	data.dnsNS = "alt-" + data.cn
+	data.storeBy = "serial"
+	data.storePkey = true
+
+	e.writeVenafiToBackend(t, config)
+	e.writeRoleToBackendWithData(t, config, data)
+	e.IssueCertificateAndSaveSerial(t, data, config)
+	currentCertificateSerial := e.CertificateSerial
+	e.IssueCertificateAndSaveSerial(t, data, config)
+	nextCertificateSerial := e.CertificateSerial
+	if currentCertificateSerial == nextCertificateSerial {
+		t.Fatal("The serials are equal")
+	}
+}
+
 func (e *testEnv) PreventReissuanceCNwithExtraSANDNS(t *testing.T, data testData, config venafiConfigString) {
 
 	randString := e.TestRandString
@@ -2156,6 +2177,27 @@ func (e *testEnv) PreventReissuanceLocal(t *testing.T, data testData, config ven
 		// means that we went to issue another certificate which shouldn't have happened
 		// as we intend to present the one in storage
 		t.Fatal("The serials are different")
+	}
+}
+
+func (e *testEnv) NotPreventReissuanceLocal(t *testing.T, data testData, config venafiConfigString) {
+
+	randString := e.TestRandString
+	domain := "vfidev.com"
+	data.cn = randString + "." + domain
+	commonName := data.cn
+	data.dnsNS = "maria-" + commonName + "," + "rose-" + commonName + "," + "bob-" + commonName + "," + "bob-" + commonName + "," + "shina-" + commonName
+	data.storeBy = "hash"
+	data.storePkey = true
+
+	e.writeVenafiToBackend(t, config)
+	e.writeRoleToBackendWithData(t, config, data)
+	e.IssueCertificateAndSaveSerial(t, data, config)
+	currentCertificateSerial := e.CertificateSerial
+	e.IssueCertificateAndSaveSerial(t, data, config)
+	nextCertificateSerial := e.CertificateSerial
+	if currentCertificateSerial == nextCertificateSerial {
+		t.Fatal("The serials are equal")
 	}
 }
 
