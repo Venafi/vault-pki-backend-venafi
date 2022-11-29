@@ -391,7 +391,7 @@ to return that certificate instead. To issue this feature you must set:
 - `store_pkey=true` (_required_)
 - `ignore_local_storage=false` (_required_)
 
-`If certificate was successfully loaded from Vault storage, you will encounter `Loading certificate from storage` message
+If certificate was successfully loaded from Vault storage, you will encounter `Loading certificate from storage` message
 in logs when `[DEBUG]` mode is set:
 
 ```
