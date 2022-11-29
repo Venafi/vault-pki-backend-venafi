@@ -351,7 +351,6 @@ to return that certificate instead. To issue this feature you must set:
 - `min_cert_time_left` (_optional_): Golang's duration format string (e.g. 24h, 23h5m20s, 10000s, etc.). Default is 30 days.
 - `store_by="serial"` (_required_)
 - `store_pkey=true` (_required_)
-- `ignore_local_storage=false`  (_required_)
 
 If certificate was successfully loaded from Vault storage, you will encounter `Loading certificate from storage` message
 in logs when `[DEBUG]` mode is set:
@@ -389,7 +388,6 @@ to return that certificate instead. To issue this feature you must set:
 - `min_cert_time_left` (_optional_): Golang's duration format string (e.g. 24h, 23h5m20s, 10000s, etc.). Default is 30 days.
 - `store_by="hash"` (_required_)
 - `store_pkey=true` (_required_)
-- `ignore_local_storage=false` (_required_)
 
 If certificate was successfully loaded from Vault storage, you will encounter `Loading certificate from storage` message
 in logs when `[DEBUG]` mode is set:
