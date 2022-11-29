@@ -162,12 +162,14 @@ var venafiTestFakeConfigDeprecatedStoreByCN = map[string]interface{}{
 	"generate_lease": true,
 	"store_by_cn":    true,
 	"store_pkey":     true,
+	"no_cache":       true,
 }
 
 var venafiTestFakeConfigDeprecatedStoreBySerial = map[string]interface{}{
 	"generate_lease":  true,
 	"store_by_serial": true,
 	"store_pkey":      true,
+	"no_cache":        true,
 }
 
 var venafiTestFakeConfigStoreByCN = map[string]interface{}{
@@ -180,21 +182,25 @@ var venafiTestFakeConfigStoreBySerial = map[string]interface{}{
 	"generate_lease": true,
 	"store_by":       "serial",
 	"store_pkey":     true,
+	"no_cache":       true,
 }
 
 var venafiTestFakeConfig = map[string]interface{}{
 	"generate_lease": true,
 	"store_pkey":     true,
+	"no_cache":       true,
 }
 
 var venafiTestFakeConfigNoStore = map[string]interface{}{
 	"generate_lease": true,
 	"no_store":       true,
+	"no_cache":       true,
 }
 
 var venafiTestFakeConfigNoStorePKey = map[string]interface{}{
 	"generate_lease": true,
 	"store_pkey":     false,
+	"no_cache":       true,
 }
 
 var venafiTestMixedTppAndCloudConfig = map[string]interface{}{
