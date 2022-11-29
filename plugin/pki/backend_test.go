@@ -407,7 +407,7 @@ func TestTPPpreventReissuance(t *testing.T) {
 			t.Fatal(err)
 		}
 		data := testData{
-			noCache: false,
+			ignoreLocalStorage: false,
 		}
 		integrationTestEnv.PreventReissuance(t, data, venafiConfigToken)
 	})
@@ -420,8 +420,8 @@ func TestTPPpreventReissuance(t *testing.T) {
 			t.Fatal(err)
 		}
 		data := testData{
-			noCache:         true,
-			minCertTimeLeft: regDuration,
+			ignoreLocalStorage: true,
+			minCertTimeLeft:    regDuration,
 		}
 		integrationTestEnv.NotPreventReissuance(t, data, venafiConfigToken)
 	})
@@ -1091,7 +1091,7 @@ func TestVaasPreventLocalReissuance(t *testing.T) {
 			t.Fatal(err)
 		}
 		data := testData{
-			noCache: false,
+			ignoreLocalStorage: false,
 		}
 		integrationTestEnv.PreventReissuanceLocal(t, data, venafiConfigToken)
 	})
@@ -1104,8 +1104,8 @@ func TestVaasPreventLocalReissuance(t *testing.T) {
 			t.Fatal(err)
 		}
 		data := testData{
-			noCache:         true,
-			minCertTimeLeft: regDuration,
+			ignoreLocalStorage: true,
+			minCertTimeLeft:    regDuration,
 		}
 		integrationTestEnv.NotPreventReissuanceLocal(t, data, venafiConfigToken)
 	})

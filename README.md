@@ -351,7 +351,7 @@ to return that certificate instead. To issue this feature you must set:
 - `min_cert_time_left` (_optional_): Golang's duration format string (e.g. 24h, 23h5m20s, 10000s, etc.). Default is 30 days.
 - `store_by="serial"` (_required_)
 - `store_pkey=true` (_required_)
-- `no_cache=false`  (_required_)
+- `ignore_local_storage=false`  (_required_)
 
 If certificate was successfully loaded from Vault storage, you will encounter `Loading certificate from storage` message
 in logs when `[DEBUG]` mode is set:
@@ -389,7 +389,7 @@ to return that certificate instead. To issue this feature you must set:
 - `min_cert_time_left` (_optional_): Golang's duration format string (e.g. 24h, 23h5m20s, 10000s, etc.). Default is 30 days.
 - `store_by="hash"` (_required_)
 - `store_pkey=true` (_required_)
-- `no_cache=false` (_required_)
+- `ignore_local_storage=false` (_required_)
 
 `If certificate was successfully loaded from Vault storage, you will encounter `Loading certificate from storage` message
 in logs when `[DEBUG]` mode is set:
@@ -408,10 +408,11 @@ ZHVjdCBNYW5hZ2VtZW50MRowGAYDVQQLExFRdWFsaXR5IEFzc3VyYW5jZTEkMCIG
 A1UEAxMbbm9wcml2YXRla2V5LnZlbmFmaS5leGFtcGxlMIIBIjANBgkqhkiG9w0B
 ```
 
-## Bursted Cache
+## Ignore Local Storage
 
-We introduced a new attribute `no_cache` for role parameter to completely turn off any prevent re-issuance feature.
-Default is turned off with value `false`.
+If certificates are stored locally in vault by `serial` or `hash`, normal behavior would be to always look into certificate locally before issuing a new certificate.
+If `ignore_local_storage` flag is set to `true`, it would bypass the logic to check certificate locally (to prevent re-issue) and always issue a new certificate.
+Default value is always `false`.
 
 ## License
 

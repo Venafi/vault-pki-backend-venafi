@@ -227,14 +227,14 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 		certId = getCertIdHash(reqData, cfg.Zone, b.Logger())
 	}
 
-	if !role.NoCache && role.StorePrivateKey == true && (role.StoreBy == storeBySerialString || role.StoreBySerial == true) {
+	if !role.IgnoreLocalStorage && role.StorePrivateKey == true && (role.StoreBy == storeBySerialString || role.StoreBySerial == true) {
 		// if we don't receive a logic response, whenever is an error or the actual certificate found in storage
 		// means we need to issue a new one
 		logicalResp := preventReissue(b, ctx, req, &reqData, &cl, role, cfg.Zone)
 		if logicalResp != nil {
 			return logicalResp, nil
 		}
-	} else if !role.NoCache && role.StorePrivateKey == true && role.StoreBy == storeByHASHstring {
+	} else if !role.IgnoreLocalStorage && role.StorePrivateKey == true && role.StoreBy == storeByHASHstring {
 		logicalResp := preventReissueLocal(b, ctx, req, &reqData, role, certId)
 		if logicalResp != nil {
 			return logicalResp, nil
