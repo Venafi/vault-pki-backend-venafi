@@ -135,7 +135,7 @@ attached to them. Defaults to "false".`,
 			"no_cache": {
 				Type:        framework.TypeBool,
 				Description: `When false, certificate requests will be looked into Vault's storage to prevent their issuance'`,
-				Default:     true,
+				Default:     false,
 			},
 		},
 

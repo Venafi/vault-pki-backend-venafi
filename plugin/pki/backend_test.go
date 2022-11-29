@@ -183,7 +183,6 @@ func TestTPPpreventReissuance(t *testing.T) {
 			t.Fatal(err)
 		}
 		data := testData{
-			noCache:         false,
 			minCertTimeLeft: regDuration,
 		}
 		integrationTestEnv.PreventReissuance(t, data, venafiConfigToken)
@@ -195,7 +194,6 @@ func TestTPPpreventReissuance(t *testing.T) {
 			t.Fatal(err)
 		}
 		data := testData{
-			noCache:         false,
 			minCertTimeLeft: regDuration,
 		}
 		integrationTestEnv.PreventReissuanceCNwithExtraSANDNS(t, data, venafiConfigToken)
@@ -207,7 +205,6 @@ func TestTPPpreventReissuance(t *testing.T) {
 			t.Fatal(err)
 		}
 		data := testData{
-			noCache:         false,
 			minCertTimeLeft: regDuration,
 		}
 		integrationTestEnv.PreventReissuanceCNandRemovingSANDNS(t, data, venafiConfigToken)
@@ -219,7 +216,6 @@ func TestTPPpreventReissuance(t *testing.T) {
 			t.Fatal(err)
 		}
 		data := testData{
-			noCache:         false,
 			minCertTimeLeft: regDuration,
 		}
 		integrationTestEnv.PreventReissuanceCNnoSANSDNS(t, data, venafiConfigToken)
@@ -232,7 +228,6 @@ func TestTPPpreventReissuance(t *testing.T) {
 				t.Fatal(err)
 			}
 			data := testData{
-				noCache:         false,
 				minCertTimeLeft: time.Duration(24) * time.Hour,
 				ttl:             time.Duration(23) * time.Hour,
 			}
@@ -246,7 +241,6 @@ func TestTPPpreventReissuance(t *testing.T) {
 		}
 		// we set a TLL less than a time we consider a certificate to be valid, so we always issue a new one
 		data := testData{
-			noCache:         false,
 			minCertTimeLeft: time.Duration(24) * time.Hour,
 			ttl:             time.Duration(25) * time.Hour,
 		}
@@ -259,7 +253,6 @@ func TestTPPpreventReissuance(t *testing.T) {
 			t.Fatal(err)
 		}
 		data := testData{
-			noCache:         false,
 			minCertTimeLeft: regDuration,
 		}
 		integrationTestEnv.PreventReissuanceCNwithThreeSANDNS(t, data, venafiConfigToken)
@@ -271,7 +264,6 @@ func TestTPPpreventReissuance(t *testing.T) {
 			t.Fatal(err)
 		}
 		data := testData{
-			noCache:         false,
 			minCertTimeLeft: regDuration,
 		}
 		integrationTestEnv.PreventReissuanceCNwithDifferentCNandThreeSANDNS(t, data, venafiConfigToken)
@@ -283,7 +275,6 @@ func TestTPPpreventReissuance(t *testing.T) {
 			t.Fatal(err)
 		}
 		data := testData{
-			noCache:         false,
 			minCertTimeLeft: regDuration,
 		}
 		integrationTestEnv.PreventReissuanceCNwithNoCNandThreeSANDNS(t, data, venafiConfigToken)
@@ -297,7 +288,6 @@ func TestTPPpreventReissuance(t *testing.T) {
 		}
 		data := testData{
 			serviceGeneratedCert: true,
-			noCache:              false,
 			minCertTimeLeft:      regDuration,
 		}
 		integrationTestEnv.PreventReissuance(t, data, venafiConfigToken)
@@ -324,7 +314,6 @@ func TestTPPpreventReissuance(t *testing.T) {
 			}
 			data := testData{
 				serviceGeneratedCert: true,
-				noCache:              false,
 				minCertTimeLeft:      regDuration,
 			}
 			integrationTestEnv.PreventReissuanceCNandRemovingSANDNS(t, data, venafiConfigToken)
@@ -338,7 +327,6 @@ func TestTPPpreventReissuance(t *testing.T) {
 			}
 			data := testData{
 				serviceGeneratedCert: true,
-				noCache:              false,
 				minCertTimeLeft:      regDuration,
 			}
 			integrationTestEnv.PreventReissuanceCNnoSANSDNS(t, data, venafiConfigToken)
@@ -352,7 +340,6 @@ func TestTPPpreventReissuance(t *testing.T) {
 			}
 			data := testData{
 				serviceGeneratedCert: true,
-				noCache:              false,
 				minCertTimeLeft:      time.Duration(24) * time.Hour,
 				ttl:                  time.Duration(23) * time.Hour,
 			}
@@ -367,7 +354,6 @@ func TestTPPpreventReissuance(t *testing.T) {
 			}
 			data := testData{
 				serviceGeneratedCert: true,
-				noCache:              false,
 				minCertTimeLeft:      time.Duration(24) * time.Hour,
 				ttl:                  time.Duration(25) * time.Hour,
 			}
@@ -382,7 +368,6 @@ func TestTPPpreventReissuance(t *testing.T) {
 			}
 			data := testData{
 				serviceGeneratedCert: true,
-				noCache:              false,
 				minCertTimeLeft:      regDuration,
 			}
 			integrationTestEnv.PreventReissuanceCNwithThreeSANDNS(t, data, venafiConfigToken)
@@ -396,7 +381,6 @@ func TestTPPpreventReissuance(t *testing.T) {
 			}
 			data := testData{
 				serviceGeneratedCert: true,
-				noCache:              false,
 				minCertTimeLeft:      regDuration,
 			}
 			integrationTestEnv.PreventReissuanceCNwithDifferentCNandThreeSANDNS(t, data, venafiConfigToken)
@@ -410,7 +394,6 @@ func TestTPPpreventReissuance(t *testing.T) {
 			}
 			data := testData{
 				serviceGeneratedCert: true,
-				noCache:              false,
 				minCertTimeLeft:      regDuration,
 			}
 			integrationTestEnv.PreventReissuanceCNwithNoCNandThreeSANDNS(t, data, venafiConfigToken)
@@ -454,7 +437,6 @@ func TestVaasPreventReissuance(t *testing.T) {
 			t.Fatal(err)
 		}
 		data := testData{
-			noCache:         false,
 			minCertTimeLeft: regDuration,
 		}
 		integrationTestEnv.PreventReissuance(t, data, venafiConfigCloud)
@@ -466,7 +448,6 @@ func TestVaasPreventReissuance(t *testing.T) {
 			t.Fatal(err)
 		}
 		data := testData{
-			noCache:         false,
 			minCertTimeLeft: regDuration,
 		}
 		integrationTestEnv.PreventReissuanceCNwithExtraSANDNS(t, data, venafiConfigCloud)
@@ -478,7 +459,6 @@ func TestVaasPreventReissuance(t *testing.T) {
 			t.Fatal(err)
 		}
 		data := testData{
-			noCache:         false,
 			minCertTimeLeft: regDuration,
 		}
 		integrationTestEnv.PreventReissuanceCNandRemovingSANDNS(t, data, venafiConfigCloud)
@@ -490,7 +470,6 @@ func TestVaasPreventReissuance(t *testing.T) {
 			t.Fatal(err)
 		}
 		data := testData{
-			noCache:         false,
 			minCertTimeLeft: regDuration,
 		}
 		integrationTestEnv.PreventReissuanceCNnoSANSDNS(t, data, venafiConfigCloud)
@@ -502,7 +481,6 @@ func TestVaasPreventReissuance(t *testing.T) {
 				t.Fatal(err)
 			}
 			data := testData{
-				noCache: false,
 				// for VaaS use case we need to set and extra 24 hours since value is truncated (2184hrs = 91 days)
 				minCertTimeLeft: time.Duration(2184) * time.Hour,
 			}
@@ -515,7 +493,6 @@ func TestVaasPreventReissuance(t *testing.T) {
 			t.Fatal(err)
 		}
 		data := testData{
-			noCache:         false,
 			minCertTimeLeft: time.Duration(2159) * time.Hour,
 		}
 		integrationTestEnv.PreventReissuanceTTLvalid(t, data, venafiConfigCloud)
@@ -527,7 +504,6 @@ func TestVaasPreventReissuance(t *testing.T) {
 			t.Fatal(err)
 		}
 		data := testData{
-			noCache:         false,
 			minCertTimeLeft: regDuration,
 		}
 		integrationTestEnv.PreventReissuanceCNwithThreeSANDNS(t, data, venafiConfigCloud)
@@ -539,7 +515,6 @@ func TestVaasPreventReissuance(t *testing.T) {
 			t.Fatal(err)
 		}
 		data := testData{
-			noCache:         false,
 			minCertTimeLeft: regDuration,
 		}
 		integrationTestEnv.PreventReissuanceCNwithDifferentCNandThreeSANDNS(t, data, venafiConfigCloud)
@@ -551,7 +526,6 @@ func TestVaasPreventReissuance(t *testing.T) {
 			t.Fatal(err)
 		}
 		data := testData{
-			noCache:         false,
 			minCertTimeLeft: regDuration,
 		}
 		integrationTestEnv.PreventReissuanceCNwithNoCNandThreeSANDNS(t, data, venafiConfigCloud)
@@ -565,7 +539,6 @@ func TestVaasPreventReissuance(t *testing.T) {
 		}
 		data := testData{
 			serviceGeneratedCert: true,
-			noCache:              false,
 			minCertTimeLeft:      regDuration,
 		}
 		integrationTestEnv.PreventReissuance(t, data, venafiConfigCloud)
@@ -579,7 +552,6 @@ func TestVaasPreventReissuance(t *testing.T) {
 			}
 			data := testData{
 				serviceGeneratedCert: true,
-				noCache:              false,
 				minCertTimeLeft:      regDuration,
 			}
 			integrationTestEnv.PreventReissuanceCNwithExtraSANDNS(t, data, venafiConfigCloud)
@@ -593,7 +565,6 @@ func TestVaasPreventReissuance(t *testing.T) {
 			}
 			data := testData{
 				serviceGeneratedCert: true,
-				noCache:              false,
 				minCertTimeLeft:      regDuration,
 			}
 			integrationTestEnv.PreventReissuanceCNandRemovingSANDNS(t, data, venafiConfigCloud)
@@ -607,7 +578,6 @@ func TestVaasPreventReissuance(t *testing.T) {
 			}
 			data := testData{
 				serviceGeneratedCert: true,
-				noCache:              false,
 				minCertTimeLeft:      regDuration,
 			}
 			integrationTestEnv.PreventReissuanceCNnoSANSDNS(t, data, venafiConfigCloud)
@@ -620,7 +590,6 @@ func TestVaasPreventReissuance(t *testing.T) {
 			}
 			data := testData{
 				serviceGeneratedCert: true,
-				noCache:              false,
 				// for VaaS use case we need to set and extra 24 hours since value is truncated (2184hrs = 91 days)
 				minCertTimeLeft: time.Duration(2184) * time.Hour,
 			}
@@ -635,7 +604,6 @@ func TestVaasPreventReissuance(t *testing.T) {
 			}
 			data := testData{
 				serviceGeneratedCert: true,
-				noCache:              false,
 				minCertTimeLeft:      time.Duration(2159) * time.Hour,
 			}
 			integrationTestEnv.PreventReissuanceTTLvalid(t, data, venafiConfigCloud)
@@ -649,7 +617,6 @@ func TestVaasPreventReissuance(t *testing.T) {
 			}
 			data := testData{
 				serviceGeneratedCert: true,
-				noCache:              false,
 				minCertTimeLeft:      regDuration,
 			}
 			integrationTestEnv.PreventReissuanceCNwithThreeSANDNS(t, data, venafiConfigCloud)
@@ -663,7 +630,6 @@ func TestVaasPreventReissuance(t *testing.T) {
 			}
 			data := testData{
 				serviceGeneratedCert: true,
-				noCache:              false,
 				minCertTimeLeft:      regDuration,
 			}
 			integrationTestEnv.PreventReissuanceCNwithDifferentCNandThreeSANDNS(t, data, venafiConfigCloud)
@@ -678,7 +644,6 @@ func TestVaasPreventReissuance(t *testing.T) {
 			}
 			data := testData{
 				serviceGeneratedCert: true,
-				noCache:              false,
 				minCertTimeLeft:      regDuration,
 			}
 			integrationTestEnv.PreventReissuanceCNwithNoCNandThreeSANDNS(t, data, venafiConfigCloud)
@@ -695,7 +660,6 @@ func TestTPPpreventLocal(t *testing.T) {
 			t.Fatal(err)
 		}
 		data := testData{
-			noCache:         false,
 			minCertTimeLeft: regDuration,
 		}
 		integrationTestEnv.PreventReissuanceLocal(t, data, venafiConfigToken)
@@ -707,7 +671,6 @@ func TestTPPpreventLocal(t *testing.T) {
 			t.Fatal(err)
 		}
 		data := testData{
-			noCache:         false,
 			minCertTimeLeft: regDuration,
 		}
 		integrationTestEnv.PreventReissuanceLocalCNwithExtraSANDNS(t, data, venafiConfigToken)
@@ -719,7 +682,6 @@ func TestTPPpreventLocal(t *testing.T) {
 			t.Fatal(err)
 		}
 		data := testData{
-			noCache:         false,
 			minCertTimeLeft: regDuration,
 		}
 		integrationTestEnv.PreventReissuanceLocalCNandRemovingSANDNS(t, data, venafiConfigToken)
@@ -731,7 +693,6 @@ func TestTPPpreventLocal(t *testing.T) {
 			t.Fatal(err)
 		}
 		data := testData{
-			noCache:         false,
 			minCertTimeLeft: regDuration,
 		}
 		integrationTestEnv.PreventReissuanceLocalCNandNoSANSDNS(t, data, venafiConfigToken)
@@ -744,7 +705,6 @@ func TestTPPpreventLocal(t *testing.T) {
 				t.Fatal(err)
 			}
 			data := testData{
-				noCache:         false,
 				minCertTimeLeft: time.Duration(24) * time.Hour,
 				ttl:             time.Duration(23) * time.Hour,
 			}
@@ -758,7 +718,6 @@ func TestTPPpreventLocal(t *testing.T) {
 		}
 		// we set a TLL less than a time we consider a certificate to be valid, so we always issue a new one
 		data := testData{
-			noCache:         false,
 			minCertTimeLeft: time.Duration(24) * time.Hour,
 			ttl:             time.Duration(25) * time.Hour,
 		}
@@ -771,7 +730,6 @@ func TestTPPpreventLocal(t *testing.T) {
 			t.Fatal(err)
 		}
 		data := testData{
-			noCache:         false,
 			minCertTimeLeft: regDuration,
 		}
 		integrationTestEnv.PreventReissuanceLocalCNwithThreeSANDNS(t, data, venafiConfigToken)
@@ -783,7 +741,6 @@ func TestTPPpreventLocal(t *testing.T) {
 			t.Fatal(err)
 		}
 		data := testData{
-			noCache:         false,
 			minCertTimeLeft: regDuration,
 		}
 		integrationTestEnv.PreventReissuanceLocalCNwithDifferentCNandThreeSANDNS(t, data, venafiConfigToken)
@@ -795,7 +752,6 @@ func TestTPPpreventLocal(t *testing.T) {
 			t.Fatal(err)
 		}
 		data := testData{
-			noCache:         false,
 			minCertTimeLeft: regDuration,
 		}
 		integrationTestEnv.PreventReissuanceLocalCNwithNoCNandThreeSANDNS(t, data, venafiConfigToken)
@@ -809,7 +765,6 @@ func TestTPPpreventLocal(t *testing.T) {
 		}
 		data := testData{
 			serviceGeneratedCert: true,
-			noCache:              false,
 			minCertTimeLeft:      regDuration,
 		}
 		integrationTestEnv.PreventReissuanceLocal(t, data, venafiConfigToken)
@@ -823,7 +778,6 @@ func TestTPPpreventLocal(t *testing.T) {
 			}
 			data := testData{
 				serviceGeneratedCert: true,
-				noCache:              false,
 				minCertTimeLeft:      regDuration,
 			}
 			integrationTestEnv.PreventReissuanceLocalCNwithExtraSANDNS(t, data, venafiConfigToken)
@@ -837,7 +791,6 @@ func TestTPPpreventLocal(t *testing.T) {
 			}
 			data := testData{
 				serviceGeneratedCert: true,
-				noCache:              false,
 				minCertTimeLeft:      regDuration,
 			}
 			integrationTestEnv.PreventReissuanceLocalCNandRemovingSANDNS(t, data, venafiConfigToken)
@@ -851,7 +804,6 @@ func TestTPPpreventLocal(t *testing.T) {
 			}
 			data := testData{
 				serviceGeneratedCert: true,
-				noCache:              false,
 				minCertTimeLeft:      regDuration,
 			}
 			integrationTestEnv.PreventReissuanceLocalCNandNoSANSDNS(t, data, venafiConfigToken)
@@ -865,7 +817,6 @@ func TestTPPpreventLocal(t *testing.T) {
 			}
 			data := testData{
 				serviceGeneratedCert: true,
-				noCache:              false,
 				minCertTimeLeft:      time.Duration(24) * time.Hour,
 				ttl:                  time.Duration(23) * time.Hour,
 			}
@@ -880,7 +831,6 @@ func TestTPPpreventLocal(t *testing.T) {
 			}
 			data := testData{
 				serviceGeneratedCert: true,
-				noCache:              false,
 				minCertTimeLeft:      time.Duration(24) * time.Hour,
 				ttl:                  time.Duration(25) * time.Hour,
 			}
@@ -895,7 +845,6 @@ func TestTPPpreventLocal(t *testing.T) {
 			}
 			data := testData{
 				serviceGeneratedCert: true,
-				noCache:              false,
 				minCertTimeLeft:      regDuration,
 			}
 			integrationTestEnv.PreventReissuanceLocalCNwithThreeSANDNS(t, data, venafiConfigToken)
@@ -909,7 +858,6 @@ func TestTPPpreventLocal(t *testing.T) {
 			}
 			data := testData{
 				serviceGeneratedCert: true,
-				noCache:              false,
 				minCertTimeLeft:      regDuration,
 			}
 			integrationTestEnv.PreventReissuanceLocalCNwithDifferentCNandThreeSANDNS(t, data, venafiConfigToken)
@@ -923,7 +871,6 @@ func TestTPPpreventLocal(t *testing.T) {
 			}
 			data := testData{
 				serviceGeneratedCert: true,
-				noCache:              false,
 				minCertTimeLeft:      regDuration,
 			}
 			integrationTestEnv.PreventReissuanceLocalCNwithNoCNandThreeSANDNS(t, data, venafiConfigToken)

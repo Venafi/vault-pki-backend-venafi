@@ -277,6 +277,13 @@ func (e *testEnv) writeRoleToBackendWithData(t *testing.T, configString venafiCo
 		roleData["store_by"] = data.storeBy
 	}
 
+	if &data.noCache != nil {
+		roleData["no_cache"] = data.noCache
+	} else {
+		// Default's
+		roleData["no_cache"] = false
+	}
+
 	if data.minCertTimeLeft > 0 {
 		roleData["min_cert_time_left"] = data.minCertTimeLeft
 	}
