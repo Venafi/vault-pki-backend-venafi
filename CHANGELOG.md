@@ -1,3 +1,6 @@
+# v0.12.0 (November 30, 2022)
+Added ability to ignore search certificate in local storage. Fixes behaviour for prevent-reissue features to have certificate default validity.
+
 # v0.11.0 (November 25, 2022)
 Added ability to store certificates by hash string
 
