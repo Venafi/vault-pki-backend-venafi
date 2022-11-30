@@ -348,9 +348,9 @@ possibly erroneous results.
 In order to prevent an issuance of a new certificate if current certificate exists in Vault's storage, we added a capability
 to return that certificate instead. To issue this feature you must set:
 
-- `min_cert_time_left`: Golang's duration format string (e.g. 24h, 23h5m20s, 10000s, etc.)
-- `store_by="serial"`
-- `store_pkey=true`
+- `min_cert_time_left` (_optional_): Golang's duration format string (e.g. 24h, 23h5m20s, 10000s, etc.). Default is 30 days.
+- `store_by="serial"` (_required_)
+- `store_pkey=true` (_required_)
 
 If certificate was successfully loaded from Vault storage, you will encounter `Loading certificate from storage` message
 in logs when `[DEBUG]` mode is set:
@@ -385,9 +385,9 @@ It's required to set any of (at least one): `Common Name` or `SAN DNS`.
 In order to prevent an issuance of a new certificate if current certificate exists in Vault's storage, we added a capability
 to return that certificate instead. To issue this feature you must set:
 
-- `min_cert_time_left`: Golang's duration format string (e.g. 24h, 23h5m20s, 10000s, etc.)
-- `store_by="hash"`
-- `store_pkey=true`
+- `min_cert_time_left` (_optional_): Golang's duration format string (e.g. 24h, 23h5m20s, 10000s, etc.). Default is 30 days.
+- `store_by="hash"` (_required_)
+- `store_pkey=true` (_required_)
 
 If certificate was successfully loaded from Vault storage, you will encounter `Loading certificate from storage` message
 in logs when `[DEBUG]` mode is set:
@@ -405,6 +405,12 @@ C1ZlbmFmaSBJbmMuMRQwEgYDVQQLEwtFbmdpbmVlcmluZzEbMBkGA1UECxMSUHJv
 ZHVjdCBNYW5hZ2VtZW50MRowGAYDVQQLExFRdWFsaXR5IEFzc3VyYW5jZTEkMCIG
 A1UEAxMbbm9wcml2YXRla2V5LnZlbmFmaS5leGFtcGxlMIIBIjANBgkqhkiG9w0B
 ```
+
+## Ignore Local Storage
+
+If certificates are stored locally in vault by `serial` or `hash`, normal behavior would be to always look into certificate locally before issuing a new certificate.
+If `ignore_local_storage` flag is set to `true`, it would bypass the logic to check certificate locally (to prevent re-issue) and always issue a new certificate.
+Default value is always `false`.
 
 ## License
 

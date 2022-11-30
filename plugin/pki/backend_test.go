@@ -182,7 +182,9 @@ func TestTPPpreventReissuance(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		data := testData{minCertTimeLeft: regDuration}
+		data := testData{
+			minCertTimeLeft: regDuration,
+		}
 		integrationTestEnv.PreventReissuance(t, data, venafiConfigToken)
 	})
 	// CASE: should be different - same CN but 1 additional SAN
@@ -191,7 +193,9 @@ func TestTPPpreventReissuance(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		data := testData{minCertTimeLeft: regDuration}
+		data := testData{
+			minCertTimeLeft: regDuration,
+		}
 		integrationTestEnv.PreventReissuanceCNwithExtraSANDNS(t, data, venafiConfigToken)
 	})
 	// CASE: should be different - same CN and missing 1 SAN of 3
@@ -200,7 +204,9 @@ func TestTPPpreventReissuance(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		data := testData{minCertTimeLeft: regDuration}
+		data := testData{
+			minCertTimeLeft: regDuration,
+		}
 		integrationTestEnv.PreventReissuanceCNandRemovingSANDNS(t, data, venafiConfigToken)
 	})
 	// CASE: should be the SAME - same CN and no SANs
@@ -209,7 +215,9 @@ func TestTPPpreventReissuance(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		data := testData{minCertTimeLeft: regDuration}
+		data := testData{
+			minCertTimeLeft: regDuration,
+		}
 		integrationTestEnv.PreventReissuanceCNnoSANSDNS(t, data, venafiConfigToken)
 	})
 	// CASE: should be different - same CN and SAN but just barely not sufficiently valid
@@ -244,7 +252,9 @@ func TestTPPpreventReissuance(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		data := testData{minCertTimeLeft: regDuration}
+		data := testData{
+			minCertTimeLeft: regDuration,
+		}
 		integrationTestEnv.PreventReissuanceCNwithThreeSANDNS(t, data, venafiConfigToken)
 	})
 	// CASE: should be different - different CN and same 3 SANs
@@ -253,7 +263,9 @@ func TestTPPpreventReissuance(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		data := testData{minCertTimeLeft: regDuration}
+		data := testData{
+			minCertTimeLeft: regDuration,
+		}
 		integrationTestEnv.PreventReissuanceCNwithDifferentCNandThreeSANDNS(t, data, venafiConfigToken)
 	})
 	// CASE: should be the SAME - no CN and same 3 SANs
@@ -262,7 +274,9 @@ func TestTPPpreventReissuance(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		data := testData{minCertTimeLeft: regDuration}
+		data := testData{
+			minCertTimeLeft: regDuration,
+		}
 		integrationTestEnv.PreventReissuanceCNwithNoCNandThreeSANDNS(t, data, venafiConfigToken)
 	})
 	// Service generated CSR
@@ -384,6 +398,33 @@ func TestTPPpreventReissuance(t *testing.T) {
 			}
 			integrationTestEnv.PreventReissuanceCNwithNoCNandThreeSANDNS(t, data, venafiConfigToken)
 		})
+
+	// CASE: should be the SAME - same CN and SAN
+	// no cert time left set in roll, role's cert minimum time left defaults to 30 days, should still be valid on next validation
+	t.Run("TPP Token enroll same certificate and prevent-reissue - no min time specified", func(t *testing.T) {
+		integrationTestEnv, err := newIntegrationTestEnv()
+		if err != nil {
+			t.Fatal(err)
+		}
+		data := testData{
+			ignoreLocalStorage: false,
+		}
+		integrationTestEnv.PreventReissuance(t, data, venafiConfigToken)
+	})
+
+	// CASE: should be the SAME - same CN and SAN
+	// turn off prevent-reissue, we specify certificate's minimum time left but still should not prevent reissue
+	t.Run("TPP Token enroll same certificate and should not prevent-reissue - cache turned off - min time specified", func(t *testing.T) {
+		integrationTestEnv, err := newIntegrationTestEnv()
+		if err != nil {
+			t.Fatal(err)
+		}
+		data := testData{
+			ignoreLocalStorage: true,
+			minCertTimeLeft:    regDuration,
+		}
+		integrationTestEnv.NotPreventReissuance(t, data, venafiConfigToken)
+	})
 }
 
 func TestVaasPreventReissuance(t *testing.T) {
@@ -395,7 +436,9 @@ func TestVaasPreventReissuance(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		data := testData{minCertTimeLeft: regDuration}
+		data := testData{
+			minCertTimeLeft: regDuration,
+		}
 		integrationTestEnv.PreventReissuance(t, data, venafiConfigCloud)
 	})
 	// CASE: should be different - same CN but 1 additional SAN
@@ -404,7 +447,9 @@ func TestVaasPreventReissuance(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		data := testData{minCertTimeLeft: regDuration}
+		data := testData{
+			minCertTimeLeft: regDuration,
+		}
 		integrationTestEnv.PreventReissuanceCNwithExtraSANDNS(t, data, venafiConfigCloud)
 	})
 	// CASE: should be different - same CN and missing 1 SAN of 3
@@ -413,7 +458,9 @@ func TestVaasPreventReissuance(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		data := testData{minCertTimeLeft: regDuration}
+		data := testData{
+			minCertTimeLeft: regDuration,
+		}
 		integrationTestEnv.PreventReissuanceCNandRemovingSANDNS(t, data, venafiConfigCloud)
 	})
 	// CASE: should be the SAME - same CN and no SANs
@@ -422,7 +469,9 @@ func TestVaasPreventReissuance(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		data := testData{minCertTimeLeft: regDuration}
+		data := testData{
+			minCertTimeLeft: regDuration,
+		}
 		integrationTestEnv.PreventReissuanceCNnoSANSDNS(t, data, venafiConfigCloud)
 	})
 	t.Run("VaaS second enroll same certificate with TTL that is not sufficient for set valid time and should not prevent-reissue",
@@ -443,7 +492,9 @@ func TestVaasPreventReissuance(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		data := testData{minCertTimeLeft: time.Duration(2159) * time.Hour}
+		data := testData{
+			minCertTimeLeft: time.Duration(2159) * time.Hour,
+		}
 		integrationTestEnv.PreventReissuanceTTLvalid(t, data, venafiConfigCloud)
 	})
 	// CASE: should be the SAME - same CN and same 3 SANs
@@ -452,7 +503,9 @@ func TestVaasPreventReissuance(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		data := testData{minCertTimeLeft: regDuration}
+		data := testData{
+			minCertTimeLeft: regDuration,
+		}
 		integrationTestEnv.PreventReissuanceCNwithThreeSANDNS(t, data, venafiConfigCloud)
 	})
 	// CASE: should be different - different CN and same 3 SANs
@@ -461,7 +514,9 @@ func TestVaasPreventReissuance(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		data := testData{minCertTimeLeft: regDuration}
+		data := testData{
+			minCertTimeLeft: regDuration,
+		}
 		integrationTestEnv.PreventReissuanceCNwithDifferentCNandThreeSANDNS(t, data, venafiConfigCloud)
 	})
 	// CASE: should be the SAME - no CN and same 3 SANs
@@ -470,7 +525,9 @@ func TestVaasPreventReissuance(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		data := testData{minCertTimeLeft: regDuration}
+		data := testData{
+			minCertTimeLeft: regDuration,
+		}
 		integrationTestEnv.PreventReissuanceCNwithNoCNandThreeSANDNS(t, data, venafiConfigCloud)
 	})
 	// Service generated CSR
@@ -602,7 +659,9 @@ func TestTPPpreventLocal(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		data := testData{minCertTimeLeft: regDuration}
+		data := testData{
+			minCertTimeLeft: regDuration,
+		}
 		integrationTestEnv.PreventReissuanceLocal(t, data, venafiConfigToken)
 	})
 	// CASE: should be different - same CN but 1 additional SAN
@@ -611,7 +670,9 @@ func TestTPPpreventLocal(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		data := testData{minCertTimeLeft: regDuration}
+		data := testData{
+			minCertTimeLeft: regDuration,
+		}
 		integrationTestEnv.PreventReissuanceLocalCNwithExtraSANDNS(t, data, venafiConfigToken)
 	})
 	// CASE: should be different - same CN and missing 1 SAN of 3
@@ -620,7 +681,9 @@ func TestTPPpreventLocal(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		data := testData{minCertTimeLeft: regDuration}
+		data := testData{
+			minCertTimeLeft: regDuration,
+		}
 		integrationTestEnv.PreventReissuanceLocalCNandRemovingSANDNS(t, data, venafiConfigToken)
 	})
 	// CASE: should be the SAME - same CN and no SANs
@@ -629,7 +692,9 @@ func TestTPPpreventLocal(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		data := testData{minCertTimeLeft: regDuration}
+		data := testData{
+			minCertTimeLeft: regDuration,
+		}
 		integrationTestEnv.PreventReissuanceLocalCNandNoSANSDNS(t, data, venafiConfigToken)
 	})
 	// CASE: should be different - same CN and SAN but just barely not sufficiently valid
@@ -664,7 +729,9 @@ func TestTPPpreventLocal(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		data := testData{minCertTimeLeft: regDuration}
+		data := testData{
+			minCertTimeLeft: regDuration,
+		}
 		integrationTestEnv.PreventReissuanceLocalCNwithThreeSANDNS(t, data, venafiConfigToken)
 	})
 	// CASE: should be different - different CN and same 3 SANs
@@ -673,7 +740,9 @@ func TestTPPpreventLocal(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		data := testData{minCertTimeLeft: regDuration}
+		data := testData{
+			minCertTimeLeft: regDuration,
+		}
 		integrationTestEnv.PreventReissuanceLocalCNwithDifferentCNandThreeSANDNS(t, data, venafiConfigToken)
 	})
 	// CASE: should be the SAME - no CN and same 3 SANs
@@ -682,7 +751,9 @@ func TestTPPpreventLocal(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		data := testData{minCertTimeLeft: regDuration}
+		data := testData{
+			minCertTimeLeft: regDuration,
+		}
 		integrationTestEnv.PreventReissuanceLocalCNwithNoCNandThreeSANDNS(t, data, venafiConfigToken)
 	})
 	// Service generated CSR
@@ -1011,6 +1082,33 @@ func TestVaasPreventLocalReissuance(t *testing.T) {
 			}
 			integrationTestEnv.PreventReissuanceLocalCNwithNoCNandThreeSANDNS(t, data, venafiConfigCloud)
 		})
+
+	// CASE: should be the SAME - same CN and SAN
+	// no cert time left set in roll, role's cert minimum time left defaults to 30 days, should still be valid on next validation
+	t.Run("TPP Token enroll same certificate and prevent-reissue locally - no min time specified", func(t *testing.T) {
+		integrationTestEnv, err := newIntegrationTestEnv()
+		if err != nil {
+			t.Fatal(err)
+		}
+		data := testData{
+			ignoreLocalStorage: false,
+		}
+		integrationTestEnv.PreventReissuanceLocal(t, data, venafiConfigToken)
+	})
+
+	// CASE: should be the SAME - same CN and SAN
+	// turn off prevent-reissue-local, we specify certificate's minimum time left but still should not prevent reissue
+	t.Run("TPP Token enroll same certificate and should not prevent-reissue locally - cache turned off - min time specified", func(t *testing.T) {
+		integrationTestEnv, err := newIntegrationTestEnv()
+		if err != nil {
+			t.Fatal(err)
+		}
+		data := testData{
+			ignoreLocalStorage: true,
+			minCertTimeLeft:    regDuration,
+		}
+		integrationTestEnv.NotPreventReissuanceLocal(t, data, venafiConfigToken)
+	})
 }
 
 func TestZoneOverride(t *testing.T) {

@@ -57,6 +57,7 @@ type testData struct {
 	serviceGeneratedCert bool
 	privateKeyFormat     string
 	minCertTimeLeft      time.Duration
+	ignoreLocalStorage   bool
 }
 
 const (
@@ -158,42 +159,49 @@ var venafiTestTokenConfigRestricted = map[string]interface{}{
 }
 
 var venafiTestFakeConfigDeprecatedStoreByCN = map[string]interface{}{
-	"generate_lease": true,
-	"store_by_cn":    true,
-	"store_pkey":     true,
+	"generate_lease":       true,
+	"store_by_cn":          true,
+	"store_pkey":           true,
+	"ignore_local_storage": true,
 }
 
 var venafiTestFakeConfigDeprecatedStoreBySerial = map[string]interface{}{
-	"generate_lease":  true,
-	"store_by_serial": true,
-	"store_pkey":      true,
+	"generate_lease":       true,
+	"store_by_serial":      true,
+	"store_pkey":           true,
+	"ignore_local_storage": true,
 }
 
 var venafiTestFakeConfigStoreByCN = map[string]interface{}{
-	"generate_lease": true,
-	"store_by":       "cn",
-	"store_pkey":     true,
+	"generate_lease":       true,
+	"store_by":             "cn",
+	"store_pkey":           true,
+	"ignore_local_storage": true,
 }
 
 var venafiTestFakeConfigStoreBySerial = map[string]interface{}{
-	"generate_lease": true,
-	"store_by":       "serial",
-	"store_pkey":     true,
+	"generate_lease":       true,
+	"store_by":             "serial",
+	"store_pkey":           true,
+	"ignore_local_storage": true,
 }
 
 var venafiTestFakeConfig = map[string]interface{}{
-	"generate_lease": true,
-	"store_pkey":     true,
+	"generate_lease":       true,
+	"store_pkey":           true,
+	"ignore_local_storage": true,
 }
 
 var venafiTestFakeConfigNoStore = map[string]interface{}{
-	"generate_lease": true,
-	"no_store":       true,
+	"generate_lease":       true,
+	"no_store":             true,
+	"ignore_local_storage": true,
 }
 
 var venafiTestFakeConfigNoStorePKey = map[string]interface{}{
-	"generate_lease": true,
-	"store_pkey":     false,
+	"generate_lease":       true,
+	"store_pkey":           false,
+	"ignore_local_storage": true,
 }
 
 var venafiTestMixedTppAndCloudConfig = map[string]interface{}{
@@ -274,6 +282,13 @@ func (e *testEnv) writeRoleToBackendWithData(t *testing.T, configString venafiCo
 	roleData["issuer_hint"] = util.IssuerHintMicrosoft
 	if data.storeBy != "" {
 		roleData["store_by"] = data.storeBy
+	}
+
+	if &data.ignoreLocalStorage != nil {
+		roleData["ignore_local_storage"] = data.ignoreLocalStorage
+	} else {
+		// Default's
+		roleData["ignore_local_storage"] = false
 	}
 
 	if data.minCertTimeLeft > 0 {
@@ -1888,6 +1903,26 @@ func (e *testEnv) PreventReissuance(t *testing.T, data testData, config venafiCo
 	}
 }
 
+func (e *testEnv) NotPreventReissuance(t *testing.T, data testData, config venafiConfigString) {
+
+	randString := e.TestRandString
+	domain := "vfidev.com"
+	data.cn = randString + "." + domain
+	data.dnsNS = "alt-" + data.cn
+	data.storeBy = "serial"
+	data.storePkey = true
+
+	e.writeVenafiToBackend(t, config)
+	e.writeRoleToBackendWithData(t, config, data)
+	e.IssueCertificateAndSaveSerial(t, data, config)
+	currentCertificateSerial := e.CertificateSerial
+	e.IssueCertificateAndSaveSerial(t, data, config)
+	nextCertificateSerial := e.CertificateSerial
+	if currentCertificateSerial == nextCertificateSerial {
+		t.Fatal("The serials are equal")
+	}
+}
+
 func (e *testEnv) PreventReissuanceCNwithExtraSANDNS(t *testing.T, data testData, config venafiConfigString) {
 
 	randString := e.TestRandString
@@ -2156,6 +2191,27 @@ func (e *testEnv) PreventReissuanceLocal(t *testing.T, data testData, config ven
 		// means that we went to issue another certificate which shouldn't have happened
 		// as we intend to present the one in storage
 		t.Fatal("The serials are different")
+	}
+}
+
+func (e *testEnv) NotPreventReissuanceLocal(t *testing.T, data testData, config venafiConfigString) {
+
+	randString := e.TestRandString
+	domain := "vfidev.com"
+	data.cn = randString + "." + domain
+	commonName := data.cn
+	data.dnsNS = "maria-" + commonName + "," + "rose-" + commonName + "," + "bob-" + commonName + "," + "bob-" + commonName + "," + "shina-" + commonName
+	data.storeBy = "hash"
+	data.storePkey = true
+
+	e.writeVenafiToBackend(t, config)
+	e.writeRoleToBackendWithData(t, config, data)
+	e.IssueCertificateAndSaveSerial(t, data, config)
+	currentCertificateSerial := e.CertificateSerial
+	e.IssueCertificateAndSaveSerial(t, data, config)
+	nextCertificateSerial := e.CertificateSerial
+	if currentCertificateSerial == nextCertificateSerial {
+		t.Fatal("The serials are equal")
 	}
 }
 
