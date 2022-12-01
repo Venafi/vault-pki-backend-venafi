@@ -7,23 +7,22 @@ import (
 	"github.com/Venafi/vcert/v4/pkg/endpoint"
 	"github.com/hashicorp/vault/sdk/logical"
 	"io/ioutil"
-	"time"
 )
 
 func (b *backend) ClientVenafi(ctx context.Context, req *logical.Request, role *roleEntry) (
-	endpoint.Connector, *vcert.Config, time.Duration, error) {
+	endpoint.Connector, *vcert.Config, error) {
 
 	cfg, err := b.getConfig(ctx, req, role, false)
 	if err != nil {
-		return nil, nil, 0, err
+		return nil, nil, err
 	}
 
 	client, err := vcert.NewClient(cfg)
 	if err != nil {
-		return nil, nil, 0, fmt.Errorf("failed to get Venafi issuer client: %s", err)
+		return nil, nil, fmt.Errorf("failed to get Venafi issuer client: %s", err)
 	}
 
-	return client, cfg, role.ServerTimeout, nil
+	return client, cfg, nil
 
 }
 

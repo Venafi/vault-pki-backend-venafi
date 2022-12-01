@@ -128,14 +128,18 @@ func (b *backend) pathVenafiIssue(ctx context.Context, req *logical.Request, dat
 		return nil, err
 	}
 	if role == nil {
-		return logical.ErrorResponse(fmt.Sprintf("unknown role: %s", roleName)), nil
+		return nil, fmt.Errorf("unknown role: %s", roleName)
 	}
 
 	if role.KeyType == "any" {
-		return logical.ErrorResponse("role key type \"any\" not allowed for issuing certificates, only signing"), nil
+		return nil, fmt.Errorf("role key type \"any\" not allowed for issuing certificates, only signing")
 	}
 
-	return b.pathVenafiCertObtain(ctx, req, data, role, false)
+	logicResp, err := b.pathVenafiCertObtain(ctx, req, data, role, false)
+	if err != nil {
+		return nil, err
+	}
+	return logicResp, nil
 }
 
 // pathSign issues a certificate from a submitted CSR, subject to role
@@ -157,27 +161,10 @@ func (b *backend) pathVenafiSign(ctx context.Context, req *logical.Request, data
 	return b.pathVenafiCertObtain(ctx, req, data, role, true)
 }
 
-func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request, data *framework.FieldData, role *roleEntry, signCSR bool) (
-	*logical.Response, error) {
-	// When utilizing performance standbys in Vault Enterprise, this forces the call to be redirected to the primary since
-	// a storage call is made after the API calls to issue the certificate.  This prevents the certificate from being
-	// issued twice in this scenario.
-	if !role.NoStore && b.System().ReplicationState().
-		HasState(consts.ReplicationPerformanceStandby|consts.ReplicationPerformanceSecondary) {
-		return nil, logical.ErrReadOnly
-	}
-
-	b.Logger().Debug("Creating Venafi client:")
-	cl, cfg, timeout, err := b.ClientVenafi(ctx, req, role)
-	if err != nil {
-		return logical.ErrorResponse(err.Error()), nil
-	}
-
-	var certReq *certificate.Request
-	var reqData requestData
-
+func populateReqData(data *framework.FieldData, role *roleEntry) (*requestData, error) {
+	var reqData *requestData
 	if data == nil {
-		return logical.ErrorResponse("data can't be nil"), nil
+		return nil, fmt.Errorf("data can't be nil")
 	}
 
 	commonNameRaw, ok := data.GetOk("common_name")
@@ -212,8 +199,8 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 
 	if ttl, ok := data.GetOk("ttl"); ok {
 		currentTTL := time.Duration(ttl.(int)) * time.Second
-		//if specified role is greater than role's max ttl, then
-		//role's max ttl will be used.
+		// if specified role is greater than role's max ttl, then
+		// role's max ttl will be used.
 		if role.MaxTTL > 0 && currentTTL > role.MaxTTL {
 
 			currentTTL = role.MaxTTL
@@ -221,76 +208,61 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 		}
 		reqData.ttl = currentTTL
 	}
+	return reqData, nil
+}
 
-	var certId string
-	if !role.NoStore && role.StoreBy == storeByHASHstring {
-		certId = getCertIdHash(reqData, cfg.Zone, b.Logger())
-	}
-
-	if !role.IgnoreLocalStorage && role.StorePrivateKey == true && (role.StoreBy == storeBySerialString || role.StoreBySerial == true) {
-		// if we don't receive a logic response, whenever is an error or the actual certificate found in storage
-		// means we need to issue a new one
-		logicalResp := preventReissue(b, ctx, req, &reqData, &cl, role, cfg.Zone)
-		if logicalResp != nil {
-			return logicalResp, nil
-		}
-	} else if !role.IgnoreLocalStorage && role.StorePrivateKey == true && role.StoreBy == storeByHASHstring {
-		logicalResp := preventReissueLocal(b, ctx, req, &reqData, role, certId)
-		if logicalResp != nil {
-			return logicalResp, nil
-		}
-	}
-
-	certReq, err = formRequest(reqData, role, &cl, signCSR, b.Logger())
-	if err != nil {
-		return logical.ErrorResponse(err.Error()), nil
-	}
-
+func createCertificateRequest(b *backend, connector *endpoint.Connector, ctx context.Context, logicRequest *logical.Request, role *roleEntry, certReq *certificate.Request) error {
 	b.Logger().Debug("Making certificate request")
-	err = cl.GenerateRequest(nil, certReq)
-	if (err != nil) && (cl.GetType() == endpoint.ConnectorTypeTPP) {
+
+	err := (*connector).GenerateRequest(nil, certReq)
+	if (err != nil) && ((*connector).GetType() == endpoint.ConnectorTypeTPP) {
 		msg := err.Error()
 
-		//catch the scenario when token is expired and deleted.
+		// catch the scenario when token is expired and deleted.
 		var regex = regexp.MustCompile("(expired|invalid)_token")
 
-		//validate if the error is related to a expired access token, at this moment the only way can validate this is using the error message
-		//and verify if that message describes errors related to expired access token.
+		// validate if the error is related to a expired access token, at this moment the only way can validate this is using the error message
+		// and verify if that message describes errors related to expired access token.
 		code := getStatusCode(msg)
 		if code == HTTP_UNAUTHORIZED && regex.MatchString(msg) {
-			cfg, err := b.getConfig(ctx, req, role, true)
+			cfg, err := b.getConfig(ctx, logicRequest, role, true)
 
 			if err != nil {
-				return logical.ErrorResponse(err.Error()), nil
+				return err
 			}
 
 			if cfg.Credentials.RefreshToken != "" {
-				err = updateAccessToken(cfg, b, ctx, req, role.Name)
+				err = updateAccessToken(cfg, b, ctx, logicRequest, role.Name)
 
 				if err != nil {
-					return logical.ErrorResponse(err.Error()), nil
+					return err
 				}
 
-				//everything went fine so get the new client with the new refreshed access token
-				cl, _, timeout, err = b.ClientVenafi(ctx, req, role)
+				// everything went fine so get the new client with the new refreshed access token
+				var newConnector endpoint.Connector
+				newConnector, _, err = b.ClientVenafi(ctx, logicRequest, role)
 				if err != nil {
-					return logical.ErrorResponse(err.Error()), nil
+					return err
 				}
+				connector = &newConnector
 
 				b.Logger().Debug("Making certificate request again")
 
-				err = cl.GenerateRequest(nil, certReq)
+				err = (*connector).GenerateRequest(nil, certReq)
 				if err != nil {
-					return logical.ErrorResponse(err.Error()), nil
+					return err
 				}
 			} else {
-				return logical.ErrorResponse("Tried to get new access token, but refresh token is empty"), nil
+				return fmt.Errorf("access token is expired. Tried to get new access token, but refresh token is empty")
 			}
 		} else {
-			return logical.ErrorResponse(err.Error()), nil
+			return err
 		}
 	}
+	return nil
+}
 
+func runningEnrollRequest(b *backend, data *framework.FieldData) (*certificate.PEMCollection, error) {
 	b.Logger().Debug("Running enroll request")
 	format := ""
 	privateKeyFormat, ok := data.GetOk("private_key_format")
@@ -303,18 +275,72 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 	keyPass := fmt.Sprintf("t%d-%s.tem.pwd", time.Now().Unix(), randRunes(4))
 	retry, ok := data.GetOk("retry")
 
-	var pcc *certificate.PEMCollection
-	pcc, err = issueCertificate(certReq, keyPass, cl, timeout, role, format, privateKeyFormat, signCSR)
+	pcc, err := issueCertificate(certReq, keyPass, connector, role, format, privateKeyFormat, signCSR)
 	if err != nil {
 		if retry == true {
-			pcc, err = issueCertificate(certReq, keyPass, cl, timeout, role, format, privateKeyFormat, signCSR)
+			pcc, err = issueCertificate(certReq, keyPass, connector, role, format, privateKeyFormat, signCSR)
 			if err != nil {
-				return logical.ErrorResponse(err.Error()), nil
+				return nil, err
 			}
 		}
+		return nil, err
+	}
+}
+
+func (b *backend) pathVenafiCertObtain(ctx context.Context, logicalRequest *logical.Request, data *framework.FieldData, role *roleEntry, signCSR bool) (
+	*logical.Response, error) {
+	// When utilizing performance standbys in Vault Enterprise, this forces the call to be redirected to the primary since
+	// a storage call is made after the API calls to issue the certificate.  This prevents the certificate from being
+	// issued twice in this scenario.
+	if !role.NoStore && b.System().ReplicationState().
+		HasState(consts.ReplicationPerformanceStandby|consts.ReplicationPerformanceSecondary) {
+		return nil, logical.ErrReadOnly
+	}
+
+	b.Logger().Debug("Creating Venafi client:")
+	connector, cfg, err := b.ClientVenafi(ctx, logicalRequest, role)
+	if err != nil {
+		return nil, err
+	}
+
+	reqDataPointer, err := populateReqData(data, role)
+	if err != nil {
+		return nil, err
+	}
+	reqData := *reqDataPointer
+
+	var certId string
+	if !role.NoStore && role.StoreBy == storeByHASHstring {
+		certId = getCertIdHash(reqData, cfg.Zone, b.Logger())
+	}
+
+	if !role.IgnoreLocalStorage && role.StorePrivateKey == true && (role.StoreBy == storeBySerialString || role.StoreBySerial == true) {
+		// if we don't receive a logic response, whenever is an error or the actual certificate found in storage
+		// means we need to issue a new one
+		logicalResp := preventReissue(b, ctx, logicalRequest, &reqData, &connector, role, cfg.Zone)
+		if logicalResp != nil {
+			return logicalResp, nil
+		}
+	} else if !role.IgnoreLocalStorage && role.StorePrivateKey == true && role.StoreBy == storeByHASHstring {
+		logicalResp := preventReissueLocal(b, ctx, logicalRequest, &reqData, role, certId)
+		if logicalResp != nil {
+			return logicalResp, nil
+		}
+	}
+
+	var certReq *certificate.Request
+	certReq, err = formRequest(reqData, role, &connector, signCSR, b.Logger())
+	if err != nil {
 		return logical.ErrorResponse(err.Error()), nil
 	}
 
+	createCertificateRequest(b, &connector, ctx, logicalRequest, role, certReq)
+
+	var pcc *certificate.PEMCollection
+	pcc, err = runningEnrollRequest(b, data)
+	if err != nil {
+		return nil, err
+	}
 	pemBlock, _ := pem.Decode([]byte(pcc.Certificate))
 	parsedCertificate, err := x509.ParseCertificate(pemBlock.Bytes)
 	if err != nil {
@@ -359,7 +385,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 		}
 		b.Logger().Debug("Writing certificate to the certs/" + certId)
 		entry.Key = "certs/" + certId
-		if err := req.Storage.Put(ctx, entry); err != nil {
+		if err := logicalRequest.Storage.Put(ctx, entry); err != nil {
 			b.Logger().Error("Error putting entry to storage: " + err.Error())
 			return nil, err
 		}
@@ -436,7 +462,7 @@ type requestData struct {
 	ttl          time.Duration
 }
 
-func issueCertificate(certReq *certificate.Request, keyPass string, cl endpoint.Connector, timeout time.Duration, role *roleEntry, format string, privateKeyFormat interface{}, signCSR bool) (pcc *certificate.PEMCollection, err error) {
+func issueCertificate(certReq *certificate.Request, keyPass string, cl endpoint.Connector, role *roleEntry, format string, privateKeyFormat interface{}, signCSR bool) (pcc *certificate.PEMCollection, err error) {
 	requestID, err := cl.RequestCertificate(certReq)
 	if err != nil {
 		return nil, err
@@ -444,7 +470,7 @@ func issueCertificate(certReq *certificate.Request, keyPass string, cl endpoint.
 
 	pickupReq := &certificate.Request{
 		PickupID: requestID,
-		Timeout:  timeout,
+		Timeout:  role.ServerTimeout,
 	}
 
 	if role.ServiceGenerated {
@@ -474,7 +500,9 @@ func issueCertificate(certReq *certificate.Request, keyPass string, cl endpoint.
 		}
 		block, _ := pem.Decode([]byte(privateKey))
 		if privateKeyFormat == LEGACY_PEM {
-			encrypted, err := util.X509EncryptPEMBlock(rand.Reader, "RSA PRIVATE KEY", block.Bytes, []byte(keyPass), util.PEMCipherAES256)
+			encrypted, err := util.X509EncryptPEMBlock(
+				rand.Reader, "RSA PRIVATE KEY", block.Bytes, []byte(keyPass), util.PEMCipherAES256,
+			)
 			if err != nil {
 				return nil, err
 			}
