@@ -19,12 +19,20 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Venafi/vcert/v4/pkg/certificate"
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
 )
+
+type Response struct {
+	logResponse logical.Response
+	condition   sync.Cond
+}
+
+var cacheCerts = make(map[string]Response)
 
 func pathVenafiCertEnroll(b *backend) *framework.Path {
 	return &framework.Path{
@@ -159,14 +167,6 @@ func (b *backend) pathVenafiSign(ctx context.Context, req *logical.Request, data
 
 func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request, data *framework.FieldData, role *roleEntry, signCSR bool) (
 	*logical.Response, error) {
-	// When utilizing performance standbys in Vault Enterprise, this forces the call to be redirected to the primary since
-	// a storage call is made after the API calls to issue the certificate.  This prevents the certificate from being
-	// issued twice in this scenario.
-	if !role.NoStore && b.System().ReplicationState().
-		HasState(consts.ReplicationPerformanceStandby|consts.ReplicationPerformanceSecondary) {
-		return nil, logical.ErrReadOnly
-	}
-
 	b.Logger().Debug("Creating Venafi client:")
 	cl, cfg, timeout, err := b.ClientVenafi(ctx, req, role)
 	if err != nil {
@@ -240,6 +240,50 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 			return logicalResp, nil
 		}
 	}
+	// When utilizing performance standbys in Vault Enterprise, this forces the call to be redirected to the primary since
+	// a storage call is made after the API calls to issue the certificate.  This prevents the certificate from being
+	// issued twice in this scenario.
+	if !role.NoStore && b.System().ReplicationState().
+		HasState(consts.ReplicationPerformanceStandby|consts.ReplicationPerformanceSecondary) {
+		return nil, logical.ErrReadOnly
+	}
+
+	b.mux.Lock()
+	b.Logger().Debug("locking - checking is cert is already in hash map")
+	cacheCert, found := cacheCerts[certId]
+	b.Logger().Debug(fmt.Sprintf("certId: %s", certId))
+	b.mux.Unlock()
+	b.Logger().Debug("unlocking - checking is cert is already in hash map")
+	if found {
+		b.Logger().Debug("thread entered in waiting")
+		cacheCert.condition.Wait()
+	}
+
+	venafiCert, err := loadCertificateFromStorage(b, ctx, req, certId, reqData.keyPassword)
+	// We want to ignore error from plugin that is related to the certificate not being in storage. If it is
+	// we would like to issue a new one instead
+	if err != nil && !(errors.As(err, &vpkierror.CertEntryNotFound{})) {
+		return logical.ErrorResponse(err.Error()), nil
+	}
+	if venafiCert != nil {
+		// means we have this certificate in storage
+		logicalResp := preventReissueLocal(b, ctx, req, &reqData, role, certId)
+		if logicalResp != nil {
+			return logicalResp, nil
+		}
+	}
+	newCond := sync.NewCond(&b.mux)
+	cacheCert = Response{
+		logResponse: logical.Response{},
+		condition:   *newCond,
+	}
+
+	b.Logger().Debug("adding cacheCert to hash map")
+	b.mux.Lock()
+	b.Logger().Debug("locking - to add cacheCert")
+	cacheCerts[certId] = cacheCert
+	b.mux.Unlock()
+	b.Logger().Debug("unlocking - to add cacheCert")
 
 	certReq, err = formRequest(reqData, role, &cl, signCSR, b.Logger())
 	if err != nil {
@@ -314,6 +358,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 		}
 		return logical.ErrorResponse(err.Error()), nil
 	}
+	cacheCert.condition.Wait()
 
 	pemBlock, _ := pem.Decode([]byte(pcc.Certificate))
 	parsedCertificate, err := x509.ParseCertificate(pemBlock.Bytes)
@@ -325,6 +370,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 		return nil, err
 	}
 
+	// begins -- Storing certificate in storage
 	var entry *logical.StorageEntry
 	chain := strings.Join(append([]string{pcc.Certificate}, pcc.Chain...), "\n")
 	b.Logger().Debug("cert Chain: " + strings.Join(pcc.Chain, ", "))
@@ -364,6 +410,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 			return nil, err
 		}
 	}
+	// ends --- Storing certificate in storage
 
 	issuingCA := ""
 	if len(pcc.Chain) > 0 {
@@ -423,6 +470,15 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 	if !signCSR {
 		logResp.AddWarning("Read access to this endpoint should be controlled via ACLs as it will return the connection private key as it is.")
 	}
+
+	b.Logger().Debug("Launching broadcast")
+	cacheCert.condition.Broadcast()
+	b.mux.Lock()
+	b.Logger().Debug("Locking - Removing cert from hash map")
+	delete(cacheCerts, certId)
+	b.mux.Unlock()
+	b.Logger().Debug("Unlocking - Removing mutex lock after popping out cert hash from map")
+
 	return logResp, nil
 }
 
