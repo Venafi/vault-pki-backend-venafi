@@ -28,8 +28,8 @@ import (
 )
 
 type Response struct {
-	logResponse logical.Response
-	condition   sync.Cond
+	logResponse *logical.Response
+	condition   *sync.Cond
 }
 
 var cacheCerts = map[string]*Response{}
@@ -255,17 +255,19 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 	b.Logger().Debug(fmt.Sprintf("certId: %s", certId))
 	b.Logger().Debug(fmt.Sprintf("found: %v", found))
 	if found {
-		b.Logger().Debug("thread entered in waiting")
+		b.Logger().Debug(fmt.Sprintf("thread entered in waiting. Cond memory: %p", cacheCert.condition))
 		cacheCert.condition.Wait()
+		b.mux.Unlock()
 		b.Logger().Debug("thread came out of wait")
-		return &cacheCert.logResponse, nil
+		return cacheCert.logResponse, nil
 	}
 	newCond := sync.NewCond(&b.mux)
 	cacheCert = &Response{
-		logResponse: logical.Response{},
-		condition:   *newCond,
+		logResponse: nil,
+		condition:   newCond,
 	}
 	b.Logger().Debug("unlocking - checking is cert is already in hash map")
+	b.Logger().Debug(fmt.Sprintf("current Cond memory: %p", cacheCert.condition))
 	cacheCerts[certId] = cacheCert
 	b.mux.Unlock()
 
@@ -356,7 +358,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 	// begins -- Storing certificate in storage
 	var entry *logical.StorageEntry
 	chain := strings.Join(append([]string{pcc.Certificate}, pcc.Chain...), "\n")
-	b.Logger().Debug("cert Chain: " + strings.Join(pcc.Chain, ", "))
+	// b.Logger().Debug("cert Chain: " + strings.Join(pcc.Chain, ", "))
 
 	if role.StorePrivateKey && !signCSR {
 		entry, err = logical.StorageEntryJSON("", VenafiCert{
@@ -454,9 +456,10 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 		logResp.AddWarning("Read access to this endpoint should be controlled via ACLs as it will return the connection private key as it is.")
 	}
 
-	b.Logger().Debug("Launching broadcast")
-	cacheCert.logResponse = *logResp
 	b.mux.Lock()
+	b.Logger().Debug("Launching broadcast")
+	b.Logger().Debug(fmt.Sprintf("thread ewho broadcasted. Cond memory: %p", cacheCert.condition))
+	cacheCert.logResponse = logResp
 	cacheCert.condition.Broadcast()
 	b.Logger().Debug("Locking - Removing cert from hash map")
 	delete(cacheCerts, certId)
