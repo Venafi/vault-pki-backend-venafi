@@ -32,7 +32,7 @@ type Response struct {
 	condition   sync.Cond
 }
 
-var cacheCerts = make(map[string]Response)
+var cacheCerts = map[string]*Response{}
 
 func pathVenafiCertEnroll(b *backend) *framework.Path {
 	return &framework.Path{
@@ -247,43 +247,27 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 		HasState(consts.ReplicationPerformanceStandby|consts.ReplicationPerformanceSecondary) {
 		return nil, logical.ErrReadOnly
 	}
-
+	found := false
+	b.Logger().Debug(fmt.Sprintf("cacheCertMemory: %p", &cacheCerts))
 	b.mux.Lock()
 	b.Logger().Debug("locking - checking is cert is already in hash map")
 	cacheCert, found := cacheCerts[certId]
 	b.Logger().Debug(fmt.Sprintf("certId: %s", certId))
-	b.mux.Unlock()
-	b.Logger().Debug("unlocking - checking is cert is already in hash map")
+	b.Logger().Debug(fmt.Sprintf("found: %v", found))
 	if found {
 		b.Logger().Debug("thread entered in waiting")
 		cacheCert.condition.Wait()
-	}
-
-	venafiCert, err := loadCertificateFromStorage(b, ctx, req, certId, reqData.keyPassword)
-	// We want to ignore error from plugin that is related to the certificate not being in storage. If it is
-	// we would like to issue a new one instead
-	if err != nil && !(errors.As(err, &vpkierror.CertEntryNotFound{})) {
-		return logical.ErrorResponse(err.Error()), nil
-	}
-	if venafiCert != nil {
-		// means we have this certificate in storage
-		logicalResp := preventReissueLocal(b, ctx, req, &reqData, role, certId)
-		if logicalResp != nil {
-			return logicalResp, nil
-		}
+		b.Logger().Debug("thread came out of wait")
+		return &cacheCert.logResponse, nil
 	}
 	newCond := sync.NewCond(&b.mux)
-	cacheCert = Response{
+	cacheCert = &Response{
 		logResponse: logical.Response{},
 		condition:   *newCond,
 	}
-
-	b.Logger().Debug("adding cacheCert to hash map")
-	b.mux.Lock()
-	b.Logger().Debug("locking - to add cacheCert")
+	b.Logger().Debug("unlocking - checking is cert is already in hash map")
 	cacheCerts[certId] = cacheCert
 	b.mux.Unlock()
-	b.Logger().Debug("unlocking - to add cacheCert")
 
 	certReq, err = formRequest(reqData, role, &cl, signCSR, b.Logger())
 	if err != nil {
@@ -358,7 +342,6 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 		}
 		return logical.ErrorResponse(err.Error()), nil
 	}
-	cacheCert.condition.Wait()
 
 	pemBlock, _ := pem.Decode([]byte(pcc.Certificate))
 	parsedCertificate, err := x509.ParseCertificate(pemBlock.Bytes)
@@ -472,8 +455,9 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 	}
 
 	b.Logger().Debug("Launching broadcast")
-	cacheCert.condition.Broadcast()
+	cacheCert.logResponse = *logResp
 	b.mux.Lock()
+	cacheCert.condition.Broadcast()
 	b.Logger().Debug("Locking - Removing cert from hash map")
 	delete(cacheCerts, certId)
 	b.mux.Unlock()
