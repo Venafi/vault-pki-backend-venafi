@@ -132,7 +132,7 @@ func (b *backend) pathVenafiIssue(ctx context.Context, req *logical.Request, dat
 	}
 
 	if role.KeyType == "any" {
-		return nil, fmt.Errorf("role key type \"any\" not allowed for issuing certificates, only signing")
+		return nil, fmt.Errorf(`role key type "any" not allowed for issuing certificates, only signing`)
 	}
 
 	logicResp, err := b.pathVenafiCertObtain(ctx, req, data, role, false)
