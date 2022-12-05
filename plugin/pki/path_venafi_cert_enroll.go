@@ -208,8 +208,10 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, logicalRequest *logi
 		return logical.ErrorResponse(err.Error()), nil
 	}
 
-	createCertificateRequest(b, &connector, ctx, logicalRequest, role, certReq)
-
+	err = createCertificateRequest(b, &connector, ctx, logicalRequest, role, certReq)
+	if err != nil {
+		return nil, err
+	}
 	var pcc *certificate.PEMCollection
 	pcc, err = runningEnrollRequest(b, data, certReq, connector, role, signCSR)
 	if err != nil {
