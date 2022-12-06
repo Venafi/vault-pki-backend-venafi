@@ -19,12 +19,20 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Venafi/vcert/v4/pkg/certificate"
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
 )
+
+type SyncedResponse struct {
+	logResponse *logical.Response
+	condition   *sync.Cond
+}
+
+var cache = map[string]*SyncedResponse{}
 
 func pathVenafiCertEnroll(b *backend) *framework.Path {
 	return &framework.Path{
@@ -202,6 +210,37 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, logicalRequest *logi
 		}
 	}
 
+	// if user is using store by hash
+	var cert *SyncedResponse
+	found := false
+	b.Logger().Debug("locking process to update cache")
+	b.mux.Lock()
+	if role.StoreBy == storeByHASHstring {
+		// by this point of the code, we have a certId and should the calculated hash
+		cert, found = cache[certId]
+	} else {
+		// otherwise, we will use the commonName (which we use to create the certificate object at TPP a.k.a. the nickname
+		cert, found = cache[reqData.commonName]
+	}
+	if found {
+		b.Logger().Debug(fmt.Sprintf("thread entered in waiting state"))
+		cert.condition.Wait()
+		b.mux.Unlock()
+		b.Logger().Debug("thread came out of wait")
+		return cert.logResponse, nil
+	}
+	newCond := sync.NewCond(&b.mux)
+	cert = &SyncedResponse{
+		logResponse: nil,
+		condition:   newCond,
+	}
+	if role.StoreBy == storeByHASHstring {
+		cache[certId] = cert
+	} else {
+		cache[reqData.commonName] = cert
+	}
+	b.mux.Unlock()
+
 	var certReq *certificate.Request
 	certReq, err = formRequest(*reqData, role, &connector, signCSR, b.Logger())
 	if err != nil {
@@ -224,6 +263,19 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, logicalRequest *logi
 	if !signCSR {
 		logResp.AddWarning("Read access to this endpoint should be controlled via ACLs as it will return the connection private key as it is.")
 	}
+
+	b.mux.Lock()
+	b.Logger().Debug("Launching broadcast")
+	cert.logResponse = logResp
+	cert.condition.Broadcast()
+	b.Logger().Debug("Removing cert from hash map")
+	if role.StoreBy == storeByHASHstring {
+		delete(cache, certId)
+	} else {
+		delete(cache, reqData.commonName)
+	}
+	b.mux.Unlock()
+
 	return logResp, nil
 }
 
