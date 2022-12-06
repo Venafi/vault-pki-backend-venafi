@@ -69,7 +69,7 @@ func (b *backend) venafiCertRevoke(ctx context.Context, req *logical.Request, d 
 	}
 
 	b.Logger().Debug("Creating Venafi client:")
-	cl, cfg, _, err := b.ClientVenafi(ctx, req, role)
+	cl, cfg, err := b.ClientVenafi(ctx, req, role)
 
 	if err != nil {
 		return logical.ErrorResponse(err.Error()), nil

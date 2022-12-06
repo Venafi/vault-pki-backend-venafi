@@ -128,14 +128,18 @@ func (b *backend) pathVenafiIssue(ctx context.Context, req *logical.Request, dat
 		return nil, err
 	}
 	if role == nil {
-		return logical.ErrorResponse(fmt.Sprintf("unknown role: %s", roleName)), nil
+		return nil, fmt.Errorf("unknown role: %s", roleName)
 	}
 
 	if role.KeyType == "any" {
-		return logical.ErrorResponse("role key type \"any\" not allowed for issuing certificates, only signing"), nil
+		return nil, fmt.Errorf(`role key type "any" not allowed for issuing certificates, only signing`)
 	}
 
-	return b.pathVenafiCertObtain(ctx, req, data, role, false)
+	logicResp, err := b.pathVenafiCertObtain(ctx, req, data, role, false)
+	if err != nil {
+		return nil, err
+	}
+	return logicResp, nil
 }
 
 // pathSign issues a certificate from a submitted CSR, subject to role
@@ -157,7 +161,7 @@ func (b *backend) pathVenafiSign(ctx context.Context, req *logical.Request, data
 	return b.pathVenafiCertObtain(ctx, req, data, role, true)
 }
 
-func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request, data *framework.FieldData, role *roleEntry, signCSR bool) (
+func (b *backend) pathVenafiCertObtain(ctx context.Context, logicalRequest *logical.Request, data *framework.FieldData, role *roleEntry, signCSR bool) (
 	*logical.Response, error) {
 	// When utilizing performance standbys in Vault Enterprise, this forces the call to be redirected to the primary since
 	// a storage call is made after the API calls to issue the certificate.  This prevents the certificate from being
@@ -168,16 +172,65 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 	}
 
 	b.Logger().Debug("Creating Venafi client:")
-	cl, cfg, timeout, err := b.ClientVenafi(ctx, req, role)
+	// here we already filter proper "Zone" to later use with cfg.Zone
+	connector, cfg, err := b.ClientVenafi(ctx, logicalRequest, role)
+	if err != nil {
+		return nil, err
+	}
+
+	reqData, err := populateReqData(data, role)
+	if err != nil {
+		return nil, err
+	}
+
+	var certId string
+	if !role.NoStore && role.StoreBy == storeByHASHstring {
+		certId = getCertIdHash(*reqData, cfg.Zone, b.Logger())
+	}
+
+	if !role.IgnoreLocalStorage && role.StorePrivateKey == true && (role.StoreBy == storeBySerialString || role.StoreBySerial == true) {
+		// if we don't receive a logic response, whenever is an error or the actual certificate found in storage
+		// means we need to issue a new one
+		logicalResp := preventReissue(b, ctx, logicalRequest, reqData, &connector, role, cfg.Zone)
+		if logicalResp != nil {
+			return logicalResp, nil
+		}
+	} else if !role.IgnoreLocalStorage && role.StorePrivateKey == true && role.StoreBy == storeByHASHstring {
+		logicalResp := preventReissueLocal(b, ctx, logicalRequest, reqData, role, certId)
+		if logicalResp != nil {
+			return logicalResp, nil
+		}
+	}
+
+	var certReq *certificate.Request
+	certReq, err = formRequest(*reqData, role, &connector, signCSR, b.Logger())
 	if err != nil {
 		return logical.ErrorResponse(err.Error()), nil
 	}
 
-	var certReq *certificate.Request
-	var reqData requestData
+	err = createCertificateRequest(b, &connector, ctx, logicalRequest, role, certReq)
+	if err != nil {
+		return nil, err
+	}
+	var pcc *certificate.PEMCollection
+	pcc, err = runningEnrollRequest(b, data, certReq, connector, role, signCSR)
+	if err != nil {
+		return nil, err
+	}
 
+	var logResp *logical.Response
+	logResp, err = b.storingCertificate(ctx, logicalRequest, pcc, role, signCSR, certId, (*reqData).commonName, (*reqData).keyPassword)
+
+	if !signCSR {
+		logResp.AddWarning("Read access to this endpoint should be controlled via ACLs as it will return the connection private key as it is.")
+	}
+	return logResp, nil
+}
+
+func populateReqData(data *framework.FieldData, role *roleEntry) (*requestData, error) {
+	var reqData requestData
 	if data == nil {
-		return logical.ErrorResponse("data can't be nil"), nil
+		return nil, fmt.Errorf("data can't be nil")
 	}
 
 	commonNameRaw, ok := data.GetOk("common_name")
@@ -212,8 +265,8 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 
 	if ttl, ok := data.GetOk("ttl"); ok {
 		currentTTL := time.Duration(ttl.(int)) * time.Second
-		//if specified role is greater than role's max ttl, then
-		//role's max ttl will be used.
+		// if specified role is greater than role's max ttl, then
+		// role's max ttl will be used.
 		if role.MaxTTL > 0 && currentTTL > role.MaxTTL {
 
 			currentTTL = role.MaxTTL
@@ -221,76 +274,61 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 		}
 		reqData.ttl = currentTTL
 	}
+	return &reqData, nil
+}
 
-	var certId string
-	if !role.NoStore && role.StoreBy == storeByHASHstring {
-		certId = getCertIdHash(reqData, cfg.Zone, b.Logger())
-	}
-
-	if !role.IgnoreLocalStorage && role.StorePrivateKey == true && (role.StoreBy == storeBySerialString || role.StoreBySerial == true) {
-		// if we don't receive a logic response, whenever is an error or the actual certificate found in storage
-		// means we need to issue a new one
-		logicalResp := preventReissue(b, ctx, req, &reqData, &cl, role, cfg.Zone)
-		if logicalResp != nil {
-			return logicalResp, nil
-		}
-	} else if !role.IgnoreLocalStorage && role.StorePrivateKey == true && role.StoreBy == storeByHASHstring {
-		logicalResp := preventReissueLocal(b, ctx, req, &reqData, role, certId)
-		if logicalResp != nil {
-			return logicalResp, nil
-		}
-	}
-
-	certReq, err = formRequest(reqData, role, &cl, signCSR, b.Logger())
-	if err != nil {
-		return logical.ErrorResponse(err.Error()), nil
-	}
-
+func createCertificateRequest(b *backend, connector *endpoint.Connector, ctx context.Context, logicRequest *logical.Request, role *roleEntry, certReq *certificate.Request) error {
 	b.Logger().Debug("Making certificate request")
-	err = cl.GenerateRequest(nil, certReq)
-	if (err != nil) && (cl.GetType() == endpoint.ConnectorTypeTPP) {
+
+	err := (*connector).GenerateRequest(nil, certReq)
+	if (err != nil) && ((*connector).GetType() == endpoint.ConnectorTypeTPP) {
 		msg := err.Error()
 
-		//catch the scenario when token is expired and deleted.
+		// catch the scenario when token is expired and deleted.
 		var regex = regexp.MustCompile("(expired|invalid)_token")
 
-		//validate if the error is related to a expired access token, at this moment the only way can validate this is using the error message
-		//and verify if that message describes errors related to expired access token.
+		// validate if the error is related to a expired access token, at this moment the only way can validate this is using the error message
+		// and verify if that message describes errors related to expired access token.
 		code := getStatusCode(msg)
 		if code == HTTP_UNAUTHORIZED && regex.MatchString(msg) {
-			cfg, err := b.getConfig(ctx, req, role, true)
+			cfg, err := b.getConfig(ctx, logicRequest, role, true)
 
 			if err != nil {
-				return logical.ErrorResponse(err.Error()), nil
+				return err
 			}
 
 			if cfg.Credentials.RefreshToken != "" {
-				err = updateAccessToken(cfg, b, ctx, req, role.Name)
+				err = updateAccessToken(cfg, b, ctx, logicRequest, role.Name)
 
 				if err != nil {
-					return logical.ErrorResponse(err.Error()), nil
+					return err
 				}
 
-				//everything went fine so get the new client with the new refreshed access token
-				cl, _, timeout, err = b.ClientVenafi(ctx, req, role)
+				// everything went fine so get the new client with the new refreshed access token
+				var newConnector endpoint.Connector
+				newConnector, _, err = b.ClientVenafi(ctx, logicRequest, role)
 				if err != nil {
-					return logical.ErrorResponse(err.Error()), nil
+					return err
 				}
+				connector = &newConnector
 
 				b.Logger().Debug("Making certificate request again")
 
-				err = cl.GenerateRequest(nil, certReq)
+				err = (*connector).GenerateRequest(nil, certReq)
 				if err != nil {
-					return logical.ErrorResponse(err.Error()), nil
+					return err
 				}
 			} else {
-				return logical.ErrorResponse("Tried to get new access token, but refresh token is empty"), nil
+				return fmt.Errorf("access token is expired. Tried to get new access token, but refresh token is empty")
 			}
 		} else {
-			return logical.ErrorResponse(err.Error()), nil
+			return err
 		}
 	}
+	return nil
+}
 
+func runningEnrollRequest(b *backend, data *framework.FieldData, certReq *certificate.Request, connector endpoint.Connector, role *roleEntry, signCSR bool) (*certificate.PEMCollection, error) {
 	b.Logger().Debug("Running enroll request")
 	format := ""
 	privateKeyFormat, ok := data.GetOk("private_key_format")
@@ -303,18 +341,20 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 	keyPass := fmt.Sprintf("t%d-%s.tem.pwd", time.Now().Unix(), randRunes(4))
 	retry, ok := data.GetOk("retry")
 
-	var pcc *certificate.PEMCollection
-	pcc, err = issueCertificate(certReq, keyPass, cl, timeout, role, format, privateKeyFormat, signCSR)
+	pcc, err := issueCertificate(certReq, keyPass, connector, role, format, privateKeyFormat, signCSR)
 	if err != nil {
 		if retry == true {
-			pcc, err = issueCertificate(certReq, keyPass, cl, timeout, role, format, privateKeyFormat, signCSR)
+			pcc, err = issueCertificate(certReq, keyPass, connector, role, format, privateKeyFormat, signCSR)
 			if err != nil {
-				return logical.ErrorResponse(err.Error()), nil
+				return nil, err
 			}
 		}
-		return logical.ErrorResponse(err.Error()), nil
+		return nil, err
 	}
+	return pcc, nil
+}
 
+func (b *backend) storingCertificate(ctx context.Context, logicalRequest *logical.Request, pcc *certificate.PEMCollection, role *roleEntry, signCSR bool, certId string, commonName string, keyPassword string) (*logical.Response, error) {
 	pemBlock, _ := pem.Decode([]byte(pcc.Certificate))
 	parsedCertificate, err := x509.ParseCertificate(pemBlock.Bytes)
 	if err != nil {
@@ -350,7 +390,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 	if !role.NoStore {
 		if role.StoreBy == storeByCNString {
 			// Writing certificate to the storage with CN
-			certId = reqData.commonName
+			certId = commonName
 		} else if role.StoreBy == storeByHASHstring {
 			// do nothing as we already calculated the hash above
 		} else {
@@ -359,7 +399,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 		}
 		b.Logger().Debug("Writing certificate to the certs/" + certId)
 		entry.Key = "certs/" + certId
-		if err := req.Storage.Put(ctx, entry); err != nil {
+		if err := logicalRequest.Storage.Put(ctx, entry); err != nil {
 			b.Logger().Error("Error putting entry to storage: " + err.Error())
 			return nil, err
 		}
@@ -379,7 +419,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 	// store_by = "hash" -> hash string conformed by -> "Common Name + SAN DNS + Zone"
 	respData := map[string]interface{}{
 		"certificate_uid":   certId,
-		"common_name":       reqData.commonName,
+		"common_name":       commonName,
 		"serial_number":     serialNumber,
 		"certificate_chain": chain,
 		"certificate":       pcc.Certificate,
@@ -389,7 +429,6 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 	}
 
 	if !signCSR {
-		keyPassword := data.Get("key_password").(string)
 		if keyPassword == "" {
 			respData["private_key"] = pcc.PrivateKey
 		} else {
@@ -419,24 +458,10 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, req *logical.Request
 		b.Logger().Debug("Setting up secret lease duration to: " + TTL.String())
 		logResp.Secret.TTL = TTL
 	}
-
-	if !signCSR {
-		logResp.AddWarning("Read access to this endpoint should be controlled via ACLs as it will return the connection private key as it is.")
-	}
 	return logResp, nil
 }
 
-type requestData struct {
-	commonName   string
-	altNames     []string
-	ipSANs       []string
-	keyPassword  string
-	csrString    string
-	customFields []string
-	ttl          time.Duration
-}
-
-func issueCertificate(certReq *certificate.Request, keyPass string, cl endpoint.Connector, timeout time.Duration, role *roleEntry, format string, privateKeyFormat interface{}, signCSR bool) (pcc *certificate.PEMCollection, err error) {
+func issueCertificate(certReq *certificate.Request, keyPass string, cl endpoint.Connector, role *roleEntry, format string, privateKeyFormat interface{}, signCSR bool) (pcc *certificate.PEMCollection, err error) {
 	requestID, err := cl.RequestCertificate(certReq)
 	if err != nil {
 		return nil, err
@@ -444,7 +469,7 @@ func issueCertificate(certReq *certificate.Request, keyPass string, cl endpoint.
 
 	pickupReq := &certificate.Request{
 		PickupID: requestID,
-		Timeout:  timeout,
+		Timeout:  role.ServerTimeout,
 	}
 
 	if role.ServiceGenerated {
@@ -474,7 +499,9 @@ func issueCertificate(certReq *certificate.Request, keyPass string, cl endpoint.
 		}
 		block, _ := pem.Decode([]byte(privateKey))
 		if privateKeyFormat == LEGACY_PEM {
-			encrypted, err := util.X509EncryptPEMBlock(rand.Reader, "RSA PRIVATE KEY", block.Bytes, []byte(keyPass), util.PEMCipherAES256)
+			encrypted, err := util.X509EncryptPEMBlock(
+				rand.Reader, "RSA PRIVATE KEY", block.Bytes, []byte(keyPass), util.PEMCipherAES256,
+			)
 			if err != nil {
 				return nil, err
 			}
@@ -824,6 +851,16 @@ func sanitizeRequestData(reqData *requestData, logger hclog.Logger) {
 	removeDuplicateSANDNS(reqData, logger)
 	addCNtoDNSList(reqData, logger)
 	orderSANDNS(reqData, logger)
+}
+
+type requestData struct {
+	commonName   string
+	altNames     []string
+	ipSANs       []string
+	keyPassword  string
+	csrString    string
+	customFields []string
+	ttl          time.Duration
 }
 
 type VenafiCert struct {
