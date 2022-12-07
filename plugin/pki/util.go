@@ -180,8 +180,7 @@ func areDNSNamesCorrect(actualAltNames []string, expectedCNNames []string, expec
 		}
 	} else {
 
-		//Checking expectedAltNames are in actualAltNames
-		if len(actualAltNames) < len(expectedAltNames) {
+		if len(actualAltNames) != len(expectedAltNames) {
 			return false
 		}
 

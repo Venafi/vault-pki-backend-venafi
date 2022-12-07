@@ -143,8 +143,11 @@ func (b *backend) pathVenafiIssue(ctx context.Context, req *logical.Request, dat
 		return nil, fmt.Errorf(`role key type "any" not allowed for issuing certificates, only signing`)
 	}
 
-	logicResp, err := b.pathVenafiCertObtain(ctx, req, data, role, false)
+	logicResp, certCache, err := b.pathVenafiCertObtain(ctx, req, data, role, false)
 	if err != nil {
+		if certCache != nil {
+			certCache.condition.Broadcast()
+		}
 		return nil, err
 	}
 	return logicResp, nil
@@ -165,30 +168,37 @@ func (b *backend) pathVenafiSign(ctx context.Context, req *logical.Request, data
 	if role == nil {
 		return logical.ErrorResponse(fmt.Sprintf("unknown role: %s", roleName)), nil
 	}
+	logicResp, certCache, err := b.pathVenafiCertObtain(ctx, req, data, role, false)
+	if err != nil {
+		if certCache != nil {
+			certCache.condition.Broadcast()
+		}
+		return nil, err
+	}
 
-	return b.pathVenafiCertObtain(ctx, req, data, role, true)
+	return logicResp, nil
 }
 
 func (b *backend) pathVenafiCertObtain(ctx context.Context, logicalRequest *logical.Request, data *framework.FieldData, role *roleEntry, signCSR bool) (
-	*logical.Response, error) {
+	*logical.Response, *SyncedResponse, error) {
 	// When utilizing performance standbys in Vault Enterprise, this forces the call to be redirected to the primary since
 	// a storage call is made after the API calls to issue the certificate.  This prevents the certificate from being
 	// issued twice in this scenario.
 	if !role.NoStore && b.System().ReplicationState().
 		HasState(consts.ReplicationPerformanceStandby|consts.ReplicationPerformanceSecondary) {
-		return nil, logical.ErrReadOnly
+		return nil, nil, logical.ErrReadOnly
 	}
 
 	b.Logger().Debug("Creating Venafi client:")
 	// here we already filter proper "Zone" to later use with cfg.Zone
 	connector, cfg, err := b.ClientVenafi(ctx, logicalRequest, role)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	reqData, err := populateReqData(data, role)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	var certId string
@@ -201,12 +211,12 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, logicalRequest *logi
 		// means we need to issue a new one
 		logicalResp := preventReissue(b, ctx, logicalRequest, reqData, &connector, role, cfg.Zone)
 		if logicalResp != nil {
-			return logicalResp, nil
+			return logicalResp, nil, nil
 		}
 	} else if !role.IgnoreLocalStorage && role.StorePrivateKey == true && role.StoreBy == storeByHASHstring {
 		logicalResp := preventReissueLocal(b, ctx, logicalRequest, reqData, role, certId)
 		if logicalResp != nil {
-			return logicalResp, nil
+			return logicalResp, nil, nil
 		}
 	}
 
@@ -215,10 +225,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, logicalRequest *logi
 	found := false
 	b.Logger().Debug("locking process to update cache")
 	b.mux.Lock()
-	if role.StoreBy == storeByHASHstring {
-		// by this point of the code, we have a certId and should the calculated hash
-		cert, found = cache[certId]
-	} else {
+	if !signCSR {
 		// otherwise, we will use the commonName (which we use to create the certificate object at TPP a.k.a. the nickname
 		cert, found = cache[reqData.commonName]
 	}
@@ -227,16 +234,14 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, logicalRequest *logi
 		cert.condition.Wait()
 		b.mux.Unlock()
 		b.Logger().Debug("thread came out of wait")
-		return cert.logResponse, nil
+		return cert.logResponse, nil, nil
 	}
 	newCond := sync.NewCond(&b.mux)
 	cert = &SyncedResponse{
 		logResponse: nil,
 		condition:   newCond,
 	}
-	if role.StoreBy == storeByHASHstring {
-		cache[certId] = cert
-	} else {
+	if !signCSR {
 		cache[reqData.commonName] = cert
 	}
 	b.mux.Unlock()
@@ -244,21 +249,24 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, logicalRequest *logi
 	var certReq *certificate.Request
 	certReq, err = formRequest(*reqData, role, &connector, signCSR, b.Logger())
 	if err != nil {
-		return logical.ErrorResponse(err.Error()), nil
+		return logical.ErrorResponse(err.Error()), cert, nil
 	}
 
 	err = createCertificateRequest(b, &connector, ctx, logicalRequest, role, certReq)
 	if err != nil {
-		return nil, err
+		return nil, cert, err
 	}
 	var pcc *certificate.PEMCollection
 	pcc, err = runningEnrollRequest(b, data, certReq, connector, role, signCSR)
 	if err != nil {
-		return nil, err
+		return nil, cert, err
 	}
 
 	var logResp *logical.Response
 	logResp, err = b.storingCertificate(ctx, logicalRequest, pcc, role, signCSR, certId, (*reqData).commonName, (*reqData).keyPassword)
+	if err != nil {
+		return nil, cert, err
+	}
 
 	if !signCSR {
 		logResp.AddWarning("Read access to this endpoint should be controlled via ACLs as it will return the connection private key as it is.")
@@ -269,14 +277,12 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, logicalRequest *logi
 	cert.logResponse = logResp
 	cert.condition.Broadcast()
 	b.Logger().Debug("Removing cert from hash map")
-	if role.StoreBy == storeByHASHstring {
-		delete(cache, certId)
-	} else {
+	if !signCSR {
 		delete(cache, reqData.commonName)
 	}
 	b.mux.Unlock()
 
-	return logResp, nil
+	return logResp, nil, nil
 }
 
 func populateReqData(data *framework.FieldData, role *roleEntry) (*requestData, error) {

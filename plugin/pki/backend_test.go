@@ -1230,7 +1230,7 @@ func TestTPPparallelism(t *testing.T) {
 		}
 	})
 
-	t.Run("execute 20 certificates with same CN but each one with different SAN DNS List", func(t *testing.T) {
+	t.Run("execute 50 certificates with same CN but each one with different SAN DNS List", func(t *testing.T) {
 		t.Parallel()
 		integrationTestEnv, err := newIntegrationTestEnv()
 		if err != nil {
@@ -1238,7 +1238,7 @@ func TestTPPparallelism(t *testing.T) {
 		}
 		data := &testData{minCertTimeLeft: regDuration}
 		integrationTestEnv.TPPparallelism(t, data, venafiConfigToken)
-		count := 10
+		count := 1
 		countCertNames := 5
 		// we will create 50 certificates, for every 10 certificates, distinct certificates will follow that:
 		// share same CN but different SAN DNS list between each other
@@ -1255,9 +1255,9 @@ func TestTPPparallelism(t *testing.T) {
 				}
 				for j := 1; j <= count; j++ {
 					index := j
-					t.Run(fmt.Sprintf("executing cert number: %d and CN: %s\nand SAN DNS:\n%s\n", index, (*dataCertReq).cn, (*dataCertReq).dnsNS), func(t *testing.T) {
+					t.Run(fmt.Sprintf("executing cert number: %d - %d and CN: %s\nand SAN DNS:\n%s\n", i, index, (*dataCertReq).cn, (*dataCertReq).dnsNS), func(t *testing.T) {
 						t.Parallel()
-						integrationTestEnv.IssueCertificateAndSaveSerial(t, *dataCertReq, venafiConfigToken)
+						integrationTestEnv.IssueCertificateAndSaveSerialParallel(t, *dataCertReq, venafiConfigToken)
 						certSerials = append(certSerials, integrationTestEnv.CertificateSerial)
 					})
 				}
@@ -1267,7 +1267,8 @@ func TestTPPparallelism(t *testing.T) {
 		output := "'" + strings.Join(certSerials, "',\n'") + `'`
 		t.Log(fmt.Sprintf("certificate serials:\n%s", output))
 		// If the amount of distinct serials is different than the amount of certificates names, means we got
-		if len(certSerials) != countCertNames {
+		// We also expected only one certificate to get in storage for different SANs with same CN parallel requests
+		if len(certSerials) != 1 {
 			t.Fatal("The distinct amount of certificate serials is different that the distinct certificates we requested")
 		}
 	})
