@@ -168,7 +168,7 @@ func (b *backend) pathVenafiSign(ctx context.Context, req *logical.Request, data
 	if role == nil {
 		return logical.ErrorResponse(fmt.Sprintf("unknown role: %s", roleName)), nil
 	}
-	logicResp, certCache, err := b.pathVenafiCertObtain(ctx, req, data, role, false)
+	logicResp, certCache, err := b.pathVenafiCertObtain(ctx, req, data, role, true)
 	if err != nil {
 		if certCache != nil {
 			certCache.condition.Broadcast()
