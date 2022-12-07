@@ -200,14 +200,14 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, logicalRequest *logi
 		certId = getCertIdHash(*reqData, cfg.Zone, b.Logger())
 	}
 
-	if !role.IgnoreLocalStorage && role.StorePrivateKey == true && (role.StoreBy == storeBySerialString || role.StoreBySerial == true) {
+	if !role.IgnoreLocalStorage && role.StorePrivateKey && (role.StoreBy == storeBySerialString || role.StoreBySerial) {
 		// if we don't receive a logic response, whenever is an error or the actual certificate found in storage
 		// means we need to issue a new one
 		logicalResp := preventReissue(b, ctx, logicalRequest, reqData, &connector, role, cfg.Zone)
 		if logicalResp != nil {
 			return logicalResp, nil
 		}
-	} else if !role.IgnoreLocalStorage && role.StorePrivateKey == true && role.StoreBy == storeByHASHstring {
+	} else if !role.IgnoreLocalStorage && role.StorePrivateKey && role.StoreBy == storeByHASHstring {
 		logicalResp := preventReissueLocal(b, ctx, logicalRequest, reqData, role, certId)
 		if logicalResp != nil {
 			return logicalResp, nil
@@ -218,12 +218,12 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, logicalRequest *logi
 	var cert *SyncedResponse
 	found := false
 
-	if !signCSR {
+	if !signCSR && role.StoreBy == storeByHASHstring {
 		b.Logger().Debug("locking process to update cache")
 		b.mux.Lock()
-		cert, found = cache[reqData.commonName]
+		cert, found = cache[certId]
 		if found {
-			b.Logger().Debug(fmt.Sprintf("thread entered in waiting state"))
+			b.Logger().Debug("thread entered in waiting state")
 			cert.condition.Wait()
 			b.mux.Unlock()
 			b.Logger().Debug("thread came out of wait")
@@ -234,7 +234,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, logicalRequest *logi
 			logResponse: nil,
 			condition:   newCond,
 		}
-		cache[reqData.commonName] = cert
+		cache[certId] = cert
 		b.mux.Unlock()
 	}
 
@@ -260,7 +260,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, logicalRequest *logi
 		return nil, err
 	}
 
-	if !signCSR {
+	if !signCSR && role.StoreBy == storeByHASHstring {
 		logResp.AddWarning("Read access to this endpoint should be controlled via ACLs as it will return the connection private key as it is.")
 		b.mux.Lock()
 		b.Logger().Debug("Launching broadcast")
@@ -268,7 +268,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, logicalRequest *logi
 		cert.condition.Broadcast()
 		b.Logger().Debug("Removing cert from hash map")
 		if !signCSR {
-			delete(cache, reqData.commonName)
+			delete(cache, certId)
 		}
 		b.mux.Unlock()
 	}
@@ -388,17 +388,20 @@ func runningEnrollRequest(b *backend, data *framework.FieldData, certReq *certif
 	}
 
 	keyPass := fmt.Sprintf("t%d-%s.tem.pwd", time.Now().Unix(), randRunes(4))
-	retry, ok := data.GetOk("retry")
+	retry, _ := data.GetOk("retry")
 
-	pcc, err := issueCertificate(certReq, keyPass, connector, role, format, privateKeyFormat, signCSR)
+	var pcc *certificate.PEMCollection
+	var err error
+	pcc, err = issueCertificate(certReq, keyPass, connector, role, format, privateKeyFormat, signCSR)
 	if err != nil {
 		if retry == true {
 			pcc, err = issueCertificate(certReq, keyPass, connector, role, format, privateKeyFormat, signCSR)
 			if err != nil {
 				return nil, err
 			}
+		} else {
+			return nil, err
 		}
-		return nil, err
 	}
 	return pcc, nil
 }
@@ -612,8 +615,7 @@ func preventReissue(b *backend, ctx context.Context, req *logical.Request, reqDa
 				"certificate":       cert.Certificate,
 				"private_key":       cert.PrivateKey,
 			}
-			var logResp *logical.Response
-			logResp = b.Secret(SecretCertsType).Response(
+			logResp := b.Secret(SecretCertsType).Response(
 				respData,
 				map[string]interface{}{
 					"serial_number": serialNumber,

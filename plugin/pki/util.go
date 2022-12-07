@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	//nolint // ignoring since we don't expect to use complex hashing
 	"crypto/sha1"
 	"crypto/tls"
 	"crypto/x509"
@@ -68,7 +69,7 @@ func addSeparatorToHexFormattedString(s string, sep string) (string, error) {
 	var ret bytes.Buffer
 	for n, v := range s {
 		if n > 0 && n%2 == 0 {
-			if _, err := fmt.Fprintf(&ret, sep); err != nil {
+			if _, err := fmt.Fprint(&ret, sep); err != nil {
 				return "", err
 			}
 		}
@@ -394,8 +395,7 @@ func getStatusCode(msg string) int64 {
 
 func createConfigFromFieldData(data *venafiSecretEntry) (*vcert.Config, error) {
 
-	var cfg *vcert.Config
-	cfg = &vcert.Config{}
+	cfg := &vcert.Config{}
 
 	cfg.BaseUrl = data.URL
 	cfg.Zone = data.Zone
@@ -602,6 +602,7 @@ func shortDurationString(d time.Duration) string {
 }
 
 func sha1sum(s string) string {
+	//nolint
 	hash := sha1.New()
 	buffer := []byte(s)
 	hash.Write(buffer)

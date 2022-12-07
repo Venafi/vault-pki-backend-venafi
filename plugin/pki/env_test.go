@@ -2493,6 +2493,21 @@ func (e *testEnv) TPPparallelism(t *testing.T, data *testData, config venafiConf
 
 }
 
+func (e *testEnv) VAASparallelism(t *testing.T, data *testData, config venafiConfigString) {
+
+	randString := e.TestRandString
+	domain := "vfidev.com"
+	data.cn = randString + "." + domain
+	commonName := data.cn
+	data.dnsNS = "maria-" + commonName + "," + "rose-" + commonName + "," + "bob-" + commonName + "," + "bob-" + commonName + "," + "shina-" + commonName
+	data.storeBy = "hash"
+	data.storePkey = true
+
+	e.writeVenafiToBackend(t, config)
+	e.writeRoleToBackendWithData(t, config, *data)
+
+}
+
 func newIntegrationTestEnv() (*testEnv, error) {
 	ctx := context.Background()
 
