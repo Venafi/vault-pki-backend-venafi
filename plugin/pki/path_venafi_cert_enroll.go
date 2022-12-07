@@ -217,28 +217,26 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, logicalRequest *logi
 	// if user is using store by hash
 	var cert *SyncedResponse
 	found := false
-	b.Logger().Debug("locking process to update cache")
-	b.mux.Lock()
+
 	if !signCSR {
-		// otherwise, we will use the commonName (which we use to create the certificate object at TPP a.k.a. the nickname
+		b.Logger().Debug("locking process to update cache")
+		b.mux.Lock()
 		cert, found = cache[reqData.commonName]
-	}
-	if found {
-		b.Logger().Debug(fmt.Sprintf("thread entered in waiting state"))
-		cert.condition.Wait()
-		b.mux.Unlock()
-		b.Logger().Debug("thread came out of wait")
-		return cert.logResponse, nil
-	}
-	newCond := sync.NewCond(&b.mux)
-	cert = &SyncedResponse{
-		logResponse: nil,
-		condition:   newCond,
-	}
-	if !signCSR {
+		if found {
+			b.Logger().Debug(fmt.Sprintf("thread entered in waiting state"))
+			cert.condition.Wait()
+			b.mux.Unlock()
+			b.Logger().Debug("thread came out of wait")
+			return cert.logResponse, nil
+		}
+		newCond := sync.NewCond(&b.mux)
+		cert = &SyncedResponse{
+			logResponse: nil,
+			condition:   newCond,
+		}
 		cache[reqData.commonName] = cert
+		b.mux.Unlock()
 	}
-	b.mux.Unlock()
 
 	var certReq *certificate.Request
 	certReq, err = formRequest(*reqData, role, &connector, signCSR, b.Logger())
@@ -264,17 +262,16 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, logicalRequest *logi
 
 	if !signCSR {
 		logResp.AddWarning("Read access to this endpoint should be controlled via ACLs as it will return the connection private key as it is.")
+		b.mux.Lock()
+		b.Logger().Debug("Launching broadcast")
+		cert.logResponse = logResp
+		cert.condition.Broadcast()
+		b.Logger().Debug("Removing cert from hash map")
+		if !signCSR {
+			delete(cache, reqData.commonName)
+		}
+		b.mux.Unlock()
 	}
-
-	b.mux.Lock()
-	b.Logger().Debug("Launching broadcast")
-	cert.logResponse = logResp
-	cert.condition.Broadcast()
-	b.Logger().Debug("Removing cert from hash map")
-	if !signCSR {
-		delete(cache, reqData.commonName)
-	}
-	b.mux.Unlock()
 
 	return logResp, nil
 }
