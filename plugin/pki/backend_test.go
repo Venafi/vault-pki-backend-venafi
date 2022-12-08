@@ -3,6 +3,7 @@ package pki
 import (
 	"fmt"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -1125,6 +1126,7 @@ func TestZoneOverride(t *testing.T) {
 }
 
 func TestTPPparallelism(t *testing.T) {
+	mu := sync.Mutex{}
 	regDuration := time.Duration(24) * time.Hour
 	t.Run("execute 20 certificates with same CN", func(t *testing.T) {
 		integrationTestEnv, err := newIntegrationTestEnv()
@@ -1132,7 +1134,7 @@ func TestTPPparallelism(t *testing.T) {
 			t.Fatal(err)
 		}
 		data := &testData{minCertTimeLeft: regDuration}
-		integrationTestEnv.TPPparallelism(t, data, venafiConfigToken)
+		integrationTestEnv.SetupParallelismEnv(t, data, venafiConfigToken)
 		count := 20
 		var certSerials []string
 		t.Run("executing", func(t *testing.T) {
@@ -1141,7 +1143,9 @@ func TestTPPparallelism(t *testing.T) {
 				t.Run(fmt.Sprintf("executing cert number: %d", index), func(t *testing.T) {
 					t.Parallel()
 					serialNumber := integrationTestEnv.IssueCertificateAndSaveSerial2(t, *data, venafiConfigToken)
+					mu.Lock()
 					certSerials = append(certSerials, serialNumber)
+					mu.Unlock()
 				})
 			}
 		})
@@ -1160,7 +1164,7 @@ func TestTPPparallelism(t *testing.T) {
 			t.Fatal(err)
 		}
 		data := &testData{minCertTimeLeft: regDuration}
-		integrationTestEnv.TPPparallelism(t, data, venafiConfigToken)
+		integrationTestEnv.SetupParallelismEnv(t, data, venafiConfigToken)
 		count := 10
 		countCertNames := 5
 		var certSerials []string
@@ -1177,7 +1181,82 @@ func TestTPPparallelism(t *testing.T) {
 					t.Run(fmt.Sprintf("executing cert number: %d and CN: %s", index, (*dataCertReq).cn), func(t *testing.T) {
 						t.Parallel()
 						serialNumber := integrationTestEnv.IssueCertificateAndSaveSerial2(t, *dataCertReq, venafiConfigToken)
+						mu.Lock()
 						certSerials = append(certSerials, serialNumber)
+						mu.Unlock()
+					})
+				}
+			}
+		})
+		removeDuplicateStr(&certSerials)
+		output := "'" + strings.Join(certSerials, "',\n'") + `'`
+		t.Log(fmt.Sprintf("certificate serials:\n%s", output))
+		// If the amount of distinct serials is different than the amount of certificates names, means we got
+		if len(certSerials) != countCertNames {
+			t.Fatal("The distinct amount of certificate serials is different that the distinct certificates we requested")
+		}
+	})
+}
+
+func TestVAASparallelism(t *testing.T) {
+	mu := sync.Mutex{}
+	regDuration := time.Duration(24) * time.Hour
+	t.Run("execute 20 certificates with same CN", func(t *testing.T) {
+		integrationTestEnv, err := newIntegrationTestEnv()
+		if err != nil {
+			t.Fatal(err)
+		}
+		data := &testData{minCertTimeLeft: regDuration}
+		integrationTestEnv.SetupParallelismEnv(t, data, venafiConfigCloud)
+		count := 20
+		var certSerials []string
+		t.Run("executing", func(t *testing.T) {
+			for i := 1; i <= count; i++ {
+				index := i
+				t.Run(fmt.Sprintf("executing cert number: %d", index), func(t *testing.T) {
+					t.Parallel()
+					serialNumber := integrationTestEnv.IssueCertificateAndSaveSerial2(t, *data, venafiConfigCloud)
+					mu.Lock()
+					certSerials = append(certSerials, serialNumber)
+					mu.Unlock()
+				})
+			}
+		})
+		removeDuplicateStr(&certSerials)
+		output := "'" + strings.Join(certSerials, "',\n'") + `'`
+		t.Log(fmt.Sprintf("certificate serials:\n%s", output))
+		// If the amount of distinct serials is different than the amount of certificates names, means we got
+		if len(certSerials) != 1 {
+			t.Fatal("The distinct amount of certificate serials is different that the distinct certificates we requested")
+		}
+	})
+
+	t.Run("execute 50 certificates with some of them having different CN", func(t *testing.T) {
+		integrationTestEnv, err := newIntegrationTestEnv()
+		if err != nil {
+			t.Fatal(err)
+		}
+		data := &testData{minCertTimeLeft: regDuration}
+		integrationTestEnv.SetupParallelismEnv(t, data, venafiConfigToken)
+		count := 10
+		countCertNames := 5
+		var certSerials []string
+		t.Run("executing", func(t *testing.T) {
+			for i := 1; i <= countCertNames; i++ {
+				var dataCertReq *testData
+				rand := randSeq(9)
+				domain := "venafi.example.com"
+				dataCertReq = &testData{
+					cn: rand + "." + domain,
+				}
+				for j := 1; j <= count; j++ {
+					index := j
+					t.Run(fmt.Sprintf("executing cert number: %d and CN: %s", index, (*dataCertReq).cn), func(t *testing.T) {
+						t.Parallel()
+						serialNumber := integrationTestEnv.IssueCertificateAndSaveSerial2(t, *dataCertReq, venafiConfigCloud)
+						mu.Lock()
+						certSerials = append(certSerials, serialNumber)
+						mu.Unlock()
 					})
 				}
 			}

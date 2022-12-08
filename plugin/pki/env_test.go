@@ -2468,7 +2468,7 @@ func (e *testEnv) PreventReissuanceLocalCNwithNoCNandThreeSANDNS(t *testing.T, d
 	}
 }
 
-func (e *testEnv) TPPparallelism(t *testing.T, data *testData, config venafiConfigString) {
+func (e *testEnv) SetupParallelismEnv(t *testing.T, data *testData, config venafiConfigString) {
 
 	randString := e.TestRandString
 	domain := "vfidev.com"
