@@ -58,6 +58,7 @@ type testData struct {
 	privateKeyFormat     string
 	minCertTimeLeft      time.Duration
 	ignoreLocalStorage   bool
+	timeout              time.Duration
 }
 
 const (
@@ -301,6 +302,10 @@ func (e *testEnv) writeRoleToBackendWithData(t *testing.T, configString venafiCo
 
 	if &data.serviceGeneratedCert != nil {
 		roleData["service_generated_cert"] = data.serviceGeneratedCert
+	}
+
+	if &data.timeout != nil {
+		roleData["ServerTimeout"] = data.timeout
 	}
 
 	resp, err := e.Backend.HandleRequest(e.Context, &logical.Request{
@@ -2501,6 +2506,7 @@ func (e *testEnv) VAASparallelism(t *testing.T, data *testData, config venafiCon
 	commonName := data.cn
 	data.dnsNS = "maria-" + commonName + "," + "rose-" + commonName + "," + "bob-" + commonName + "," + "bob-" + commonName + "," + "shina-" + commonName
 	data.storeBy = "hash"
+	data.timeout = 180 * time.Second
 	data.storePkey = true
 
 	e.writeVenafiToBackend(t, config)

@@ -478,6 +478,7 @@ func TestVAASpreventReissuance(t *testing.T) {
 		}
 		data := testData{
 			minCertTimeLeft: regDuration,
+			timeout:         180 * time.Second,
 		}
 		integrationTestEnv.PreventReissuance(t, data, venafiConfigCloud)
 	})
@@ -489,6 +490,7 @@ func TestVAASpreventReissuance(t *testing.T) {
 		}
 		data := testData{
 			minCertTimeLeft: regDuration,
+			timeout:         180 * time.Second,
 		}
 		integrationTestEnv.PreventReissuanceCNwithExtraSANDNS(t, data, venafiConfigCloud)
 	})
@@ -500,6 +502,7 @@ func TestVAASpreventReissuance(t *testing.T) {
 		}
 		data := testData{
 			minCertTimeLeft: regDuration,
+			timeout:         180 * time.Second,
 		}
 		integrationTestEnv.PreventReissuanceCNandRemovingSANDNS(t, data, venafiConfigCloud)
 	})
@@ -511,6 +514,7 @@ func TestVAASpreventReissuance(t *testing.T) {
 		}
 		data := testData{
 			minCertTimeLeft: regDuration,
+			timeout:         180 * time.Second,
 		}
 		integrationTestEnv.PreventReissuanceCNnoSANSDNS(t, data, venafiConfigCloud)
 	})
@@ -523,6 +527,7 @@ func TestVAASpreventReissuance(t *testing.T) {
 			data := testData{
 				// for VaaS use case we need to set and extra 24 hours since value is truncated (2184hrs = 91 days)
 				minCertTimeLeft: time.Duration(2184) * time.Hour,
+				timeout:         180 * time.Second,
 			}
 			integrationTestEnv.PreventReissuanceTTLnotValid(t, data, venafiConfigCloud)
 		})
@@ -534,6 +539,7 @@ func TestVAASpreventReissuance(t *testing.T) {
 		}
 		data := testData{
 			minCertTimeLeft: time.Duration(2159) * time.Hour,
+			timeout:         180 * time.Second,
 		}
 		integrationTestEnv.PreventReissuanceTTLvalid(t, data, venafiConfigCloud)
 	})
@@ -545,6 +551,7 @@ func TestVAASpreventReissuance(t *testing.T) {
 		}
 		data := testData{
 			minCertTimeLeft: regDuration,
+			timeout:         180 * time.Second,
 		}
 		integrationTestEnv.PreventReissuanceCNwithThreeSANDNS(t, data, venafiConfigCloud)
 	})
@@ -556,6 +563,7 @@ func TestVAASpreventReissuance(t *testing.T) {
 		}
 		data := testData{
 			minCertTimeLeft: regDuration,
+			timeout:         180 * time.Second,
 		}
 		integrationTestEnv.PreventReissuanceCNwithDifferentCNandThreeSANDNS(t, data, venafiConfigCloud)
 	})
@@ -567,6 +575,7 @@ func TestVAASpreventReissuance(t *testing.T) {
 		}
 		data := testData{
 			minCertTimeLeft: regDuration,
+			timeout:         180 * time.Second,
 		}
 		integrationTestEnv.PreventReissuanceCNwithNoCNandThreeSANDNS(t, data, venafiConfigCloud)
 	})
@@ -963,7 +972,10 @@ func TestVAASpreventLocalReissuance(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		data := testData{minCertTimeLeft: regDuration}
+		data := testData{
+			minCertTimeLeft: regDuration,
+			timeout:         180 * time.Second,
+		}
 		integrationTestEnv.PreventReissuanceLocal(t, data, venafiConfigCloud)
 	})
 	// CASE: should be different - same CN but 1 additional SAN
@@ -972,7 +984,10 @@ func TestVAASpreventLocalReissuance(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		data := testData{minCertTimeLeft: regDuration}
+		data := testData{
+			minCertTimeLeft: regDuration,
+			timeout:         180 * time.Second,
+		}
 		integrationTestEnv.PreventReissuanceLocalCNwithExtraSANDNS(t, data, venafiConfigCloud)
 	})
 	// CASE: should be different - same CN and missing 1 SAN of 3
@@ -981,7 +996,10 @@ func TestVAASpreventLocalReissuance(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		data := testData{minCertTimeLeft: regDuration}
+		data := testData{
+			minCertTimeLeft: regDuration,
+			timeout:         180 * time.Second,
+		}
 		integrationTestEnv.PreventReissuanceLocalCNandRemovingSANDNS(t, data, venafiConfigCloud)
 	})
 	// CASE: should be the SAME - same CN and no SANs
@@ -990,7 +1008,10 @@ func TestVAASpreventLocalReissuance(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		data := testData{minCertTimeLeft: regDuration}
+		data := testData{
+			minCertTimeLeft: regDuration,
+			timeout:         180 * time.Second,
+		}
 		integrationTestEnv.PreventReissuanceLocalCNandNoSANSDNS(t, data, venafiConfigCloud)
 	})
 	t.Run("VaaS second enroll same certificate with TTL that is not sufficient for set valid time and should not prevent-reissue",
@@ -1002,6 +1023,7 @@ func TestVAASpreventLocalReissuance(t *testing.T) {
 			data := testData{
 				// for VaaS use case we need to set and extra 24 hours since value is truncated (2184hrs = 91 days)
 				minCertTimeLeft: time.Duration(2184) * time.Hour,
+				timeout:         180 * time.Second,
 			}
 			integrationTestEnv.PreventReissuanceLocalTTLnotValid(t, data, venafiConfigCloud)
 		})
@@ -1011,7 +1033,10 @@ func TestVAASpreventLocalReissuance(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		data := testData{minCertTimeLeft: time.Duration(2159) * time.Hour}
+		data := testData{
+			minCertTimeLeft: time.Duration(2159) * time.Hour,
+			timeout:         180 * time.Second,
+		}
 		integrationTestEnv.PreventReissuanceLocalTTLvalid(t, data, venafiConfigCloud)
 	})
 	// CASE: should be the SAME - same CN and same 3 SANs
@@ -1020,7 +1045,10 @@ func TestVAASpreventLocalReissuance(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		data := testData{minCertTimeLeft: regDuration}
+		data := testData{
+			minCertTimeLeft: regDuration,
+			timeout:         180 * time.Second,
+		}
 		integrationTestEnv.PreventReissuanceLocalCNwithThreeSANDNS(t, data, venafiConfigCloud)
 	})
 	// CASE: should be different - different CN and same 3 SANs
@@ -1029,7 +1057,10 @@ func TestVAASpreventLocalReissuance(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		data := testData{minCertTimeLeft: regDuration}
+		data := testData{
+			minCertTimeLeft: regDuration,
+			timeout:         180 * time.Second,
+		}
 		integrationTestEnv.PreventReissuanceLocalCNwithDifferentCNandThreeSANDNS(t, data, venafiConfigCloud)
 	})
 	// CASE: should be the SAME - no CN and same 3 SANs
@@ -1038,7 +1069,10 @@ func TestVAASpreventLocalReissuance(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		data := testData{minCertTimeLeft: regDuration}
+		data := testData{
+			minCertTimeLeft: regDuration,
+			timeout:         180 * time.Second,
+		}
 		integrationTestEnv.PreventReissuanceLocalCNwithNoCNandThreeSANDNS(t, data, venafiConfigCloud)
 	})
 }
