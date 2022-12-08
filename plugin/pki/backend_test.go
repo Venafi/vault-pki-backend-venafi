@@ -3,7 +3,6 @@ package pki
 import (
 	"fmt"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 )
@@ -1126,10 +1125,8 @@ func TestZoneOverride(t *testing.T) {
 }
 
 func TestTPPparallelism(t *testing.T) {
-	mu := sync.Mutex{}
 	regDuration := time.Duration(24) * time.Hour
 	t.Run("execute 20 certificates with same CN", func(t *testing.T) {
-		t.Parallel()
 		integrationTestEnv, err := newIntegrationTestEnv()
 		if err != nil {
 			t.Fatal(err)
@@ -1143,10 +1140,8 @@ func TestTPPparallelism(t *testing.T) {
 				index := i
 				t.Run(fmt.Sprintf("executing cert number: %d", index), func(t *testing.T) {
 					t.Parallel()
-					integrationTestEnv.IssueCertificateAndSaveSerial(t, *data, venafiConfigToken)
-					mu.Lock()
-					certSerials = append(certSerials, integrationTestEnv.CertificateSerial)
-					mu.Unlock()
+					serialNumber := integrationTestEnv.IssueCertificateAndSaveSerial2(t, *data, venafiConfigToken)
+					certSerials = append(certSerials, serialNumber)
 				})
 			}
 		})
@@ -1181,10 +1176,8 @@ func TestTPPparallelism(t *testing.T) {
 					index := j
 					t.Run(fmt.Sprintf("executing cert number: %d and CN: %s", index, (*dataCertReq).cn), func(t *testing.T) {
 						t.Parallel()
-						integrationTestEnv.IssueCertificateAndSaveSerial(t, *dataCertReq, venafiConfigToken)
-						mu.Lock()
-						certSerials = append(certSerials, integrationTestEnv.CertificateSerial)
-						mu.Unlock()
+						serialNumber := integrationTestEnv.IssueCertificateAndSaveSerial2(t, *dataCertReq, venafiConfigToken)
+						certSerials = append(certSerials, serialNumber)
 					})
 				}
 			}

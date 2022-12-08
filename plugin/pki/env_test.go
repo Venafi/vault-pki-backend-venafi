@@ -677,6 +677,87 @@ func (e *testEnv) IssueCertificateAndSaveSerial(t *testing.T, data testData, con
 	e.CertId = resp.Data["certificate_uid"].(string)
 }
 
+func (e *testEnv) IssueCertificateAndSaveSerial2(t *testing.T, data testData, configString venafiConfigString) string {
+
+	var issueData map[string]interface{}
+
+	var altNames []string
+
+	if data.dnsNS != "" {
+		altNames = append(altNames, data.dnsNS)
+	}
+	if data.dnsEmail != "" {
+		altNames = append(altNames, data.dnsEmail)
+	}
+	if data.dnsIP != "" {
+		altNames = append(altNames, data.dnsIP)
+	}
+
+	if data.keyPassword != "" {
+		issueData = map[string]interface{}{
+			"common_name":        data.cn,
+			"alt_names":          strings.Join(altNames, ","),
+			"ip_sans":            []string{data.onlyIP},
+			"key_password":       data.keyPassword,
+			"private_key_format": "der",
+		}
+	} else {
+		issueData = map[string]interface{}{
+			"common_name":        data.cn,
+			"alt_names":          strings.Join(altNames, ","),
+			"ip_sans":            []string{data.onlyIP},
+			"private_key_format": "der",
+		}
+	}
+
+	if data.privateKeyFormat != "" {
+		issueData["private_key_format"] = data.privateKeyFormat
+	}
+
+	if data.customFields != nil {
+		issueData["custom_fields"] = strings.Join(data.customFields, ",")
+	}
+
+	resp, err := e.Backend.HandleRequest(e.Context, &logical.Request{
+		Operation: logical.UpdateOperation,
+		Path:      "issue/" + e.RoleName,
+		Storage:   e.Storage,
+		Data:      issueData,
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp != nil && resp.IsError() {
+		t.Fatalf("failed to issue certificate, %#v", resp.Data["error"])
+	}
+
+	if resp == nil {
+		t.Fatalf("should be on output on issue certificate, but response is nil: %#v", resp)
+	}
+
+	data.cert = resp.Data["certificate"].(string)
+	if data.keyPassword != "" {
+		encryptedKey := resp.Data["private_key"].(string)
+		b, _ := pem.Decode([]byte(encryptedKey))
+		b.Bytes, err = x509.DecryptPEMBlock(b, []byte(data.keyPassword))
+		if err != nil {
+			t.Fatal(err)
+		}
+		data.privateKey = string(pem.EncodeToMemory(b))
+	} else {
+		data.privateKey = resp.Data["private_key"].(string)
+	}
+
+	// it is needed to determine if we're checking cloud signed certificate in checkStandartCert
+	data.provider = configString
+
+	checkStandardCert(t, data)
+	serial := resp.Data["serial_number"].(string)
+	return serial
+}
+
 func (e *testEnv) IssueCertificateAndValidateTTL(t *testing.T, data testData) {
 
 	var issueData map[string]interface{}
