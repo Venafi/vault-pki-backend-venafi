@@ -196,18 +196,21 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, logicalRequest *logi
 	}
 
 	var certId string
-	if !role.NoStore && role.StoreBy == storeByHASHstring {
+	// we currently ignore workflow for signingCSR because we are not supporting "hash" mode for it. That applies to every
+	// "hash" related workflow.
+	// we don't validate ignoring the local storage because we are making the "hash" mode independent of the prevent-reissue feature
+	if !role.NoStore && role.StoreBy == storeByHASHstring && !signCSR {
 		certId = getCertIdHash(*reqData, cfg.Zone, b.Logger())
 	}
 
-	if !role.IgnoreLocalStorage && role.StorePrivateKey && (role.StoreBy == storeBySerialString || role.StoreBySerial) {
+	if !role.IgnoreLocalStorage && role.StorePrivateKey && role.StoreBy == storeBySerialString && !signCSR {
 		// if we don't receive a logic response, whenever is an error or the actual certificate found in storage
 		// means we need to issue a new one
 		logicalResp := preventReissue(b, ctx, logicalRequest, reqData, &connector, role, cfg.Zone)
 		if logicalResp != nil {
 			return logicalResp, nil
 		}
-	} else if !role.IgnoreLocalStorage && role.StorePrivateKey && role.StoreBy == storeByHASHstring {
+	} else if !role.IgnoreLocalStorage && role.StorePrivateKey && role.StoreBy == storeByHASHstring && !signCSR {
 		logicalResp := preventReissueLocal(b, ctx, logicalRequest, reqData, role, certId)
 		if logicalResp != nil {
 			return logicalResp, nil
@@ -216,9 +219,8 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, logicalRequest *logi
 
 	// if user is using store by hash
 	var cert *SyncedResponse
-	found := false
-
 	if !signCSR && role.StoreBy == storeByHASHstring {
+		found := false
 		b.Logger().Debug("locking process to update cache")
 		b.mux.Lock()
 		cert, found = cache[certId]
@@ -267,9 +269,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, logicalRequest *logi
 		cert.logResponse = logResp
 		cert.condition.Broadcast()
 		b.Logger().Debug("Removing cert from hash map")
-		if !signCSR {
-			delete(cache, certId)
-		}
+		delete(cache, certId)
 		b.mux.Unlock()
 	}
 
