@@ -579,6 +579,13 @@ func TestVAASpreventReissuance(t *testing.T) {
 		}
 		integrationTestEnv.PreventReissuanceCNwithNoCNandThreeSANDNS(t, data, venafiConfigCloud)
 	})
+}
+
+func TestVAASpreventReissuanceServiceGenerated(t *testing.T) {
+	t.Skip("skipping service generated tests since currently service is not stable")
+	t.Parallel()
+	// regular duration for testing
+	regDuration := time.Duration(24) * time.Hour
 	// Service generated CSR
 	// CASE: should be the SAME - same CN and SAN
 	t.Run("Service Generated CSR - VaaS enroll same certificate and prevent-reissue", func(t *testing.T) {
@@ -608,7 +615,7 @@ func TestVAASpreventReissuance(t *testing.T) {
 			integrationTestEnv.PreventReissuanceCNwithExtraSANDNS(t, data, venafiConfigCloud)
 		})
 	// CASE: should be different - same CN and missing 1 SAN of 3
-	t.Skip("Currently we skip this scenario as VaaS currently is randomly failing if we burst requests for service generated certificates")
+	//t.Skip("Currently we skip this scenario as VaaS currently is randomly failing if we burst requests for service generated certificates")
 	t.Run("Service Generated CSR - VaaS second enroll certificate and removing one SAN DNS from list and should not prevent-reissue",
 		func(t *testing.T) {
 			t.Parallel()
@@ -1052,6 +1059,13 @@ func TestVAASpreventLocalReissuance(t *testing.T) {
 		data := testData{minCertTimeLeft: regDuration}
 		integrationTestEnv.PreventReissuanceLocalCNwithNoCNandThreeSANDNS(t, data, venafiConfigCloud)
 	})
+}
+
+func TestVAASpreventLocalReissuanceServiceGenerated(t *testing.T) {
+	t.Skip("skipping service generated tests since currently service is not stable")
+	t.Parallel()
+	// regular duration for testing
+	regDuration := time.Duration(24) * time.Hour
 	// Service generated CSR
 	// CASE: should be the SAME - same CN and SAN
 	t.Run("Service Generated CSR - VaaS enroll same certificate and prevent-reissue", func(t *testing.T) {
