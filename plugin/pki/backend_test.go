@@ -468,12 +468,10 @@ func TestTPPpreventReissuance(t *testing.T) {
 }
 
 func TestVAASpreventReissuance(t *testing.T) {
-	t.Parallel()
 	// regular duration for testing
 	regDuration := time.Duration(24) * time.Hour
 	// CASE: should be the SAME - same CN and SAN
 	t.Run("VaaS enroll same certificate and prevent-reissue", func(t *testing.T) {
-		t.Parallel()
 		integrationTestEnv, err := newIntegrationTestEnv()
 		if err != nil {
 			t.Fatal(err)
@@ -485,7 +483,6 @@ func TestVAASpreventReissuance(t *testing.T) {
 	})
 	// CASE: should be different - same CN but 1 additional SAN
 	t.Run("VaaS second enroll certificate with extra SAN DNS and should not prevent-reissue", func(t *testing.T) {
-		t.Parallel()
 		integrationTestEnv, err := newIntegrationTestEnv()
 		if err != nil {
 			t.Fatal(err)
@@ -497,7 +494,6 @@ func TestVAASpreventReissuance(t *testing.T) {
 	})
 	// CASE: should be different - same CN and missing 1 SAN of 3
 	t.Run("VaaS second enroll certificate and removing one SAN DNS from list and should not prevent-reissue", func(t *testing.T) {
-		t.Parallel()
 		integrationTestEnv, err := newIntegrationTestEnv()
 		if err != nil {
 			t.Fatal(err)
@@ -509,7 +505,6 @@ func TestVAASpreventReissuance(t *testing.T) {
 	})
 	// CASE: should be the SAME - same CN and no SANs
 	t.Run("VaaS certificate with CN only and no SAN DNS second enroll should be prevented", func(t *testing.T) {
-		t.Parallel()
 		integrationTestEnv, err := newIntegrationTestEnv()
 		if err != nil {
 			t.Fatal(err)
@@ -521,7 +516,6 @@ func TestVAASpreventReissuance(t *testing.T) {
 	})
 	t.Run("VaaS second enroll same certificate with TTL that is not sufficient for set valid time and should not prevent-reissue",
 		func(t *testing.T) {
-			t.Parallel()
 			integrationTestEnv, err := newIntegrationTestEnv()
 			if err != nil {
 				t.Fatal(err)
@@ -534,7 +528,6 @@ func TestVAASpreventReissuance(t *testing.T) {
 		})
 	// CASE: should be the SAME - same CN and SAN and just barely sufficiently valid
 	t.Run("VaaS second enroll same certificate wit TTL with barely sufficient valid time and should prevent-reissue", func(t *testing.T) {
-		t.Parallel()
 		integrationTestEnv, err := newIntegrationTestEnv()
 		if err != nil {
 			t.Fatal(err)
@@ -546,7 +539,6 @@ func TestVAASpreventReissuance(t *testing.T) {
 	})
 	// CASE: should be the SAME - same CN and same 3 SANs
 	t.Run("VaaS second enroll certificate with three SAN DNS and should prevent-reissue", func(t *testing.T) {
-		t.Parallel()
 		integrationTestEnv, err := newIntegrationTestEnv()
 		if err != nil {
 			t.Fatal(err)
@@ -558,7 +550,6 @@ func TestVAASpreventReissuance(t *testing.T) {
 	})
 	// CASE: should be different - different CN and same 3 SANs
 	t.Run("VaaS second enroll certificate with three SAN DNS but different CN and should not prevent-reissue", func(t *testing.T) {
-		t.Parallel()
 		integrationTestEnv, err := newIntegrationTestEnv()
 		if err != nil {
 			t.Fatal(err)
@@ -570,7 +561,6 @@ func TestVAASpreventReissuance(t *testing.T) {
 	})
 	// CASE: should be the SAME - no CN and same 3 SANs
 	t.Run("VaaS second enroll certificate with three SAN DNS but no CN and should prevent-reissue", func(t *testing.T) {
-		t.Parallel()
 		integrationTestEnv, err := newIntegrationTestEnv()
 		if err != nil {
 			t.Fatal(err)
@@ -969,7 +959,6 @@ func TestVAASpreventLocalReissuance(t *testing.T) {
 	regDuration := time.Duration(24) * time.Hour
 	// CASE: should be the SAME - same CN and SAN
 	t.Run("VaaS enroll same certificate and prevent-reissue", func(t *testing.T) {
-		t.Parallel()
 		integrationTestEnv, err := newIntegrationTestEnv()
 		if err != nil {
 			t.Fatal(err)
@@ -979,7 +968,6 @@ func TestVAASpreventLocalReissuance(t *testing.T) {
 	})
 	// CASE: should be different - same CN but 1 additional SAN
 	t.Run("VaaS second enroll certificate with extra SAN DNS and should not prevent-reissue", func(t *testing.T) {
-		t.Parallel()
 		integrationTestEnv, err := newIntegrationTestEnv()
 		if err != nil {
 			t.Fatal(err)
@@ -989,7 +977,6 @@ func TestVAASpreventLocalReissuance(t *testing.T) {
 	})
 	// CASE: should be different - same CN and missing 1 SAN of 3
 	t.Run("VaaS second enroll certificate and removing one SAN DNS from list and should not prevent-reissue", func(t *testing.T) {
-		t.Parallel()
 		integrationTestEnv, err := newIntegrationTestEnv()
 		if err != nil {
 			t.Fatal(err)
@@ -999,7 +986,6 @@ func TestVAASpreventLocalReissuance(t *testing.T) {
 	})
 	// CASE: should be the SAME - same CN and no SANs
 	t.Run("VaaS certificate with CN only and no SAN DNS second enroll should be prevented", func(t *testing.T) {
-		t.Parallel()
 		integrationTestEnv, err := newIntegrationTestEnv()
 		if err != nil {
 			t.Fatal(err)
@@ -1009,7 +995,6 @@ func TestVAASpreventLocalReissuance(t *testing.T) {
 	})
 	t.Run("VaaS second enroll same certificate with TTL that is not sufficient for set valid time and should not prevent-reissue",
 		func(t *testing.T) {
-			t.Parallel()
 			integrationTestEnv, err := newIntegrationTestEnv()
 			if err != nil {
 				t.Fatal(err)
@@ -1022,7 +1007,6 @@ func TestVAASpreventLocalReissuance(t *testing.T) {
 		})
 	// CASE: should be the SAME - same CN and SAN and just barely sufficiently valid
 	t.Run("VaaS second enroll same certificate wit TTL with barely sufficient valid time and should prevent-reissue", func(t *testing.T) {
-		t.Parallel()
 		integrationTestEnv, err := newIntegrationTestEnv()
 		if err != nil {
 			t.Fatal(err)
@@ -1032,7 +1016,6 @@ func TestVAASpreventLocalReissuance(t *testing.T) {
 	})
 	// CASE: should be the SAME - same CN and same 3 SANs
 	t.Run("VaaS second enroll certificate with three SAN DNS and should prevent-reissue", func(t *testing.T) {
-		t.Parallel()
 		integrationTestEnv, err := newIntegrationTestEnv()
 		if err != nil {
 			t.Fatal(err)
@@ -1042,7 +1025,6 @@ func TestVAASpreventLocalReissuance(t *testing.T) {
 	})
 	// CASE: should be different - different CN and same 3 SANs
 	t.Run("VaaS second enroll certificate with three SAN DNS but different CN and should not prevent-reissue", func(t *testing.T) {
-		t.Parallel()
 		integrationTestEnv, err := newIntegrationTestEnv()
 		if err != nil {
 			t.Fatal(err)
@@ -1052,7 +1034,6 @@ func TestVAASpreventLocalReissuance(t *testing.T) {
 	})
 	// CASE: should be the SAME - no CN and same 3 SANs
 	t.Run("VaaS second enroll certificate with three SAN DNS but no CN and should prevent-reissue", func(t *testing.T) {
-		t.Parallel()
 		integrationTestEnv, err := newIntegrationTestEnv()
 		if err != nil {
 			t.Fatal(err)
