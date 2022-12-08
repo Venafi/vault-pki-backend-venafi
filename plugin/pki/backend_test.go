@@ -9,7 +9,6 @@ import (
 )
 
 func TestFakeRolesConfigurations(t *testing.T) {
-	t.Parallel()
 	integrationTestEnv, err := newIntegrationTestEnv()
 	if err != nil {
 		t.Fatal(err)
@@ -20,7 +19,6 @@ func TestFakeRolesConfigurations(t *testing.T) {
 }
 
 func TestFakeVenafiSecretsConfigurations(t *testing.T) {
-	t.Parallel()
 	integrationTestEnv, err := newIntegrationTestEnv()
 	if err != nil {
 		t.Fatal(err)
@@ -50,7 +48,6 @@ func TestFakeVenafiSecretsConfigurations(t *testing.T) {
 
 //Testing all endpoints with fake vcert CA
 func TestFakeEndpoints(t *testing.T) {
-	t.Parallel()
 	integrationTestEnv, err := newIntegrationTestEnv()
 	if err != nil {
 		t.Fatal(err)
@@ -71,7 +68,6 @@ func TestFakeEndpoints(t *testing.T) {
 
 //testing store_by no_store and deprecated store_by_cn and store_by_serial options
 func TestFakeStoreByOptions(t *testing.T) {
-	t.Parallel()
 	integrationTestEnv, err := newIntegrationTestEnv()
 	if err != nil {
 		t.Fatal(err)
@@ -129,7 +125,6 @@ func TestFakeStoreByOptions(t *testing.T) {
 
 //Testing Venafi Platform integration
 func TestTPPIntegration(t *testing.T) {
-	t.Parallel()
 	integrationTestEnv, err := newIntegrationTestEnv()
 	if err != nil {
 		t.Fatal(err)
@@ -144,7 +139,6 @@ func TestTPPIntegration(t *testing.T) {
 
 //Testing Venafi Cloud integration
 func TestCloudIntegration(t *testing.T) {
-	t.Parallel()
 
 	integrationTestEnv, err := newIntegrationTestEnv()
 	if err != nil {
@@ -161,7 +155,6 @@ func TestCloudIntegration(t *testing.T) {
 
 //Testing Venafi TPP Token integration
 func TestTokenIntegration(t *testing.T) {
-	t.Parallel()
 
 	integrationTestEnv, err := newIntegrationTestEnv()
 	if err != nil {
@@ -183,7 +176,6 @@ func TestTokenIntegration(t *testing.T) {
 }
 
 func TestZoneOverride(t *testing.T) {
-	t.Parallel()
 	integrationTestEnv, err := newIntegrationTestEnv()
 	if err != nil {
 		t.Fatal(err)
@@ -194,7 +186,6 @@ func TestZoneOverride(t *testing.T) {
 }
 
 func TestTPPpreventReissuance(t *testing.T) {
-	t.Parallel()
 	// regular duration for testing
 	regDuration := time.Duration(24) * time.Hour
 	// CASE: should be the SAME - same CN and SAN
@@ -583,7 +574,6 @@ func TestVAASpreventReissuance(t *testing.T) {
 
 func TestVAASpreventReissuanceServiceGenerated(t *testing.T) {
 	t.Skip("skipping service generated tests since currently service is not stable")
-	t.Parallel()
 	// regular duration for testing
 	regDuration := time.Duration(24) * time.Hour
 	// Service generated CSR
@@ -717,7 +707,6 @@ func TestVAASpreventReissuanceServiceGenerated(t *testing.T) {
 }
 
 func TestTPPpreventLocal(t *testing.T) {
-	t.Parallel()
 	// regular duration for testing
 	regDuration := time.Duration(168) * time.Hour // one week
 	// CASE: should be the SAME - same CN and SAN
@@ -963,7 +952,6 @@ func TestTPPpreventLocal(t *testing.T) {
 }
 
 func TestVAASpreventLocalReissuance(t *testing.T) {
-	t.Parallel()
 	// regular duration for testing
 	regDuration := time.Duration(24) * time.Hour
 	// CASE: should be the SAME - same CN and SAN
@@ -1079,7 +1067,7 @@ func TestVAASpreventLocalReissuance(t *testing.T) {
 
 func TestVAASpreventLocalReissuanceServiceGenerated(t *testing.T) {
 	t.Skip("skipping service generated tests since currently service is not stable")
-	t.Parallel()
+
 	// regular duration for testing
 	regDuration := time.Duration(24) * time.Hour
 	// Service generated CSR
@@ -1241,7 +1229,6 @@ func TestVAASpreventLocalReissuanceServiceGenerated(t *testing.T) {
 
 func TestTPPparallelism(t *testing.T) {
 	mu := sync.Mutex{}
-	t.Parallel()
 	regDuration := time.Duration(24) * time.Hour
 	t.Run("execute 20 certificates with same CN", func(t *testing.T) {
 		t.Parallel()
@@ -1275,7 +1262,6 @@ func TestTPPparallelism(t *testing.T) {
 	})
 
 	t.Run("execute 50 certificates with some of them having different CN", func(t *testing.T) {
-		t.Parallel()
 		integrationTestEnv, err := newIntegrationTestEnv()
 		if err != nil {
 			t.Fatal(err)
@@ -1317,7 +1303,6 @@ func TestTPPparallelism(t *testing.T) {
 
 func TestVAASparallelism(t *testing.T) {
 	mu := sync.Mutex{}
-	t.Parallel()
 	regDuration := time.Duration(24) * time.Hour
 	t.Run("execute 20 certificates with same CN", func(t *testing.T) {
 		t.Parallel()
@@ -1351,7 +1336,6 @@ func TestVAASparallelism(t *testing.T) {
 	})
 
 	t.Run("execute 50 certificates with some of them having different CN", func(t *testing.T) {
-		t.Parallel()
 		integrationTestEnv, err := newIntegrationTestEnv()
 		if err != nil {
 			t.Fatal(err)
