@@ -3,6 +3,7 @@ package pki
 import (
 	"fmt"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -1224,6 +1225,7 @@ func TestVAASpreventLocalReissuanceServiceGenerated(t *testing.T) {
 }
 
 func TestTPPparallelism(t *testing.T) {
+	mu := sync.Mutex{}
 	t.Parallel()
 	regDuration := time.Duration(24) * time.Hour
 	t.Run("execute 20 certificates with same CN", func(t *testing.T) {
@@ -1242,7 +1244,9 @@ func TestTPPparallelism(t *testing.T) {
 				t.Run(fmt.Sprintf("executing cert number: %d", index), func(t *testing.T) {
 					t.Parallel()
 					integrationTestEnv.IssueCertificateAndSaveSerial(t, *data, venafiConfigToken)
+					mu.Lock()
 					certSerials = append(certSerials, integrationTestEnv.CertificateSerial)
+					mu.Unlock()
 				})
 			}
 		})
@@ -1279,7 +1283,9 @@ func TestTPPparallelism(t *testing.T) {
 					t.Run(fmt.Sprintf("executing cert number: %d and CN: %s", index, (*dataCertReq).cn), func(t *testing.T) {
 						t.Parallel()
 						integrationTestEnv.IssueCertificateAndSaveSerial(t, *dataCertReq, venafiConfigToken)
+						mu.Lock()
 						certSerials = append(certSerials, integrationTestEnv.CertificateSerial)
+						mu.Unlock()
 					})
 				}
 			}
@@ -1295,6 +1301,7 @@ func TestTPPparallelism(t *testing.T) {
 }
 
 func TestVAASparallelism(t *testing.T) {
+	mu := sync.Mutex{}
 	t.Parallel()
 	regDuration := time.Duration(24) * time.Hour
 	t.Run("execute 20 certificates with same CN", func(t *testing.T) {
@@ -1313,7 +1320,9 @@ func TestVAASparallelism(t *testing.T) {
 				t.Run(fmt.Sprintf("executing cert number: %d", index), func(t *testing.T) {
 					t.Parallel()
 					integrationTestEnv.IssueCertificateAndSaveSerial(t, *data, venafiConfigCloud)
+					mu.Lock()
 					certSerials = append(certSerials, integrationTestEnv.CertificateSerial)
+					mu.Unlock()
 				})
 			}
 		})
@@ -1350,7 +1359,9 @@ func TestVAASparallelism(t *testing.T) {
 					t.Run(fmt.Sprintf("executing cert number: %d and CN: %s", index, (*dataCertReq).cn), func(t *testing.T) {
 						t.Parallel()
 						integrationTestEnv.IssueCertificateAndSaveSerial(t, *dataCertReq, venafiConfigCloud)
+						mu.Lock()
 						certSerials = append(certSerials, integrationTestEnv.CertificateSerial)
+						mu.Unlock()
 					})
 				}
 			}
