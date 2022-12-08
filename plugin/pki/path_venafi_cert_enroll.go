@@ -225,10 +225,10 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, logicalRequest *logi
 		b.mux.Lock()
 		cert, found = cache[certId]
 		if found {
-			b.Logger().Debug("thread entered in waiting state")
+			b.Logger().Debug(fmt.Sprintf("Request is waiting on previous request on certificate to be issued for hash %v", certId))
 			cert.condition.Wait()
 			b.mux.Unlock()
-			b.Logger().Debug("thread came out of wait")
+			b.Logger().Debug(fmt.Sprintf("Returning the certificate for hash %v retrieved from previous request.", certId))
 			return cert.logResponse, nil
 		}
 		newCond := sync.NewCond(&b.mux)
@@ -265,7 +265,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, logicalRequest *logi
 	if !signCSR && role.StoreBy == storeByHASHstring {
 		logResp.AddWarning("Read access to this endpoint should be controlled via ACLs as it will return the connection private key as it is.")
 		b.mux.Lock()
-		b.Logger().Debug("Launching broadcast")
+		b.Logger().Debug(fmt.Sprintf("Launching broadcast to any waiting request for certificate hash %v", certId))
 		cert.logResponse = logResp
 		cert.condition.Broadcast()
 		b.Logger().Debug("Removing cert from hash map")
@@ -399,9 +399,9 @@ func runningEnrollRequest(b *backend, data *framework.FieldData, certReq *certif
 			if err != nil {
 				return nil, err
 			}
-		} else {
-			return nil, err
+			return pcc, nil
 		}
+		return nil, err
 	}
 	return pcc, nil
 }
