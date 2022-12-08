@@ -58,7 +58,6 @@ type testData struct {
 	privateKeyFormat     string
 	minCertTimeLeft      time.Duration
 	ignoreLocalStorage   bool
-	timeout              time.Duration
 }
 
 const (
@@ -302,10 +301,6 @@ func (e *testEnv) writeRoleToBackendWithData(t *testing.T, configString venafiCo
 
 	if &data.serviceGeneratedCert != nil {
 		roleData["service_generated_cert"] = data.serviceGeneratedCert
-	}
-
-	if &data.timeout != nil {
-		roleData["ServerTimeout"] = data.timeout
 	}
 
 	resp, err := e.Backend.HandleRequest(e.Context, &logical.Request{
@@ -677,88 +672,6 @@ func (e *testEnv) IssueCertificateAndSaveSerial(t *testing.T, data testData, con
 	data.provider = configString
 
 	checkStandardCert(t, data)
-	// save certificate serial for the next test
-	e.CertificateSerial = resp.Data["serial_number"].(string)
-	e.CertId = resp.Data["certificate_uid"].(string)
-}
-
-func (e *testEnv) IssueCertificateAndSaveSerialParallel(t *testing.T, data testData, configString venafiConfigString) {
-
-	var issueData map[string]interface{}
-
-	var altNames []string
-
-	if data.dnsNS != "" {
-		altNames = append(altNames, data.dnsNS)
-	}
-	if data.dnsEmail != "" {
-		altNames = append(altNames, data.dnsEmail)
-	}
-	if data.dnsIP != "" {
-		altNames = append(altNames, data.dnsIP)
-	}
-
-	if data.keyPassword != "" {
-		issueData = map[string]interface{}{
-			"common_name":        data.cn,
-			"alt_names":          strings.Join(altNames, ","),
-			"ip_sans":            []string{data.onlyIP},
-			"key_password":       data.keyPassword,
-			"private_key_format": "der",
-		}
-	} else {
-		issueData = map[string]interface{}{
-			"common_name":        data.cn,
-			"alt_names":          strings.Join(altNames, ","),
-			"ip_sans":            []string{data.onlyIP},
-			"private_key_format": "der",
-		}
-	}
-
-	if data.privateKeyFormat != "" {
-		issueData["private_key_format"] = data.privateKeyFormat
-	}
-
-	if data.customFields != nil {
-		issueData["custom_fields"] = strings.Join(data.customFields, ",")
-	}
-
-	resp, err := e.Backend.HandleRequest(e.Context, &logical.Request{
-		Operation: logical.UpdateOperation,
-		Path:      "issue/" + e.RoleName,
-		Storage:   e.Storage,
-		Data:      issueData,
-	})
-
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if resp != nil && resp.IsError() {
-		t.Fatalf("failed to issue certificate, %#v", resp.Data["error"])
-	}
-
-	if resp == nil {
-		t.Fatalf("should be on output on issue certificate, but response is nil: %#v", resp)
-	}
-
-	data.cert = resp.Data["certificate"].(string)
-	if data.keyPassword != "" {
-		encryptedKey := resp.Data["private_key"].(string)
-		b, _ := pem.Decode([]byte(encryptedKey))
-		b.Bytes, err = x509.DecryptPEMBlock(b, []byte(data.keyPassword))
-		if err != nil {
-			t.Fatal(err)
-		}
-		data.privateKey = string(pem.EncodeToMemory(b))
-	} else {
-		data.privateKey = resp.Data["private_key"].(string)
-	}
-
-	// it is needed to determine if we're checking cloud signed certificate in checkStandartCert
-	data.provider = configString
-
-	checkParallelCert(t, data)
 	// save certificate serial for the next test
 	e.CertificateSerial = resp.Data["serial_number"].(string)
 	e.CertId = resp.Data["certificate_uid"].(string)
@@ -2184,30 +2097,6 @@ func (e *testEnv) PreventReissuanceCNwithNoCNandThreeSANDNS(t *testing.T, data t
 }
 
 func checkStandardCert(t *testing.T, data testData) {
-
-	parsedCertificate := checkingCommonCert(t, data)
-	// since data.dnsNS is a string as is being copying the behaviour
-	// of the entry data, then it means it should have a string with values
-	// separated by commas
-	var wantDNSNames []string
-	if data.dnsNS != "" {
-		wantDNSNames = strings.Split(data.dnsNS, ",")
-	}
-
-	if data.dnsIP != "" {
-		wantDNSNames = append(wantDNSNames, data.dnsIP)
-	}
-
-	// since we allow setting only the CN (although the CN will be added to the SANs) during the request and we intend to
-	// validate data only passed during the request, we make sure is not empty before passing the validation
-	if len(wantDNSNames) > 0 {
-		if !areDNSNamesCorrect(parsedCertificate.DNSNames, []string{data.cn}, wantDNSNames) {
-			t.Fatalf("Certificate Subject Alternative Names %v doesn't match to requested %v", parsedCertificate.DNSNames, wantDNSNames)
-		}
-	}
-}
-
-func checkingCommonCert(t *testing.T, data testData) *x509.Certificate {
 	var err error
 	log.Println("Testing certificate:", data.cert)
 	certPEMBlock, _ := pem.Decode([]byte(data.cert))
@@ -2241,12 +2130,32 @@ func checkingCommonCert(t *testing.T, data testData) *x509.Certificate {
 		t.Fatalf("Certificate common name expected to be %s but actualy it is %s", parsedCertificate.Subject.CommonName, data.cn)
 	}
 
+	// since data.dnsNS is a string as is being copying the behaviour
+	// of the entry data, then it means it should have a string with values
+	// separated by commas
+	var wantDNSNames []string
+	if data.dnsNS != "" {
+		wantDNSNames = strings.Split(data.dnsNS, ",")
+	}
+
+	if data.dnsIP != "" {
+		wantDNSNames = append(wantDNSNames, data.dnsIP)
+	}
+
 	ips := make([]net.IP, 0, 2)
 	if data.onlyIP != "" {
 		ips = append(ips, net.ParseIP(data.onlyIP))
 	}
 	if data.dnsIP != "" {
 		ips = append(ips, net.ParseIP(data.dnsIP))
+	}
+
+	// since we allow setting only the CN (although the CN will be added to the SANs) during the request and we intend to
+	// validate data only passed during the request, we make sure is not empty before passing the validation
+	if len(wantDNSNames) > 0 {
+		if !areDNSNamesCorrect(parsedCertificate.DNSNames, []string{data.cn}, wantDNSNames) {
+			t.Fatalf("Certificate Subject Alternative Names %v doesn't match to requested %v", parsedCertificate.DNSNames, wantDNSNames)
+		}
 	}
 
 	if !SameIpSlice(ips, parsedCertificate.IPAddresses) {
@@ -2259,12 +2168,7 @@ func checkingCommonCert(t *testing.T, data testData) *x509.Certificate {
 			t.Fatalf("Certificate emails %v doesn't match requested %v", parsedCertificate.EmailAddresses, wantEmail)
 		}
 	}
-	return parsedCertificate
-}
 
-func checkParallelCert(t *testing.T, data testData) *x509.Certificate {
-	parsedCertificate := checkingCommonCert(t, data)
-	return parsedCertificate
 }
 
 func (e *testEnv) PreventReissuanceLocal(t *testing.T, data testData, config venafiConfigString) {
@@ -2481,37 +2385,6 @@ func (e *testEnv) PreventReissuanceLocalCNwithNoCNandThreeSANDNS(t *testing.T, d
 	if currentCertificateSerial != nextCertificateSerial {
 		t.Fatal("The serials are different")
 	}
-}
-
-func (e *testEnv) TPPparallelism(t *testing.T, data *testData, config venafiConfigString) {
-
-	randString := e.TestRandString
-	domain := "vfidev.com"
-	data.cn = randString + "." + domain
-	commonName := data.cn
-	data.dnsNS = "maria-" + commonName + "," + "rose-" + commonName + "," + "bob-" + commonName + "," + "bob-" + commonName + "," + "shina-" + commonName
-	data.storeBy = "hash"
-	data.storePkey = true
-
-	e.writeVenafiToBackend(t, config)
-	e.writeRoleToBackendWithData(t, config, *data)
-
-}
-
-func (e *testEnv) VAASparallelism(t *testing.T, data *testData, config venafiConfigString) {
-
-	randString := e.TestRandString
-	domain := "vfidev.com"
-	data.cn = randString + "." + domain
-	commonName := data.cn
-	data.dnsNS = "maria-" + commonName + "," + "rose-" + commonName + "," + "bob-" + commonName + "," + "bob-" + commonName + "," + "shina-" + commonName
-	data.storeBy = "hash"
-	data.timeout = 180 * time.Second
-	data.storePkey = true
-
-	e.writeVenafiToBackend(t, config)
-	e.writeRoleToBackendWithData(t, config, *data)
-
 }
 
 func newIntegrationTestEnv() (*testEnv, error) {
