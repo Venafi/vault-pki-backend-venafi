@@ -2,11 +2,14 @@ package pki
 
 import (
 	"fmt"
-	"strings"
 	"sync"
 	"testing"
 	"time"
 )
+
+type Set struct {
+	items map[interface{}]struct{}
+}
 
 func TestFakeRolesConfigurations(t *testing.T) {
 	integrationTestEnv, err := newIntegrationTestEnv()
@@ -1136,22 +1139,19 @@ func TestTPPparallelism(t *testing.T) {
 		data := &testData{minCertTimeLeft: regDuration}
 		integrationTestEnv.SetupParallelismEnv(t, data, venafiConfigToken)
 		count := 20
-		var certSerials []string
+		var certSerials = map[string]string{}
 		t.Run("executing", func(t *testing.T) {
 			for i := 1; i <= count; i++ {
 				index := i
 				t.Run(fmt.Sprintf("executing cert number: %d", index), func(t *testing.T) {
 					t.Parallel()
-					serialNumber := integrationTestEnv.IssueCertificateAndSaveSerial2(t, *data, venafiConfigToken)
+					serialNumber := integrationTestEnv.IssueCertificateAndSaveSerialParallelism(t, *data, venafiConfigToken)
 					mu.Lock()
-					certSerials = append(certSerials, serialNumber)
+					certSerials[serialNumber] = serialNumber
 					mu.Unlock()
 				})
 			}
 		})
-		removeDuplicateStr(&certSerials)
-		output := "'" + strings.Join(certSerials, "',\n'") + `'`
-		t.Log(fmt.Sprintf("certificate serials:\n%s", output))
 		// If the amount of distinct serials is different than the amount of certificates names, means we got
 		if len(certSerials) != 1 {
 			t.Fatal("The distinct amount of certificate serials is different that the distinct certificates we requested")
@@ -1167,7 +1167,7 @@ func TestTPPparallelism(t *testing.T) {
 		integrationTestEnv.SetupParallelismEnv(t, data, venafiConfigToken)
 		count := 10
 		countCertNames := 5
-		var certSerials []string
+		var certSerials = map[string]string{}
 		t.Run("executing", func(t *testing.T) {
 			for i := 1; i <= countCertNames; i++ {
 				var dataCertReq *testData
@@ -1180,17 +1180,14 @@ func TestTPPparallelism(t *testing.T) {
 					index := j
 					t.Run(fmt.Sprintf("executing cert number: %d and CN: %s", index, (*dataCertReq).cn), func(t *testing.T) {
 						t.Parallel()
-						serialNumber := integrationTestEnv.IssueCertificateAndSaveSerial2(t, *dataCertReq, venafiConfigToken)
+						serialNumber := integrationTestEnv.IssueCertificateAndSaveSerialParallelism(t, *dataCertReq, venafiConfigToken)
 						mu.Lock()
-						certSerials = append(certSerials, serialNumber)
+						certSerials[serialNumber] = serialNumber
 						mu.Unlock()
 					})
 				}
 			}
 		})
-		removeDuplicateStr(&certSerials)
-		output := "'" + strings.Join(certSerials, "',\n'") + `'`
-		t.Log(fmt.Sprintf("certificate serials:\n%s", output))
 		// If the amount of distinct serials is different than the amount of certificates names, means we got
 		if len(certSerials) != countCertNames {
 			t.Fatal("The distinct amount of certificate serials is different that the distinct certificates we requested")
@@ -1209,23 +1206,20 @@ func TestVAASparallelism(t *testing.T) {
 		data := &testData{minCertTimeLeft: regDuration}
 		integrationTestEnv.SetupParallelismEnv(t, data, venafiConfigCloud)
 		count := 20
-		var certSerials []string
+		var certSerials = map[string]string{}
 		t.Run("executing", func(t *testing.T) {
 			for i := 1; i <= count; i++ {
 				index := i
 				t.Run(fmt.Sprintf("executing cert number: %d", index), func(t *testing.T) {
 					t.Parallel()
-					serialNumber := integrationTestEnv.IssueCertificateAndSaveSerial2(t, *data, venafiConfigCloud)
+					serialNumber := integrationTestEnv.IssueCertificateAndSaveSerialParallelism(t, *data, venafiConfigCloud)
 					mu.Lock()
-					certSerials = append(certSerials, serialNumber)
+					//certSerials = append(certSerials, serialNumber)
+					certSerials[serialNumber] = serialNumber
 					mu.Unlock()
 				})
 			}
 		})
-		removeDuplicateStr(&certSerials)
-		output := "'" + strings.Join(certSerials, "',\n'") + `'`
-		t.Log(fmt.Sprintf("certificate serials:\n%s", output))
-		// If the amount of distinct serials is different than the amount of certificates names, means we got
 		if len(certSerials) != 1 {
 			t.Fatal("The distinct amount of certificate serials is different that the distinct certificates we requested")
 		}
@@ -1240,7 +1234,7 @@ func TestVAASparallelism(t *testing.T) {
 		integrationTestEnv.SetupParallelismEnv(t, data, venafiConfigToken)
 		count := 10
 		countCertNames := 5
-		var certSerials []string
+		var certSerials = map[string]string{}
 		t.Run("executing", func(t *testing.T) {
 			for i := 1; i <= countCertNames; i++ {
 				var dataCertReq *testData
@@ -1253,17 +1247,14 @@ func TestVAASparallelism(t *testing.T) {
 					index := j
 					t.Run(fmt.Sprintf("executing cert number: %d and CN: %s", index, (*dataCertReq).cn), func(t *testing.T) {
 						t.Parallel()
-						serialNumber := integrationTestEnv.IssueCertificateAndSaveSerial2(t, *dataCertReq, venafiConfigCloud)
+						serialNumber := integrationTestEnv.IssueCertificateAndSaveSerialParallelism(t, *dataCertReq, venafiConfigCloud)
 						mu.Lock()
-						certSerials = append(certSerials, serialNumber)
+						certSerials[serialNumber] = serialNumber
 						mu.Unlock()
 					})
 				}
 			}
 		})
-		removeDuplicateStr(&certSerials)
-		output := "'" + strings.Join(certSerials, "',\n'") + `'`
-		t.Log(fmt.Sprintf("certificate serials:\n%s", output))
 		// If the amount of distinct serials is different than the amount of certificates names, means we got
 		if len(certSerials) != countCertNames {
 			t.Fatal("The distinct amount of certificate serials is different that the distinct certificates we requested")

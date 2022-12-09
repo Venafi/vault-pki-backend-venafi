@@ -677,8 +677,8 @@ func (e *testEnv) IssueCertificateAndSaveSerial(t *testing.T, data testData, con
 	e.CertId = resp.Data["certificate_uid"].(string)
 }
 
-func (e *testEnv) IssueCertificateAndSaveSerial2(t *testing.T, data testData, configString venafiConfigString) string {
-
+func (e *testEnv) IssueCertificateAndSaveSerialParallelism(t *testing.T, data testData, configString venafiConfigString) string {
+	// TODO: We need to refactor original function "IssueCertificateAndSaveSerial" to return serial and make according changes to dependant test
 	var issueData map[string]interface{}
 
 	var altNames []string
