@@ -175,13 +175,6 @@ func (b *backend) pathVenafiSign(ctx context.Context, req *logical.Request, data
 
 func (b *backend) pathVenafiCertObtain(ctx context.Context, logicalRequest *logical.Request, data *framework.FieldData, role *roleEntry, signCSR bool) (
 	*logical.Response, error) {
-	// When utilizing performance standbys in Vault Enterprise, this forces the call to be redirected to the primary since
-	// a storage call is made after the API calls to issue the certificate.  This prevents the certificate from being
-	// issued twice in this scenario.
-	if !role.NoStore && b.System().ReplicationState().
-		HasState(consts.ReplicationPerformanceStandby|consts.ReplicationPerformanceSecondary) {
-		return nil, logical.ErrReadOnly
-	}
 
 	b.Logger().Debug("Creating Venafi client:")
 	// here we already filter proper "Zone" to later use with cfg.Zone
@@ -215,6 +208,14 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, logicalRequest *logi
 		if logicalResp != nil {
 			return logicalResp, nil
 		}
+	}
+
+	// When utilizing performance standbys in Vault Enterprise, this forces the call to be redirected to the primary since
+	// a storage call is made after the API calls to issue the certificate.  This prevents the certificate from being
+	// issued twice in this scenario.
+	if !role.NoStore && b.System().ReplicationState().
+		HasState(consts.ReplicationPerformanceStandby|consts.ReplicationPerformanceSecondary) {
+		return nil, logical.ErrReadOnly
 	}
 
 	// if user is using store by hash
