@@ -1231,7 +1231,7 @@ func TestVAASparallelism(t *testing.T) {
 			t.Fatal(err)
 		}
 		data := &testData{minCertTimeLeft: regDuration}
-		integrationTestEnv.SetupParallelismEnv(t, data, venafiConfigToken)
+		integrationTestEnv.SetupParallelismEnv(t, data, venafiConfigCloud)
 		count := 10
 		countCertNames := 5
 		var certSerials = map[string]string{}

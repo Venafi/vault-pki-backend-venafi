@@ -569,15 +569,15 @@ func loadCertificateFromStorage(b *backend, ctx context.Context, req *logical.Re
 	if entry == nil {
 		return nil, vpkierror.CertEntryNotFound{EntryPath: path}
 	}
-	//var cert VenafiCert
+
 	b.Logger().Debug("Getting venafi certificate")
 
 	if err := entry.DecodeJSON(&cert); err != nil {
 		b.Logger().Error("error reading venafi configuration: %s", err)
 		return nil, err
 	}
-	b.Logger().Debug("certificate is:" + cert.Certificate)
-	b.Logger().Debug("chain is:" + cert.CertificateChain)
+	// b.Logger().Debug("certificate is:" + cert.Certificate)
+	// b.Logger().Debug("chain is:" + cert.CertificateChain)
 
 	if keyPassword != "" {
 		encryptedPrivateKeyPem, err := encryptPrivateKey(cert.PrivateKey, keyPassword)
