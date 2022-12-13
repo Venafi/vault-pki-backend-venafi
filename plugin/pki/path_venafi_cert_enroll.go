@@ -271,7 +271,9 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, logicalRequest *logi
 	b.Logger().Debug(fmt.Sprintf("Making certificate request ThreadID %v", threadID))
 	pcc, err = runningEnrollRequest(b, data, certReq, connector, role, signCSR)
 	if err != nil {
-		b.recoverBroadcast(cert, logResp, certId, err)
+		if !signCSR && role.StoreBy == storeByHASHstring {
+			b.recoverBroadcast(cert, logResp, certId, err)
+		}
 		return nil, err
 	}
 
