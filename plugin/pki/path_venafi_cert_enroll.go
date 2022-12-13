@@ -178,6 +178,8 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, logicalRequest *logi
 
 	*logical.Response, error) {
 
+	var logResp *logical.Response
+
 	b.Logger().Debug("Creating Venafi client:")
 	threadID := randRunes(9) + time.Stamp
 	// here we already filter proper "Zone" to later use with cfg.Zone
@@ -243,6 +245,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, logicalRequest *logi
 		cert = &SyncedResponse{
 			logResponse: nil,
 			condition:   newCond,
+			error:       nil,
 		}
 		cache[certId] = cert
 		b.mux.Unlock()
@@ -252,7 +255,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, logicalRequest *logi
 	certReq, err = formRequest(*reqData, role, &connector, signCSR, b.Logger())
 	if err != nil {
 		if !signCSR && role.StoreBy == storeByHASHstring {
-			b.recoverBroadcast(cert, certId, err)
+			b.recoverBroadcast(cert, logResp, certId, err)
 		}
 		return logical.ErrorResponse(err.Error()), nil
 	}
@@ -260,7 +263,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, logicalRequest *logi
 	err = createCertificateRequest(b, &connector, ctx, logicalRequest, role, certReq)
 	if err != nil {
 		if !signCSR && role.StoreBy == storeByHASHstring {
-			b.recoverBroadcast(cert, certId, err)
+			b.recoverBroadcast(cert, logResp, certId, err)
 		}
 		return nil, err
 	}
@@ -268,35 +271,36 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, logicalRequest *logi
 	b.Logger().Debug(fmt.Sprintf("Making certificate request ThreadID %v", threadID))
 	pcc, err = runningEnrollRequest(b, data, certReq, connector, role, signCSR)
 	if err != nil {
-		b.recoverBroadcast(cert, certId, err)
+		b.recoverBroadcast(cert, logResp, certId, err)
 		return nil, err
 	}
 
-	var logResp *logical.Response
 	logResp, err = b.storingCertificate(ctx, logicalRequest, pcc, role, signCSR, certId, (*reqData).commonName, (*reqData).keyPassword)
 	if err != nil {
 		if !signCSR && role.StoreBy == storeByHASHstring {
-			b.recoverBroadcast(cert, certId, err)
+			b.recoverBroadcast(cert, logResp, certId, err)
 		}
 		return nil, err
 	}
 
 	if !signCSR && role.StoreBy == storeByHASHstring {
-		b.recoverBroadcast(cert, certId, nil)
+		b.recoverBroadcast(cert, logResp, certId, nil)
 	}
 
 	return logResp, nil
 }
 
-func (b *backend) recoverBroadcast(cert *SyncedResponse, certId string, err error) {
+func (b *backend) recoverBroadcast(cert *SyncedResponse, logResp *logical.Response, certId string, err error) {
 
 	b.mux.Lock()
 	msg := fmt.Sprintf("Launching broadcast to any waiting request for certificate hash %v", certId)
 	if err != nil {
 		msg = "Error enrolling certificate. " + msg
 		cert.error = err
+		cert.logResponse = nil
 	}
 	b.Logger().Debug(msg)
+	cert.logResponse = logResp
 	cert.condition.Broadcast()
 	b.Logger().Debug(msg)
 	delete(cache, certId)
@@ -660,7 +664,7 @@ func preventReissue(b *backend, ctx context.Context, req *logical.Request, reqDa
 
 func preventReissueLocal(b *backend, ctx context.Context, req *logical.Request, reqData *requestData, role *roleEntry, certId string, threadID string) *logical.Response {
 	b.Logger().Debug("Preventing re-issuance if certificate is already stored locally")
-	b.Logger().Debug("Looking for certificate in storage")
+	b.Logger().Debug(fmt.Sprintf("Looking for certificate in storage with hash %v", certId))
 	sanitizeRequestData(reqData, b.Logger())
 	venafiCert, err := loadCertificateFromStorage(b, ctx, req, certId, reqData.keyPassword)
 	// We want to ignore error from plugin that is related to the certificate not being in storage. If it is
