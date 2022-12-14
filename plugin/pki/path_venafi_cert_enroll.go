@@ -477,7 +477,7 @@ func (b *backend) storingCertificate(ctx context.Context, logicalRequest *logica
 	var err error
 	var entry *logical.StorageEntry
 
-	if !signCSR {
+	if role.StorePrivateKey && !signCSR {
 		entry, err = logical.StorageEntryJSON("", VenafiCert{
 			Certificate:      pcc.Certificate,
 			CertificateChain: chain,

@@ -674,7 +674,6 @@ func (e *testEnv) IssueCertificateAndSaveSerial(t *testing.T, data testData, con
 	checkStandardCert(t, data)
 	// save certificate serial for the next test
 	e.CertificateSerial = resp.Data["serial_number"].(string)
-	e.CertId = resp.Data["certificate_uid"].(string)
 }
 
 func (e *testEnv) IssueCertificateAndSaveSerialParallelism(t *testing.T, data testData, configString venafiConfigString) string {
