@@ -282,7 +282,35 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, logicalRequest *logi
 		return nil, err
 	}
 
-	logResp, err = b.storingCertificate(ctx, logicalRequest, pcc, role, signCSR, certId, (*reqData).commonName, (*reqData).keyPassword)
+	pemBlock, _ := pem.Decode([]byte(pcc.Certificate))
+	parsedCertificate, err := x509.ParseCertificate(pemBlock.Bytes)
+	if err != nil {
+		if !signCSR && role.StoreBy == storeByHASHstring {
+			b.recoverBroadcast(cert, logResp, certId, err)
+		}
+		return nil, err
+	}
+	chain := strings.Join(append([]string{pcc.Certificate}, pcc.Chain...), "\n")
+	b.Logger().Debug("cert Chain: " + strings.Join(pcc.Chain, ", "))
+	serialNumber, err := getHexFormatted(parsedCertificate.SerialNumber.Bytes(), ":")
+	if err != nil {
+		if !signCSR && role.StoreBy == storeByHASHstring {
+			b.recoverBroadcast(cert, logResp, certId, err)
+		}
+		return nil, err
+	}
+	if !role.NoStore {
+		err = b.storingCertificate(ctx, logicalRequest, pcc, chain, serialNumber, role, signCSR, certId, (*reqData).commonName)
+		if err != nil {
+			if !signCSR && role.StoreBy == storeByHASHstring {
+				b.recoverBroadcast(cert, logResp, certId, err)
+			}
+			b.Logger().Error("error storing certificate: %s", err.Error())
+			return nil, err
+		}
+	}
+
+	logResp, err = b.buildLogicalResponse(pcc, parsedCertificate, role, certId, (*reqData).commonName, serialNumber, chain, signCSR, (*reqData).keyPassword)
 	if err != nil {
 		if !signCSR && role.StoreBy == storeByHASHstring {
 			b.recoverBroadcast(cert, logResp, certId, err)
@@ -443,23 +471,13 @@ func runningEnrollRequest(b *backend, data *framework.FieldData, certReq *certif
 	return pcc, nil
 }
 
-func (b *backend) storingCertificate(ctx context.Context, logicalRequest *logical.Request, pcc *certificate.PEMCollection, role *roleEntry, signCSR bool, certId string, commonName string, keyPassword string) (*logical.Response, error) {
+func (b *backend) storingCertificate(ctx context.Context, logicalRequest *logical.Request, pcc *certificate.PEMCollection, chain string, serialNumber string, role *roleEntry, signCSR bool, certId string, commonName string) error {
 	b.Logger().Info("Storing certificate")
-	pemBlock, _ := pem.Decode([]byte(pcc.Certificate))
-	parsedCertificate, err := x509.ParseCertificate(pemBlock.Bytes)
-	if err != nil {
-		return nil, err
-	}
-	serialNumber, err := getHexFormatted(parsedCertificate.SerialNumber.Bytes(), ":")
-	if err != nil {
-		return nil, err
-	}
 
+	var err error
 	var entry *logical.StorageEntry
-	chain := strings.Join(append([]string{pcc.Certificate}, pcc.Chain...), "\n")
-	b.Logger().Debug("cert Chain: " + strings.Join(pcc.Chain, ", "))
 
-	if role.StorePrivateKey && !signCSR {
+	if !signCSR {
 		entry, err = logical.StorageEntryJSON("", VenafiCert{
 			Certificate:      pcc.Certificate,
 			CertificateChain: chain,
@@ -474,27 +492,28 @@ func (b *backend) storingCertificate(ctx context.Context, logicalRequest *logica
 		})
 	}
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	if !role.NoStore {
-		if role.StoreBy == storeByCNString {
-			// Writing certificate to the storage with CN
-			certId = commonName
-		} else if role.StoreBy == storeByHASHstring {
-			// do nothing as we already calculated the hash above
-		} else {
-			//Writing certificate to the storage with Serial Number
-			certId = normalizeSerial(serialNumber)
-		}
-		b.Logger().Info("Writing certificate to the certs/" + certId)
-		entry.Key = "certs/" + certId
-		if err := logicalRequest.Storage.Put(ctx, entry); err != nil {
-			return nil, fmt.Errorf("Error putting entry to storage: " + err.Error())
-		}
-		b.Logger().Info(fmt.Sprintf("Stored certificate with ID: %v", certId))
+	if role.StoreBy == storeByCNString {
+		// Writing certificate to the storage with CN
+		certId = commonName
+	} else if role.StoreBy == storeByHASHstring {
+		// do nothing as we already calculated the hash above
+	} else {
+		//Writing certificate to the storage with Serial Number
+		certId = normalizeSerial(serialNumber)
 	}
+	b.Logger().Info("Writing certificate to the certs/" + certId)
+	entry.Key = "certs/" + certId
+	if err := logicalRequest.Storage.Put(ctx, entry); err != nil {
+		return fmt.Errorf("Error putting entry to storage: " + err.Error())
+	}
+	b.Logger().Info(fmt.Sprintf("Stored certificate with ID: %v", certId))
+	return nil
+}
 
+func (b *backend) buildLogicalResponse(pcc *certificate.PEMCollection, parsedCertificate *x509.Certificate, role *roleEntry, certId string, commonName string, serialNumber string, chain string, signCSR bool, keyPassword string) (*logical.Response, error) {
 	issuingCA := ""
 	if len(pcc.Chain) > 0 {
 		issuingCA = pcc.Chain[0]
@@ -507,16 +526,18 @@ func (b *backend) storingCertificate(ctx context.Context, logicalRequest *logica
 	// store_by = "cn" -> string conformed by -> "certificate request's common name"
 	// store_by = "serial" -> string conformed by -> "generated certificate's serial"
 	// store_by = "hash" -> hash string conformed by -> "Common Name + SAN DNS + Zone"
-	respData := map[string]interface{}{
-		"certificate_uid":   certId,
-		"common_name":       commonName,
-		"serial_number":     serialNumber,
-		"certificate_chain": chain,
-		"certificate":       pcc.Certificate,
-		"ca_chain":          pcc.Chain,
-		"issuing_ca":        issuingCA,
-		"expiration":        expirationSec,
+	var respData = make(map[string]interface{})
+
+	if !role.NoStore {
+		respData["certificate_uid"] = certId
 	}
+	respData["common_name"] = commonName
+	respData["serial_number"] = serialNumber
+	respData["certificate_chain"] = chain
+	respData["certificate"] = pcc.Certificate
+	respData["ca_chain"] = pcc.Chain
+	respData["issuing_ca"] = issuingCA
+	respData["expiration"] = expirationSec
 
 	if !signCSR {
 		if keyPassword == "" {
