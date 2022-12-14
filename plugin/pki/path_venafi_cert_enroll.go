@@ -282,25 +282,17 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, logicalRequest *logi
 		return nil, err
 	}
 
-	pemBlock, _ := pem.Decode([]byte(pcc.Certificate))
-	parsedCertificate, err := x509.ParseCertificate(pemBlock.Bytes)
+	parsedCertificate, err := b.parseCertificateData(pcc)
 	if err != nil {
 		if !signCSR && role.StoreBy == storeByHASHstring {
 			b.recoverBroadcast(cert, logResp, certId, err)
 		}
+		b.Logger().Error("error storing certificate: %s", err.Error())
 		return nil, err
 	}
-	chain := strings.Join(append([]string{pcc.Certificate}, pcc.Chain...), "\n")
-	b.Logger().Debug("cert Chain: " + strings.Join(pcc.Chain, ", "))
-	serialNumber, err := getHexFormatted(parsedCertificate.SerialNumber.Bytes(), ":")
-	if err != nil {
-		if !signCSR && role.StoreBy == storeByHASHstring {
-			b.recoverBroadcast(cert, logResp, certId, err)
-		}
-		return nil, err
-	}
+
 	if !role.NoStore {
-		err = b.storingCertificate(ctx, logicalRequest, pcc, chain, serialNumber, role, signCSR, certId, (*reqData).commonName)
+		err = b.storingCertificate(ctx, logicalRequest, pcc, parsedCertificate, role, signCSR, certId, (*reqData).commonName)
 		if err != nil {
 			if !signCSR && role.StoreBy == storeByHASHstring {
 				b.recoverBroadcast(cert, logResp, certId, err)
@@ -310,7 +302,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, logicalRequest *logi
 		}
 	}
 
-	logResp, err = b.buildLogicalResponse(pcc, parsedCertificate, role, certId, (*reqData).commonName, serialNumber, chain, signCSR, (*reqData).keyPassword)
+	logResp, err = b.buildLogicalResponse(pcc, parsedCertificate, role, certId, (*reqData).commonName, signCSR, (*reqData).keyPassword)
 	if err != nil {
 		if !signCSR && role.StoreBy == storeByHASHstring {
 			b.recoverBroadcast(cert, logResp, certId, err)
@@ -471,7 +463,7 @@ func runningEnrollRequest(b *backend, data *framework.FieldData, certReq *certif
 	return pcc, nil
 }
 
-func (b *backend) storingCertificate(ctx context.Context, logicalRequest *logical.Request, pcc *certificate.PEMCollection, chain string, serialNumber string, role *roleEntry, signCSR bool, certId string, commonName string) error {
+func (b *backend) storingCertificate(ctx context.Context, logicalRequest *logical.Request, pcc *certificate.PEMCollection, parsedCertificate *ParsedCertificate, role *roleEntry, signCSR bool, certId string, commonName string) error {
 	b.Logger().Info("Storing certificate")
 
 	var err error
@@ -480,15 +472,15 @@ func (b *backend) storingCertificate(ctx context.Context, logicalRequest *logica
 	if role.StorePrivateKey && !signCSR {
 		entry, err = logical.StorageEntryJSON("", VenafiCert{
 			Certificate:      pcc.Certificate,
-			CertificateChain: chain,
+			CertificateChain: (*parsedCertificate).Chain,
 			PrivateKey:       pcc.PrivateKey,
-			SerialNumber:     serialNumber,
+			SerialNumber:     (*parsedCertificate).SerialNumber,
 		})
 	} else {
 		entry, err = logical.StorageEntryJSON("", VenafiCert{
 			Certificate:      pcc.Certificate,
-			CertificateChain: chain,
-			SerialNumber:     serialNumber,
+			CertificateChain: (*parsedCertificate).Chain,
+			SerialNumber:     (*parsedCertificate).SerialNumber,
 		})
 	}
 	if err != nil {
@@ -502,7 +494,7 @@ func (b *backend) storingCertificate(ctx context.Context, logicalRequest *logica
 		// do nothing as we already calculated the hash above
 	} else {
 		//Writing certificate to the storage with Serial Number
-		certId = normalizeSerial(serialNumber)
+		certId = normalizeSerial((*parsedCertificate).SerialNumber)
 	}
 	b.Logger().Info("Writing certificate to the certs/" + certId)
 	entry.Key = "certs/" + certId
@@ -513,13 +505,33 @@ func (b *backend) storingCertificate(ctx context.Context, logicalRequest *logica
 	return nil
 }
 
-func (b *backend) buildLogicalResponse(pcc *certificate.PEMCollection, parsedCertificate *x509.Certificate, role *roleEntry, certId string, commonName string, serialNumber string, chain string, signCSR bool, keyPassword string) (*logical.Response, error) {
+func (b *backend) parseCertificateData(pcc *certificate.PEMCollection) (*ParsedCertificate, error) {
+	var pCert ParsedCertificate
+	pemBlock, _ := pem.Decode([]byte(pcc.Certificate))
+	pCert.DecodedCertificate = pemBlock
+	parsedCert, err := x509.ParseCertificate(pemBlock.Bytes)
+	if err != nil {
+		return nil, err
+	}
+	pCert.ParsedX509Certificate = parsedCert
+	chain := strings.Join(append([]string{pcc.Certificate}, pcc.Chain...), "\n")
+	pCert.Chain = chain
+	b.Logger().Debug("cert Chain: " + strings.Join(pcc.Chain, ", "))
+	serialNumber, err := getHexFormatted(parsedCert.SerialNumber.Bytes(), ":")
+	if err != nil {
+		return nil, err
+	}
+	pCert.SerialNumber = serialNumber
+	return &pCert, nil
+}
+
+func (b *backend) buildLogicalResponse(pcc *certificate.PEMCollection, parsedCertificate *ParsedCertificate, role *roleEntry, certId string, commonName string, signCSR bool, keyPassword string) (*logical.Response, error) {
 	issuingCA := ""
 	if len(pcc.Chain) > 0 {
 		issuingCA = pcc.Chain[0]
 	}
 
-	expirationTime := parsedCertificate.NotAfter
+	expirationTime := (*parsedCertificate).ParsedX509Certificate.NotAfter
 	expirationSec := expirationTime.Unix()
 
 	// where "certificate_uid" is determined by "store_by" attribute defined at the role:
@@ -532,8 +544,8 @@ func (b *backend) buildLogicalResponse(pcc *certificate.PEMCollection, parsedCer
 		respData["certificate_uid"] = certId
 	}
 	respData["common_name"] = commonName
-	respData["serial_number"] = serialNumber
-	respData["certificate_chain"] = chain
+	respData["serial_number"] = (*parsedCertificate).SerialNumber
+	respData["certificate_chain"] = (*parsedCertificate).Chain
 	respData["certificate"] = pcc.Certificate
 	respData["ca_chain"] = pcc.Chain
 	respData["issuing_ca"] = issuingCA
@@ -563,9 +575,9 @@ func (b *backend) buildLogicalResponse(pcc *certificate.PEMCollection, parsedCer
 		logResp = b.Secret(SecretCertsType).Response(
 			respData,
 			map[string]interface{}{
-				"serial_number": serialNumber,
+				"serial_number": (*parsedCertificate).SerialNumber,
 			})
-		TTL := time.Until(parsedCertificate.NotAfter)
+		TTL := time.Until((*parsedCertificate).ParsedX509Certificate.NotAfter)
 		b.Logger().Info("Setting up secret lease duration to: " + TTL.String())
 		logResp.Secret.TTL = TTL
 	}
@@ -1011,6 +1023,13 @@ type VenafiCert struct {
 	CertificateChain string `json:"certificate_chain"`
 	PrivateKey       string `json:"private_key"`
 	SerialNumber     string `json:"serial_number"`
+}
+
+type ParsedCertificate struct {
+	DecodedCertificate    *pem.Block
+	ParsedX509Certificate *x509.Certificate
+	Chain                 string
+	SerialNumber          string
 }
 
 const (
