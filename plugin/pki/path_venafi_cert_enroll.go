@@ -260,7 +260,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, logicalRequest *logi
 		if !signCSR && role.StoreBy == storeByHASHstring {
 			b.recoverBroadcast(cert, logResp, certId, err)
 		}
-		b.Logger().Error("error error forming request: %s", err.Error())
+		b.Logger().Error("error forming request: %s", err.Error())
 		return logical.ErrorResponse(err.Error()), nil
 	}
 
@@ -299,24 +299,16 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, logicalRequest *logi
 }
 
 func (b *backend) recoverBroadcast(cert *SyncedResponse, logResp *logical.Response, certId string, err error) {
-
 	b.mux.Lock()
-	msg := fmt.Sprintf("Launching broadcast to any waiting request for certificate hash %v", certId)
 	if err != nil {
-		msg = "Error enrolling certificate. " + msg
+		msg := "Error during enroll process. " + err.Error()
+		b.Logger().Error(msg)
 		cert.error = err
-		cert.logResponse = nil
 	}
-	b.Logger().Debug(msg)
 	cert.logResponse = logResp
+	b.Logger().Info(fmt.Sprintf("Launching broadcast to any waiting request for certificate hash %v", certId))
 	cert.condition.Broadcast()
-	msg = fmt.Sprintf("Removing cert from hash map. hash: %v", certId)
-	if err != nil {
-		msg = "Error enrolling certificate. " + msg
-		cert.error = err
-		cert.logResponse = nil
-	}
-	b.Logger().Debug(msg)
+	b.Logger().Info(fmt.Sprintf("Removing cert from hash map. hash: %v", certId))
 	delete(cache, certId)
 	b.mux.Unlock()
 }
@@ -755,6 +747,7 @@ func formRequest(reqData requestData, role *roleEntry, cl *endpoint.Connector, s
 				}
 			}
 		}
+		logger.Info(msg)
 		if len(reqData.altNames) == 0 && reqData.commonName == "" {
 			return certReq, fmt.Errorf("no domains specified on certificate")
 		}
