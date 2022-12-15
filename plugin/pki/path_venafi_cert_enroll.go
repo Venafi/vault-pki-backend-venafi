@@ -616,6 +616,9 @@ func issueCertificate(certReq *certificate.Request, keyPass string, cl endpoint.
 		pemCollection.PrivateKey = privateKeyPem
 	} else if role.ServiceGenerated {
 		// Service generated
+		if pemCollection.PrivateKey == "" {
+			return nil, fmt.Errorf("we got empty private private key when we expected one to be generated from service")
+		}
 		privateKey, err := DecryptPkcs8PrivateKey(pemCollection.PrivateKey, keyPass)
 		if err != nil {
 			return nil, err
@@ -702,7 +705,7 @@ func preventReissue(b *backend, ctx context.Context, req *logical.Request, reqDa
 	}
 	// if certInfo is equal to nil but we arrived here, means we skipped the error (since VCert returns error if certificate is not found,
 	// so we won't try to open storage and we will issue a new certificate
-	b.Logger().Info(fmt.Sprintf("Not valid certificate found in Plataform %v: Issuing a new one", (*cl).GetType()))
+	b.Logger().Info(fmt.Sprintf("Not valid certificate found in Platform %v: Issuing a new one", (*cl).GetType()))
 	return nil
 }
 
