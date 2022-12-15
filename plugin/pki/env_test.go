@@ -2467,11 +2467,116 @@ func (e *testEnv) PreventReissuanceLocalCNwithNoCNandThreeSANDNS(t *testing.T, d
 	}
 }
 
-func (e *testEnv) SetupParallelismEnv(t *testing.T, data *testData, config venafiConfigString) {
+func (e *testEnv) TPPnegativeIssueCertificate(t *testing.T) {
 
+	data := testData{}
 	randString := e.TestRandString
-	domain := "vfidev.com"
+	domain := "venafi.example.com"
 	data.cn = randString + "." + domain
+	data.dnsNS = "alt-" + data.cn
+	data.dnsIP = "192.168.1.1"
+	data.dnsEmail = "venafi@example.com"
+
+	var config = venafiConfigToken
+
+	e.writeNegativeTPPvenafiToBackend(t, config)
+	e.writeRoleToBackend(t, config)
+	e.NegativeIssueCertificateAndSaveSerial(t, data, config)
+
+}
+
+func (e *testEnv) VAASnegativeIssueCertificate(t *testing.T) {
+
+	data := testData{}
+	randString := e.TestRandString
+	domain := "venafi.example.com"
+	data.cn = randString + "." + domain
+	data.dnsNS = "alt-" + data.cn
+	data.dnsIP = "192.168.1.1"
+	data.dnsEmail = "venafi@example.com"
+
+	var config = venafiConfigCloud
+
+	e.writeNegativeVAASvenafiToBackend(t, config)
+	e.writeRoleToBackend(t, config)
+	e.NegativeIssueCertificateAndSaveSerial(t, data, config)
+
+}
+
+func (e *testEnv) TPPnegativeIssueCertificateParallelism(t *testing.T, data *testData, config venafiConfigString, randString *string) {
+
+	domain := "venafi.example.com"
+	if randString != nil {
+		data.cn = *randString + "." + domain
+	} else {
+		data.cn = e.TestRandString + "." + domain
+	}
+	data.dnsNS = "alt-" + data.cn
+	data.dnsIP = "192.168.1.1"
+	data.dnsEmail = "venafi@example.com"
+	data.storeBy = "hash"
+
+	e.writeNegativeTPPvenafiToBackend(t, config)
+	e.writeRoleToBackend(t, config)
+	e.NegativeIssueCertificateAndSaveSerial(t, *data, config)
+
+}
+
+func (e *testEnv) writeNegativeTPPvenafiToBackend(t *testing.T, configString venafiConfigString) {
+	roleData, err := makeConfig(configString)
+	if err != nil {
+		t.Fatal(err)
+	}
+	roleData = copyMap(roleData)
+	roleData["access_token"] = "sdsdsd" // bad input to trigger error on issue
+
+	resp, err := e.Backend.HandleRequest(e.Context, &logical.Request{
+		Operation: logical.UpdateOperation,
+		Path:      "venafi/" + e.VenafiSecretName,
+		Storage:   e.Storage,
+		Data:      roleData,
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp != nil && resp.IsError() {
+		t.Fatalf("failed to create venafi, %#v", resp)
+	}
+}
+
+func (e *testEnv) writeNegativeVAASvenafiToBackend(t *testing.T, configString venafiConfigString) {
+	roleData, err := makeConfig(configString)
+	if err != nil {
+		t.Fatal(err)
+	}
+	roleData = copyMap(roleData)
+	roleData["CLOUD_APIKEY"] = "sdsdsd" // bad input to trigger error on issue
+
+	resp, err := e.Backend.HandleRequest(e.Context, &logical.Request{
+		Operation: logical.UpdateOperation,
+		Path:      "venafi/" + e.VenafiSecretName,
+		Storage:   e.Storage,
+		Data:      roleData,
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp != nil && resp.IsError() {
+		t.Fatalf("failed to create venafi, %#v", resp)
+	}
+}
+
+func (e *testEnv) SetupParallelismEnv(t *testing.T, data *testData, config venafiConfigString, randString *string) {
+	domain := "vfidev.com"
+	if randString != nil {
+		data.cn = *randString + "." + domain
+	} else {
+		data.cn = e.TestRandString
+	}
 	commonName := data.cn
 	data.dnsNS = "maria-" + commonName + "," + "rose-" + commonName + "," + "bob-" + commonName + "," + "bob-" + commonName + "," + "shina-" + commonName
 	data.storeBy = "hash"
@@ -2480,6 +2585,59 @@ func (e *testEnv) SetupParallelismEnv(t *testing.T, data *testData, config venaf
 	e.writeVenafiToBackend(t, config)
 	e.writeRoleToBackendWithData(t, config, *data)
 
+}
+
+func (e *testEnv) NegativeIssueCertificateAndSaveSerial(t *testing.T, data testData, configString venafiConfigString) {
+
+	var issueData map[string]interface{}
+
+	var altNames []string
+
+	if data.dnsNS != "" {
+		altNames = append(altNames, data.dnsNS)
+	}
+	if data.dnsEmail != "" {
+		altNames = append(altNames, data.dnsEmail)
+	}
+	if data.dnsIP != "" {
+		altNames = append(altNames, data.dnsIP)
+	}
+
+	if data.keyPassword != "" {
+		issueData = map[string]interface{}{
+			"common_name":        data.cn,
+			"alt_names":          strings.Join(altNames, ","),
+			"ip_sans":            []string{data.onlyIP},
+			"key_password":       data.keyPassword,
+			"private_key_format": "der",
+		}
+	} else {
+		issueData = map[string]interface{}{
+			"common_name":        data.cn,
+			"alt_names":          strings.Join(altNames, ","),
+			"ip_sans":            []string{data.onlyIP},
+			"private_key_format": "der",
+		}
+	}
+
+	if data.privateKeyFormat != "" {
+		issueData["private_key_format"] = data.privateKeyFormat
+	}
+
+	if data.customFields != nil {
+		issueData["custom_fields"] = strings.Join(data.customFields, ",")
+	}
+
+	resp, err := e.Backend.HandleRequest(e.Context, &logical.Request{
+		Operation: logical.UpdateOperation,
+		Path:      "issue/" + e.RoleName,
+		Storage:   e.Storage,
+		Data:      issueData,
+	})
+
+	if err == nil && resp != nil {
+		t.Fatal("should have returned error and a nil logical response since credentials are wrong")
+	}
 }
 
 func newIntegrationTestEnv() (*testEnv, error) {
