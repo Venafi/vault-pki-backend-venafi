@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	//nolint // ignoring since we don't expect to use complex hashing
 	"crypto/sha1"
 	"crypto/tls"
 	"crypto/x509"
@@ -68,7 +69,7 @@ func addSeparatorToHexFormattedString(s string, sep string) (string, error) {
 	var ret bytes.Buffer
 	for n, v := range s {
 		if n > 0 && n%2 == 0 {
-			if _, err := fmt.Fprintf(&ret, sep); err != nil {
+			if _, err := fmt.Fprint(&ret, sep); err != nil {
 				return "", err
 			}
 		}
@@ -180,7 +181,6 @@ func areDNSNamesCorrect(actualAltNames []string, expectedCNNames []string, expec
 		}
 	} else {
 
-		//Checking expectedAltNames are in actualAltNames
 		if len(actualAltNames) < len(expectedAltNames) {
 			return false
 		}
@@ -395,8 +395,7 @@ func getStatusCode(msg string) int64 {
 
 func createConfigFromFieldData(data *venafiSecretEntry) (*vcert.Config, error) {
 
-	var cfg *vcert.Config
-	cfg = &vcert.Config{}
+	cfg := &vcert.Config{}
 
 	cfg.BaseUrl = data.URL
 	cfg.Zone = data.Zone
@@ -570,12 +569,11 @@ func loadCertificateFromStorage(b *backend, ctx context.Context, req *logical.Re
 	if entry == nil {
 		return nil, vpkierror.CertEntryNotFound{EntryPath: path}
 	}
-	//var cert VenafiCert
-	b.Logger().Debug("Getting venafi certificate")
+
+	b.Logger().Info(fmt.Sprintf("Getting venafi certificate from storage with ID: %v", certUID))
 
 	if err := entry.DecodeJSON(&cert); err != nil {
-		b.Logger().Error("error reading venafi configuration: %s", err)
-		return nil, err
+		return nil, fmt.Errorf("error reading venafi configuration: %s", err.Error())
 	}
 	b.Logger().Debug("certificate is:" + cert.Certificate)
 	b.Logger().Debug("chain is:" + cert.CertificateChain)
@@ -583,7 +581,7 @@ func loadCertificateFromStorage(b *backend, ctx context.Context, req *logical.Re
 	if keyPassword != "" {
 		encryptedPrivateKeyPem, err := encryptPrivateKey(cert.PrivateKey, keyPassword)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("error opening private key: %s", err.Error())
 		}
 		cert.PrivateKey = encryptedPrivateKeyPem
 	}
@@ -603,6 +601,7 @@ func shortDurationString(d time.Duration) string {
 }
 
 func sha1sum(s string) string {
+	//nolint
 	hash := sha1.New()
 	buffer := []byte(s)
 	hash.Write(buffer)

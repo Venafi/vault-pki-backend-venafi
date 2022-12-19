@@ -19,12 +19,21 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Venafi/vcert/v4/pkg/certificate"
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
 )
+
+type SyncedResponse struct {
+	logResponse *logical.Response
+	condition   *sync.Cond
+	error       error
+}
+
+var cache = map[string]*SyncedResponse{}
 
 func pathVenafiCertEnroll(b *backend) *framework.Path {
 	return &framework.Path{
@@ -157,12 +166,58 @@ func (b *backend) pathVenafiSign(ctx context.Context, req *logical.Request, data
 	if role == nil {
 		return logical.ErrorResponse(fmt.Sprintf("unknown role: %s", roleName)), nil
 	}
+	logicResp, err := b.pathVenafiCertObtain(ctx, req, data, role, true)
+	if err != nil {
+		return nil, err
+	}
 
-	return b.pathVenafiCertObtain(ctx, req, data, role, true)
+	return logicResp, nil
 }
 
 func (b *backend) pathVenafiCertObtain(ctx context.Context, logicalRequest *logical.Request, data *framework.FieldData, role *roleEntry, signCSR bool) (
+
 	*logical.Response, error) {
+
+	var logResp *logical.Response
+
+	b.Logger().Info("Creating Venafi client:")
+
+	// here we already filter proper "Zone" to later use with cfg.Zone
+	connector, cfg, err := b.ClientVenafi(ctx, logicalRequest, role)
+	if err != nil {
+		b.Logger().Error("error creating Venafi connector: %s", err.Error())
+		return nil, err
+	}
+
+	reqData, err := populateReqData(data, role)
+	if err != nil {
+		b.Logger().Error("error populating data to request: %s", err.Error())
+		return nil, err
+	}
+
+	var certId string
+	// we currently ignore workflow for signingCSR because we are not supporting "hash" mode for it. That applies to every
+	// "hash" related workflow.
+	// we don't validate ignoring the local storage because we are making the "hash" mode independent of the prevent-reissue feature
+	if !role.NoStore && role.StoreBy == storeByHASHstring && !signCSR {
+		certId = getCertIdHash(*reqData, cfg.Zone, b.Logger())
+	}
+
+	if !role.IgnoreLocalStorage && role.StorePrivateKey && role.StoreBy == storeBySerialString && !signCSR {
+		// if we don't receive a logic response, whenever is an error or the actual certificate found in storage
+		// means we need to issue a new one
+		logicalResp := preventReissue(b, ctx, logicalRequest, reqData, &connector, role, cfg.Zone)
+		if logicalResp != nil {
+			return logicalResp, nil
+		}
+	} else if !role.IgnoreLocalStorage && role.StorePrivateKey && role.StoreBy == storeByHASHstring && !signCSR {
+		b.Logger().Info(fmt.Sprintf("Calling prevent local for hash %v", certId))
+		logicalResp := preventReissueLocal(b, ctx, logicalRequest, reqData, role, certId)
+		if logicalResp != nil {
+			return logicalResp, nil
+		}
+	}
+
 	// When utilizing performance standbys in Vault Enterprise, this forces the call to be redirected to the primary since
 	// a storage call is made after the API calls to issue the certificate.  This prevents the certificate from being
 	// issued twice in this scenario.
@@ -171,60 +226,111 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, logicalRequest *logi
 		return nil, logical.ErrReadOnly
 	}
 
-	b.Logger().Debug("Creating Venafi client:")
-	// here we already filter proper "Zone" to later use with cfg.Zone
-	connector, cfg, err := b.ClientVenafi(ctx, logicalRequest, role)
-	if err != nil {
-		return nil, err
-	}
-
-	reqData, err := populateReqData(data, role)
-	if err != nil {
-		return nil, err
-	}
-
-	var certId string
-	if !role.NoStore && role.StoreBy == storeByHASHstring {
-		certId = getCertIdHash(*reqData, cfg.Zone, b.Logger())
-	}
-
-	if !role.IgnoreLocalStorage && role.StorePrivateKey == true && (role.StoreBy == storeBySerialString || role.StoreBySerial == true) {
-		// if we don't receive a logic response, whenever is an error or the actual certificate found in storage
-		// means we need to issue a new one
-		logicalResp := preventReissue(b, ctx, logicalRequest, reqData, &connector, role, cfg.Zone)
-		if logicalResp != nil {
-			return logicalResp, nil
+	// if user is using store by hash
+	var cert *SyncedResponse
+	if !signCSR && role.StoreBy == storeByHASHstring {
+		found := false
+		b.Logger().Info("locking process to update cache")
+		b.mux.Lock()
+		cert, found = cache[certId]
+		if found {
+			b.Logger().Info(fmt.Sprintf("Request is waiting on previous request on certificate to be issued for hash %v", certId))
+			cert.condition.Wait()
+			b.mux.Unlock()
+			b.Logger().Info(fmt.Sprintf("Returning the certificate for hash %v retrieved from previous request.", certId))
+			if cert.error != nil {
+				b.Logger().Error("waiting state error: %s", cert.error.Error())
+				return nil, cert.error
+			}
+			return cert.logResponse, nil
 		}
-	} else if !role.IgnoreLocalStorage && role.StorePrivateKey == true && role.StoreBy == storeByHASHstring {
-		logicalResp := preventReissueLocal(b, ctx, logicalRequest, reqData, role, certId)
-		if logicalResp != nil {
-			return logicalResp, nil
+		newCond := sync.NewCond(&b.mux)
+		cert = &SyncedResponse{
+			logResponse: nil,
+			condition:   newCond,
+			error:       nil,
 		}
+		cache[certId] = cert
+		b.mux.Unlock()
 	}
 
 	var certReq *certificate.Request
 	certReq, err = formRequest(*reqData, role, &connector, signCSR, b.Logger())
 	if err != nil {
+		if !signCSR && role.StoreBy == storeByHASHstring {
+			b.recoverBroadcast(cert, logResp, certId, err)
+		}
+		b.Logger().Error("error forming request: %s", err.Error())
 		return logical.ErrorResponse(err.Error()), nil
 	}
 
 	err = createCertificateRequest(b, &connector, ctx, logicalRequest, role, certReq)
 	if err != nil {
+		if !signCSR && role.StoreBy == storeByHASHstring {
+			b.recoverBroadcast(cert, logResp, certId, err)
+		}
+		b.Logger().Error("error creating certificate request: %s", err.Error())
 		return nil, err
 	}
 	var pcc *certificate.PEMCollection
 	pcc, err = runningEnrollRequest(b, data, certReq, connector, role, signCSR)
 	if err != nil {
+		if !signCSR && role.StoreBy == storeByHASHstring {
+			b.recoverBroadcast(cert, logResp, certId, err)
+		}
+		b.Logger().Error("error running enroll request: %s", err.Error())
 		return nil, err
 	}
 
-	var logResp *logical.Response
-	logResp, err = b.storingCertificate(ctx, logicalRequest, pcc, role, signCSR, certId, (*reqData).commonName, (*reqData).keyPassword)
-
-	if !signCSR {
-		logResp.AddWarning("Read access to this endpoint should be controlled via ACLs as it will return the connection private key as it is.")
+	parsedCertificate, err := b.parseCertificateData(pcc)
+	if err != nil {
+		if !signCSR && role.StoreBy == storeByHASHstring {
+			b.recoverBroadcast(cert, logResp, certId, err)
+		}
+		b.Logger().Error("error storing certificate: %s", err.Error())
+		return nil, err
 	}
+
+	if !role.NoStore {
+		err = b.storingCertificate(ctx, logicalRequest, pcc, parsedCertificate, role, signCSR, certId, (*reqData).commonName)
+		if err != nil {
+			if !signCSR && role.StoreBy == storeByHASHstring {
+				b.recoverBroadcast(cert, logResp, certId, err)
+			}
+			b.Logger().Error("error storing certificate: %s", err.Error())
+			return nil, err
+		}
+	}
+
+	logResp, err = b.buildLogicalResponse(pcc, parsedCertificate, role, certId, (*reqData).commonName, signCSR, (*reqData).keyPassword)
+	if err != nil {
+		if !signCSR && role.StoreBy == storeByHASHstring {
+			b.recoverBroadcast(cert, logResp, certId, err)
+		}
+		b.Logger().Error("error storing certificate: %s", err.Error())
+		return nil, err
+	}
+
+	if !signCSR && role.StoreBy == storeByHASHstring {
+		b.recoverBroadcast(cert, logResp, certId, nil)
+	}
+
 	return logResp, nil
+}
+
+func (b *backend) recoverBroadcast(cert *SyncedResponse, logResp *logical.Response, certId string, err error) {
+	b.mux.Lock()
+	if err != nil {
+		msg := "Error during enroll process. " + err.Error()
+		b.Logger().Error(msg)
+		cert.error = err
+	}
+	cert.logResponse = logResp
+	b.Logger().Info(fmt.Sprintf("Launching broadcast to any waiting request for certificate hash %v", certId))
+	cert.condition.Broadcast()
+	b.Logger().Info(fmt.Sprintf("Removing cert from hash map. hash: %v", certId))
+	delete(cache, certId)
+	b.mux.Unlock()
 }
 
 func populateReqData(data *framework.FieldData, role *roleEntry) (*requestData, error) {
@@ -278,7 +384,7 @@ func populateReqData(data *framework.FieldData, role *roleEntry) (*requestData, 
 }
 
 func createCertificateRequest(b *backend, connector *endpoint.Connector, ctx context.Context, logicRequest *logical.Request, role *roleEntry, certReq *certificate.Request) error {
-	b.Logger().Debug("Making certificate request")
+	b.Logger().Info("Creating certificate request")
 
 	err := (*connector).GenerateRequest(nil, certReq)
 	if (err != nil) && ((*connector).GetType() == endpoint.ConnectorTypeTPP) {
@@ -287,7 +393,7 @@ func createCertificateRequest(b *backend, connector *endpoint.Connector, ctx con
 		// catch the scenario when token is expired and deleted.
 		var regex = regexp.MustCompile("(expired|invalid)_token")
 
-		// validate if the error is related to a expired access token, at this moment the only way can validate this is using the error message
+		// validate if the error is related to an expired access token, at this moment the only way can validate this is using the error message
 		// and verify if that message describes errors related to expired access token.
 		code := getStatusCode(msg)
 		if code == HTTP_UNAUTHORIZED && regex.MatchString(msg) {
@@ -329,7 +435,7 @@ func createCertificateRequest(b *backend, connector *endpoint.Connector, ctx con
 }
 
 func runningEnrollRequest(b *backend, data *framework.FieldData, certReq *certificate.Request, connector endpoint.Connector, role *roleEntry, signCSR bool) (*certificate.PEMCollection, error) {
-	b.Logger().Debug("Running enroll request")
+	b.Logger().Info("Running enroll request")
 	format := ""
 	privateKeyFormat, ok := data.GetOk("private_key_format")
 	if ok {
@@ -339,94 +445,111 @@ func runningEnrollRequest(b *backend, data *framework.FieldData, certReq *certif
 	}
 
 	keyPass := fmt.Sprintf("t%d-%s.tem.pwd", time.Now().Unix(), randRunes(4))
-	retry, ok := data.GetOk("retry")
+	retry, _ := data.GetOk("retry")
 
-	pcc, err := issueCertificate(certReq, keyPass, connector, role, format, privateKeyFormat, signCSR)
+	var pcc *certificate.PEMCollection
+	var err error
+	pcc, err = issueCertificate(certReq, keyPass, connector, role, format, privateKeyFormat, signCSR)
 	if err != nil {
 		if retry == true {
 			pcc, err = issueCertificate(certReq, keyPass, connector, role, format, privateKeyFormat, signCSR)
 			if err != nil {
 				return nil, err
 			}
+			return pcc, nil
 		}
 		return nil, err
 	}
 	return pcc, nil
 }
 
-func (b *backend) storingCertificate(ctx context.Context, logicalRequest *logical.Request, pcc *certificate.PEMCollection, role *roleEntry, signCSR bool, certId string, commonName string, keyPassword string) (*logical.Response, error) {
-	pemBlock, _ := pem.Decode([]byte(pcc.Certificate))
-	parsedCertificate, err := x509.ParseCertificate(pemBlock.Bytes)
-	if err != nil {
-		return nil, err
-	}
-	serialNumber, err := getHexFormatted(parsedCertificate.SerialNumber.Bytes(), ":")
-	if err != nil {
-		return nil, err
-	}
+func (b *backend) storingCertificate(ctx context.Context, logicalRequest *logical.Request, pcc *certificate.PEMCollection, parsedCertificate *ParsedCertificate, role *roleEntry, signCSR bool, certId string, commonName string) error {
+	b.Logger().Info("Storing certificate")
 
+	var err error
 	var entry *logical.StorageEntry
-	chain := strings.Join(append([]string{pcc.Certificate}, pcc.Chain...), "\n")
-	b.Logger().Debug("cert Chain: " + strings.Join(pcc.Chain, ", "))
 
 	if role.StorePrivateKey && !signCSR {
 		entry, err = logical.StorageEntryJSON("", VenafiCert{
 			Certificate:      pcc.Certificate,
-			CertificateChain: chain,
+			CertificateChain: (*parsedCertificate).Chain,
 			PrivateKey:       pcc.PrivateKey,
-			SerialNumber:     serialNumber,
+			SerialNumber:     (*parsedCertificate).SerialNumber,
 		})
 	} else {
 		entry, err = logical.StorageEntryJSON("", VenafiCert{
 			Certificate:      pcc.Certificate,
-			CertificateChain: chain,
-			SerialNumber:     serialNumber,
+			CertificateChain: (*parsedCertificate).Chain,
+			SerialNumber:     (*parsedCertificate).SerialNumber,
 		})
 	}
 	if err != nil {
+		return err
+	}
+
+	if role.StoreBy == storeByCNString {
+		// Writing certificate to the storage with CN
+		certId = commonName
+	} else if role.StoreBy == storeByHASHstring {
+		// do nothing as we already calculated the hash above
+	} else {
+		//Writing certificate to the storage with Serial Number
+		certId = normalizeSerial((*parsedCertificate).SerialNumber)
+	}
+	b.Logger().Info("Writing certificate to the certs/" + certId)
+	entry.Key = "certs/" + certId
+	if err := logicalRequest.Storage.Put(ctx, entry); err != nil {
+		return fmt.Errorf("Error putting entry to storage: " + err.Error())
+	}
+	b.Logger().Info(fmt.Sprintf("Stored certificate with ID: %v", certId))
+	return nil
+}
+
+func (b *backend) parseCertificateData(pcc *certificate.PEMCollection) (*ParsedCertificate, error) {
+	var pCert ParsedCertificate
+	pemBlock, _ := pem.Decode([]byte(pcc.Certificate))
+	pCert.DecodedCertificate = pemBlock
+	parsedCert, err := x509.ParseCertificate(pemBlock.Bytes)
+	if err != nil {
 		return nil, err
 	}
-
-	if !role.NoStore {
-		if role.StoreBy == storeByCNString {
-			// Writing certificate to the storage with CN
-			certId = commonName
-		} else if role.StoreBy == storeByHASHstring {
-			// do nothing as we already calculated the hash above
-		} else {
-			//Writing certificate to the storage with Serial Number
-			certId = normalizeSerial(serialNumber)
-		}
-		b.Logger().Debug("Writing certificate to the certs/" + certId)
-		entry.Key = "certs/" + certId
-		if err := logicalRequest.Storage.Put(ctx, entry); err != nil {
-			b.Logger().Error("Error putting entry to storage: " + err.Error())
-			return nil, err
-		}
+	pCert.ParsedX509Certificate = parsedCert
+	chain := strings.Join(append([]string{pcc.Certificate}, pcc.Chain...), "\n")
+	pCert.Chain = chain
+	b.Logger().Debug("cert Chain: " + strings.Join(pcc.Chain, ", "))
+	serialNumber, err := getHexFormatted(parsedCert.SerialNumber.Bytes(), ":")
+	if err != nil {
+		return nil, err
 	}
+	pCert.SerialNumber = serialNumber
+	return &pCert, nil
+}
 
+func (b *backend) buildLogicalResponse(pcc *certificate.PEMCollection, parsedCertificate *ParsedCertificate, role *roleEntry, certId string, commonName string, signCSR bool, keyPassword string) (*logical.Response, error) {
 	issuingCA := ""
 	if len(pcc.Chain) > 0 {
 		issuingCA = pcc.Chain[0]
 	}
 
-	expirationTime := parsedCertificate.NotAfter
+	expirationTime := (*parsedCertificate).ParsedX509Certificate.NotAfter
 	expirationSec := expirationTime.Unix()
 
 	// where "certificate_uid" is determined by "store_by" attribute defined at the role:
 	// store_by = "cn" -> string conformed by -> "certificate request's common name"
 	// store_by = "serial" -> string conformed by -> "generated certificate's serial"
 	// store_by = "hash" -> hash string conformed by -> "Common Name + SAN DNS + Zone"
-	respData := map[string]interface{}{
-		"certificate_uid":   certId,
-		"common_name":       commonName,
-		"serial_number":     serialNumber,
-		"certificate_chain": chain,
-		"certificate":       pcc.Certificate,
-		"ca_chain":          pcc.Chain,
-		"issuing_ca":        issuingCA,
-		"expiration":        expirationSec,
+	var respData = make(map[string]interface{})
+
+	if !role.NoStore {
+		respData["certificate_uid"] = certId
 	}
+	respData["common_name"] = commonName
+	respData["serial_number"] = (*parsedCertificate).SerialNumber
+	respData["certificate_chain"] = (*parsedCertificate).Chain
+	respData["certificate"] = pcc.Certificate
+	respData["ca_chain"] = pcc.Chain
+	respData["issuing_ca"] = issuingCA
+	respData["expiration"] = expirationSec
 
 	if !signCSR {
 		if keyPassword == "" {
@@ -452,10 +575,10 @@ func (b *backend) storingCertificate(ctx context.Context, logicalRequest *logica
 		logResp = b.Secret(SecretCertsType).Response(
 			respData,
 			map[string]interface{}{
-				"serial_number": serialNumber,
+				"serial_number": (*parsedCertificate).SerialNumber,
 			})
-		TTL := time.Until(parsedCertificate.NotAfter)
-		b.Logger().Debug("Setting up secret lease duration to: " + TTL.String())
+		TTL := time.Until((*parsedCertificate).ParsedX509Certificate.NotAfter)
+		b.Logger().Info("Setting up secret lease duration to: " + TTL.String())
 		logResp.Secret.TTL = TTL
 	}
 	return logResp, nil
@@ -493,6 +616,9 @@ func issueCertificate(certReq *certificate.Request, keyPass string, cl endpoint.
 		pemCollection.PrivateKey = privateKeyPem
 	} else if role.ServiceGenerated {
 		// Service generated
+		if pemCollection.PrivateKey == "" {
+			return nil, fmt.Errorf("we got empty private private key when we expected one to be generated from service")
+		}
 		privateKey, err := DecryptPkcs8PrivateKey(pemCollection.PrivateKey, keyPass)
 		if err != nil {
 			return nil, err
@@ -526,8 +652,7 @@ func issueCertificate(certReq *certificate.Request, keyPass string, cl endpoint.
 }
 
 func preventReissue(b *backend, ctx context.Context, req *logical.Request, reqData *requestData, cl *endpoint.Connector, role *roleEntry, zone string) *logical.Response {
-	b.Logger().Debug("Preventing re-issuance if certificate is already stored")
-	b.Logger().Debug("Looking if certificate exist in the platform")
+	b.Logger().Info("Preventing re-issuance if certificate is already stored \nLooking if certificate exist in the platform")
 
 	sanitizeRequestData(reqData, b.Logger())
 	// creating new variables, so we don't mess up with reqData values since we may send that during request or modify them during issuing operation
@@ -542,18 +667,20 @@ func preventReissue(b *backend, ctx context.Context, req *logical.Request, reqDa
 		return logical.ErrorResponse(err.Error())
 	}
 	if certInfo != nil {
-		b.Logger().Debug("Looking for certificate in storage")
+		b.Logger().Info("Looking for certificate in storage")
 		serialNumber, err := addSeparatorToHexFormattedString(certInfo.Serial, ":")
 		if err != nil {
 			return logical.ErrorResponse(err.Error())
 		}
 		serialNormalized := normalizeSerial(serialNumber)
-		b.Logger().Debug("Loading certificate from storage")
+		b.Logger().Info("Loading certificate from storage")
 		cert, err := loadCertificateFromStorage(b, ctx, req, serialNormalized, reqData.keyPassword)
 		// We want to ignore error from plugin that is related to the certificate not being in storage. If it is
 		// we would like to issue a new one instead
 		if err != nil && !(errors.As(err, &vpkierror.CertEntryNotFound{})) {
-			return logical.ErrorResponse(err.Error())
+			msg := err.Error()
+			msg = "error reading venafi configuration:" + msg
+			return logical.ErrorResponse(msg)
 		}
 		if cert != nil && cert.PrivateKey != "" {
 			respData := map[string]interface{}{
@@ -563,28 +690,28 @@ func preventReissue(b *backend, ctx context.Context, req *logical.Request, reqDa
 				"certificate":       cert.Certificate,
 				"private_key":       cert.PrivateKey,
 			}
-			var logResp *logical.Response
-			logResp = b.Secret(SecretCertsType).Response(
+			logResp := b.Secret(SecretCertsType).Response(
 				respData,
 				map[string]interface{}{
 					"serial_number": serialNumber,
 				})
+			b.Logger().Info(fmt.Sprintf("Certificate found from local storage with cert ID %v", serialNormalized))
 			return logResp
 		}
 		// if we arrive here it means that we could NOT find a certificate in storage, so we ignored previous error
 		// and we are going to exit the prevent-reissue code block and we will try to issue a new certificate
+		b.Logger().Info("Certificate not found inside storage: Issuing a new one")
+		return nil
 	}
 	// if certInfo is equal to nil but we arrived here, means we skipped the error (since VCert returns error if certificate is not found,
 	// so we won't try to open storage and we will issue a new certificate
+	b.Logger().Info("No valid certificate found in local storage. Issuing a new one")
 	return nil
 }
 
 func preventReissueLocal(b *backend, ctx context.Context, req *logical.Request, reqData *requestData, role *roleEntry, certId string) *logical.Response {
-	b.Logger().Debug("Preventing re-issuance if certificate is already stored locally")
-	b.Logger().Debug("Looking for certificate in storage")
+	b.Logger().Info(fmt.Sprintf("Looking for certificate in storage with hash %v", certId))
 	sanitizeRequestData(reqData, b.Logger())
-
-	b.Logger().Debug("Loading certificate from storage")
 	venafiCert, err := loadCertificateFromStorage(b, ctx, req, certId, reqData.keyPassword)
 	// We want to ignore error from plugin that is related to the certificate not being in storage. If it is
 	// we would like to issue a new one instead
@@ -592,14 +719,18 @@ func preventReissueLocal(b *backend, ctx context.Context, req *logical.Request, 
 		return logical.ErrorResponse(err.Error())
 	}
 	if venafiCert != nil && venafiCert.PrivateKey != "" {
+		b.Logger().Info(fmt.Sprintf("Decrypting found certificate key pair with hash %v", certId))
 		// we want to know is current certificate is about to expire
 		certPem := venafiCert.Certificate
 		block, _ := pem.Decode([]byte(certPem))
 		cert, _ := x509.ParseCertificate(block.Bytes)
 		currentTime := time.Now()
+		b.Logger().Info(fmt.Sprintf("For checking certificate with hash %v, current time: %v", certId, currentTime))
+		b.Logger().Info(fmt.Sprintf("For checking certificate with hash %v, current expiry date: %v", certId, cert.NotAfter))
 		currentDuration := cert.NotAfter.Sub(currentTime)
-
+		b.Logger().Info(fmt.Sprintf("For checking certificate with hash %v, current duration: %v", certId, currentDuration))
 		roleDuration := role.MinCertTimeLeft
+		b.Logger().Info(fmt.Sprintf("For checking certificate with hash %v, current role duration: %v", certId, roleDuration))
 		if currentDuration > roleDuration {
 			respData := map[string]interface{}{
 				"certificate_uid":   certId,
@@ -618,15 +749,41 @@ func preventReissueLocal(b *backend, ctx context.Context, req *logical.Request, 
 				map[string]interface{}{
 					"serial_number": serialNumber,
 				})
+			b.Logger().Info(fmt.Sprintf("Certificate found from local storage with hash %v", certId))
 			return logResp
 		}
+		msg := fmt.Sprintf("certificate key pair with hash %v is about to expire:\n", certId)
+		msg = msg + fmt.Sprintf("current time: %v\n", currentTime)
+		msg = msg + fmt.Sprintf("certitficate expiry date: %v\n", cert.NotAfter)
+		msg = msg + fmt.Sprintf("current duration: %v\n", currentDuration)
+		msg = msg + fmt.Sprintf("role duration: %v\n", roleDuration)
+		b.Logger().Info(msg)
+		return nil
 	}
 	// if we were not able to find a certificate or certificate is not valid (about to expire or expired), we let issuance occur.
+	b.Logger().Info(fmt.Sprintf("certificate key pair with hash %v not found inside local storage", certId))
 	return nil
 }
 
 func formRequest(reqData requestData, role *roleEntry, cl *endpoint.Connector, signCSR bool, logger hclog.Logger) (certReq *certificate.Request, err error) {
 	if !signCSR {
+		msg := "forming certificate request with "
+		if reqData.commonName != "" {
+			msg = msg + fmt.Sprintf("CN: %s", reqData.commonName)
+		}
+		if len(reqData.altNames) > 0 {
+			if reqData.commonName != "" {
+				msg = msg + " " // leaving space if previously common name existed
+			}
+			msg = msg + "SAN DNS: "
+			for index, altName := range reqData.altNames {
+				msg = msg + altName
+				if index != len(reqData.altNames)-1 {
+					msg = msg + ", "
+				}
+			}
+		}
+		logger.Info(msg)
 		if len(reqData.altNames) == 0 && reqData.commonName == "" {
 			return certReq, fmt.Errorf("no domains specified on certificate")
 		}
@@ -676,7 +833,7 @@ func formRequest(reqData requestData, role *roleEntry, cl *endpoint.Connector, s
 		}
 
 	} else {
-		logger.Debug("Signing user provided CSR")
+		logger.Info("Signing user provided CSR")
 
 		if reqData.csrString == "" {
 			return certReq, fmt.Errorf("\"csr\" is empty")
@@ -831,23 +988,24 @@ func getCertIdHash(reqData requestData, zone string, logger hclog.Logger) string
 
 func addCNtoDNSList(reqData *requestData, logger hclog.Logger) {
 	if !sliceContains(reqData.altNames, reqData.commonName) && reqData.commonName != "" { // Go can compare if en empty string exist in the slice, so we omit that case
-		logger.Debug(fmt.Sprintf("Adding CN %s to SAN %s because it wasn't included.", reqData.commonName, reqData.altNames))
+		logger.Info(fmt.Sprintf("Adding CN %s to SAN %s because it wasn't included.", reqData.commonName, reqData.altNames))
 		reqData.altNames = append(reqData.altNames, reqData.commonName)
 	}
 }
 
 func removeDuplicateSANDNS(reqData *requestData, logger hclog.Logger) {
-	logger.Debug("Removing duplicate SAN DNS from request data")
+	logger.Info("Removing duplicate SAN DNS from request data")
 	altNames := &reqData.altNames
 	removeDuplicateStr(altNames)
 }
+
 func orderSANDNS(reqData *requestData, logger hclog.Logger) {
-	logger.Debug("ordering SAN DNS")
+	logger.Info("ordering SAN DNS")
 	sort.Strings(reqData.altNames)
 }
 
 func sanitizeRequestData(reqData *requestData, logger hclog.Logger) {
-	logger.Debug("Sanitizing request data")
+	logger.Info("Sanitizing request data")
 	removeDuplicateSANDNS(reqData, logger)
 	addCNtoDNSList(reqData, logger)
 	orderSANDNS(reqData, logger)
@@ -868,6 +1026,13 @@ type VenafiCert struct {
 	CertificateChain string `json:"certificate_chain"`
 	PrivateKey       string `json:"private_key"`
 	SerialNumber     string `json:"serial_number"`
+}
+
+type ParsedCertificate struct {
+	DecodedCertificate    *pem.Block
+	ParsedX509Certificate *x509.Certificate
+	Chain                 string
+	SerialNumber          string
 }
 
 const (
