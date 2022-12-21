@@ -210,7 +210,7 @@ func (b *backend) pathVenafiSecretCreate(ctx context.Context, req *logical.Reque
 		return logical.ErrorResponse(err.Error()), nil
 	}
 
-	if entry.RefreshToken != "" {
+	if entry.RefreshToken != "" && !entry.Fakemode {
 
 		for i := 0; i < 2; i++ {
 

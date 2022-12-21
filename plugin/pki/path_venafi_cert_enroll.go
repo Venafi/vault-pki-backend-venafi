@@ -190,9 +190,16 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, logicalRequest *logi
 	}
 
 	if connector.GetType() == endpoint.ConnectorTypeTPP {
-		err = validateAccessToken(b, ctx, &connector, cfg, logicalRequest, role)
+		var secretEntry *venafiSecretEntry
+		secretEntry, err = b.getVenafiSecret(ctx, logicalRequest.Storage, role.VenafiSecret)
 		if err != nil {
 			return nil, err
+		}
+		if secretEntry.RefreshToken != "" && secretEntry.RefreshToken2 != "" {
+			connector, err = validateAccessToken(b, ctx, connector, cfg, logicalRequest, role)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -978,30 +985,36 @@ func sanitizeRequestData(reqData *requestData, logger hclog.Logger) {
 	orderSANDNS(reqData, logger)
 }
 
-func validateAccessToken(b *backend, ctx context.Context, connector *endpoint.Connector, cfg *vcert.Config, logReq *logical.Request, role *roleEntry) error {
+func validateAccessToken(b *backend, ctx context.Context, connector endpoint.Connector, cfg *vcert.Config, logReq *logical.Request, role *roleEntry) (endpoint.Connector, error) {
 
 	refreshNeeded, _, err := isTokenRefreshNeeded(b, ctx, logReq.Storage, role.VenafiSecret)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if refreshNeeded {
 		if b.System().ReplicationState().HasState(consts.ReplicationPerformanceStandby | consts.ReplicationPerformanceSecondary) {
 			// only the leader can handle token refreshing
-			return logical.ErrReadOnly
+
+			return nil, logical.ErrReadOnly
+		}
+		b.Logger().Info("Token refresh is needed")
+		if err != nil {
+			return nil, err
 		}
 		err = updateAccessToken(b, ctx, logReq, cfg, role)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		// reload the client since the access token changed
 		var newConnector endpoint.Connector
 		newConnector, cfg, err = b.ClientVenafi(ctx, logReq, role)
 		if err != nil {
-			return err
+			b.Logger().Debug("got error: token is not ready")
+			return nil, err
 		}
-		connector = &newConnector
+		connector = newConnector
 	}
-	return nil
+	return connector, nil
 }
 
 type requestData struct {

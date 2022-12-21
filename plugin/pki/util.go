@@ -247,7 +247,6 @@ func isTokenRefreshNeeded(b *backend, ctx context.Context, storage logical.Stora
 	if err != nil {
 		return false, "", err
 	}
-
 	return secretEntry.NextRefresh.Before(time.Now()), secretEntry.RefreshToken2, nil
 }
 

@@ -47,6 +47,16 @@ func TestFakeVenafiSecretsConfigurations(t *testing.T) {
 	t.Run("create venafi secret TPP Token", integrationTestEnv.CreateVenafiToken)
 	t.Run("read venafi secret TPP Token", integrationTestEnv.ReadVenafiToken)
 	t.Run("delete venafi secret", integrationTestEnv.DeleteVenafi)
+
+	t.Run("create venafi secret TPP Token", integrationTestEnv.CreateVenafiTokenWithRefresh)
+	t.Run("read venafi secret TPP Token", integrationTestEnv.ReadVenafiToken)
+	t.Run("delete venafi secret", integrationTestEnv.DeleteVenafi)
+
+	t.Run("create venafi secret TPP Token", integrationTestEnv.FailCreateVenafiTokenWithOnlyOneRefresh)
+	t.Run("delete venafi secret", integrationTestEnv.DeleteVenafi)
+
+	t.Run("create venafi secret TPP Token", integrationTestEnv.FailCreateVenafiTokenWithOnlySecondRefreshSet)
+	t.Run("delete venafi secret", integrationTestEnv.DeleteVenafi)
 }
 
 //Testing all endpoints with fake vcert CA

@@ -69,6 +69,9 @@ const (
 	venafiConfigCloudRestricted             venafiConfigString = "CloudRestricted"
 	venafiConfigToken                       venafiConfigString = "TppToken"
 	venafiConfigTokenPredefined             venafiConfigString = "TppTokenPredefined"
+	venafiConfigTokenWithRefresh            venafiConfigString = "TppTokenWithRefresh"
+	venafiConfigTokenWithOnlyOneRefresh     venafiConfigString = "TppTokenWithOnlyOneRefresh"
+	venafiConfigTokenWithSecondRefresh      venafiConfigString = "TppTokenWithOnlySecondRefresh"
 	venafiConfigTokenRestricted             venafiConfigString = "TppTokenRestricted"
 	venafiConfigFake                        venafiConfigString = "Fake"
 	venafiConfigFakeDeprecatedStoreByCN     venafiConfigString = "FakeDeprecatedStoreByCN"
@@ -147,6 +150,32 @@ var venafiTestTokenConfigForVenafiSecretZone = map[string]interface{}{}
 var venafiTestTokenConfigPredefined = map[string]interface{}{
 	"url":               "https://tpp.example.com",
 	"access_token":      "admin",
+	"zone":              "devops\\vcert",
+	"trust_bundle_file": "/opt/venafi/bundle.pem",
+}
+
+var venafiTestConfigTokenWithRefresh = map[string]interface{}{
+	"url":               "https://tpp.example.com",
+	"access_token":      "admin",
+	"refresh_token":     "refresh1",
+	"refresh_token_2":   "refresh2",
+	"zone":              "devops\\vcert",
+	"trust_bundle_file": "/opt/venafi/bundle.pem",
+	"fakemode":          true,
+}
+
+var venafiTestConfigTokenWithOnlyOneRefresh = map[string]interface{}{
+	"url":               "https://tpp.example.com",
+	"access_token":      "admin",
+	"refresh_token":     "refresh1",
+	"zone":              "devops\\vcert",
+	"trust_bundle_file": "/opt/venafi/bundle.pem",
+}
+
+var venafiTestConfigTokenWithSecondRefresh = map[string]interface{}{
+	"url":               "https://tpp.example.com",
+	"access_token":      "admin",
+	"refresh_token_2":   "refresh2",
 	"zone":              "devops\\vcert",
 	"trust_bundle_file": "/opt/venafi/bundle.pem",
 }
@@ -521,7 +550,7 @@ func (e *testEnv) failToWriteVenafiToBackend(t *testing.T, configString venafiCo
 	}
 
 	if resp != nil && !resp.IsError() {
-		t.Fatal("Venafi secret with mixed cloud api key and tpp url should fail to write")
+		t.Fatal("Venafi secret should fail have failed to write")
 	}
 
 	errText := resp.Data["error"].(string)
@@ -1174,6 +1203,12 @@ func makeConfig(configString venafiConfigString) (roleData map[string]interface{
 		roleData = venafiTestTokenConfig
 	case venafiConfigTokenPredefined:
 		roleData = venafiTestTokenConfigPredefined
+	case venafiConfigTokenWithRefresh:
+		roleData = venafiTestConfigTokenWithRefresh
+	case venafiConfigTokenWithOnlyOneRefresh:
+		roleData = venafiTestConfigTokenWithOnlyOneRefresh
+	case venafiConfigTokenWithSecondRefresh:
+		roleData = venafiTestConfigTokenWithSecondRefresh
 	case venafiConfigTokenRestricted:
 		roleData = venafiTestTokenConfigRestricted
 	case venafiConfigMixedTppAndCloud:
@@ -1270,6 +1305,22 @@ func (e *testEnv) CreateVenafiToken(t *testing.T) {
 
 	var config = venafiConfigTokenPredefined
 	e.writeVenafiToBackend(t, config)
+}
+
+func (e *testEnv) CreateVenafiTokenWithRefresh(t *testing.T) {
+
+	var config = venafiConfigTokenWithRefresh
+	e.writeVenafiToBackend(t, config)
+}
+
+func (e *testEnv) FailCreateVenafiTokenWithOnlyOneRefresh(t *testing.T) {
+	var config = venafiConfigTokenWithOnlyOneRefresh
+	e.failToWriteVenafiToBackend(t, config, errorTextNeed2RefreshTokens)
+}
+
+func (e *testEnv) FailCreateVenafiTokenWithOnlySecondRefreshSet(t *testing.T) {
+	var config = venafiConfigTokenWithSecondRefresh
+	e.failToWriteVenafiToBackend(t, config, errorTextNeed2RefreshTokens)
 }
 
 func (e *testEnv) CreateVenafiMixedTppAndCloud(t *testing.T) {
