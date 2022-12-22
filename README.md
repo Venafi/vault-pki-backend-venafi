@@ -206,7 +206,8 @@ Venafi secrets engine:
    refresh_until:  ...
    ```
    
-   Now you can set the Venafi secret as follows (`access_token_1` and `access_token_2` are interchangeable):
+   Now set 1st pair of `access_token` and `refresh_token` and from 2nd pair, set only the second 
+   `refres_token` as follows: (`access_token_1` and `access_token_2` are NOT interchangeable):
 
    ```
    $ vault write venafi-pki/venafi/tpp \
@@ -224,7 +225,7 @@ Venafi secrets engine:
    We default it to 30 days, but internally we validate it to be not longer than the
    `access_token` is valid. Generally, `refresh_interval` should not be more than 
    half the token validity; example with `access_token` with validity of 1 day:
-   ![ProactiveTokenRefresh](./ProactiveTokenRefresh.png)
+
    ```
    $ vault write venafi-pki/venafi/tpp \
        url="https://tpp.venafi.example" \
@@ -258,39 +259,39 @@ Venafi secrets engine:
    Success! Data written to: venafi-pki/roles/vaas
    ```
 
-10. Lastly, configure a [role](https://www.vaultproject.io/api-docs/secret/pki#create-update-role)
-    that maps a name in Vault to a Venafi secret for enrollment. To see other available
-    options for the role after it is created, use `vault path-help venafi-pki/roles/:name`.
+9. Lastly, configure a [role](https://www.vaultproject.io/api-docs/secret/pki#create-update-role)
+   that maps a name in Vault to a Venafi secret for enrollment. To see other available
+   options for the role after it is created, use `vault path-help venafi-pki/roles/:name`.
 
-    **Trust Protection Platform**:
+   **Trust Protection Platform**:
 
-    ```text
-    $ vault write venafi-pki/roles/tpp \
-        venafi_secret=tpp \
-        generate_lease=true store_by=serial store_pkey=true
-    Success! Data written to: venafi-pki/roles/tpp
-    ```
+   ```text
+   $ vault write venafi-pki/roles/tpp \
+       venafi_secret=tpp \
+       generate_lease=true store_by=serial store_pkey=true
+   Success! Data written to: venafi-pki/roles/tpp
+   ```
 
-    **Venafi as a Service**:
+   **Venafi as a Service**:
 
-    ```text
-    $ vault write venafi-pki/roles/vaas \
-        venafi_secret=vaas \
-        generate_lease=true store_by=serial store_pkey=true
-    Success! Data written to: venafi-pki/roles/vaas
-    ```
+   ```text
+   $ vault write venafi-pki/roles/vaas \
+       venafi_secret=vaas \
+       generate_lease=true store_by=serial store_pkey=true
+   Success! Data written to: venafi-pki/roles/vaas
+   ```
 
-    :pushpin: **NOTE**: The `ttl` and `max_ttl` role parameters can be used specify the
-    default and maximum allowed validity for certificate requests if the Venafi CA template
-    supports flexible validity periods.  If the CA is DigiCert, Entrust, or Microsoft with
-    Trust Protection Platform, the `issuer_hint` parameter is also required for `ttl`
-    functionality (e.g. `issuer_hint="m"` for Microsoft).  When issue or sign operations
-    include the `ttl` parameter it overrides the role default `ttl` and will be constrained
-    by the role `max_ttl`.
+   :pushpin: **NOTE**: The `ttl` and `max_ttl` role parameters can be used specify the
+   default and maximum allowed validity for certificate requests if the Venafi CA template
+   supports flexible validity periods.  If the CA is DigiCert, Entrust, or Microsoft with
+   Trust Protection Platform, the `issuer_hint` parameter is also required for `ttl`
+   functionality (e.g. `issuer_hint="m"` for Microsoft).  When issue or sign operations
+   include the `ttl` parameter it overrides the role default `ttl` and will be constrained
+   by the role `max_ttl`.
    
-    :pushpin: **NOTE**: The `zone` role parameter allows multiple zones to be used with a
-    single Venafi secret.  If `zone` is not specified by the role, the `zone` specified by
-    the Venafi secret applies.
+   :pushpin: **NOTE**: The `zone` role parameter allows multiple zones to be used with a
+   single Venafi secret.  If `zone` is not specified by the role, the `zone` specified by
+   the Venafi secret applies.
 
 ## Usage
 
