@@ -207,7 +207,7 @@ Venafi secrets engine:
    ```
    
    Now set 1st pair of `access_token` and `refresh_token` and from 2nd pair, set only the second 
-   `refres_token` as follows: (`access_token_1` and `access_token_2` are NOT interchangeable):
+   `refresh_token_2` parameter as follows: (`access_token_1` and `access_token_2` are NOT interchangeable):
 
    ```
    $ vault write venafi-pki/venafi/tpp \
