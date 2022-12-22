@@ -11,13 +11,6 @@ import (
 	"encoding/hex"
 	"encoding/pem"
 	"fmt"
-	"github.com/Venafi/vault-pki-backend-venafi/plugin/pki/vpkierror"
-	"github.com/Venafi/vcert/v4"
-	"github.com/Venafi/vcert/v4/pkg/endpoint"
-	"github.com/Venafi/vcert/v4/pkg/util"
-	"github.com/Venafi/vcert/v4/pkg/venafi/tpp"
-	"github.com/hashicorp/vault/sdk/logical"
-	"github.com/youmark/pkcs8"
 	"io/ioutil"
 	mathrand "math/rand"
 	"net"
@@ -27,6 +20,14 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Venafi/vault-pki-backend-venafi/plugin/pki/vpkierror"
+	"github.com/Venafi/vcert/v4"
+	"github.com/Venafi/vcert/v4/pkg/endpoint"
+	"github.com/Venafi/vcert/v4/pkg/util"
+	"github.com/Venafi/vcert/v4/pkg/venafi/tpp"
+	"github.com/hashicorp/vault/sdk/logical"
+	"github.com/youmark/pkcs8"
 )
 
 const (
@@ -241,31 +242,47 @@ func getTppConnector(cfg *vcert.Config) (*tpp.Connector, error) {
 	return tppConnector, nil
 }
 
-func updateAccessToken(cfg *vcert.Config, b *backend, ctx context.Context, req *logical.Request, roleName string) error {
+func isTokenRefreshNeeded(b *backend, ctx context.Context, storage logical.Storage, secretName string) (bool, string, error) {
+	secretEntry, err := b.getVenafiSecret(ctx, storage, secretName)
+	if err != nil {
+		return false, "", err
+	}
+	return secretEntry.NextRefresh.Before(time.Now()), secretEntry.RefreshToken2, nil
+}
+
+func updateAccessToken(b *backend, ctx context.Context, req *logical.Request, cfg *vcert.Config, role *roleEntry) error {
+	b.mux.Lock()
+	defer b.mux.Unlock()
+
+	refreshNeeded, refreshToken, err := isTokenRefreshNeeded(b, ctx, req.Storage, role.VenafiSecret)
+	if err != nil {
+		return err
+	}
+	if !refreshNeeded {
+		return nil // we're done, another thread beat us to it
+	}
+
 	tppConnector, _ := getTppConnector(cfg)
 
-	httpClient, err := getHTTPClient(cfg.ConnectionTrust)
+	var httpClient *http.Client
+	httpClient, err = getHTTPClient(cfg.ConnectionTrust)
 	if err != nil {
 		return err
 	}
 
 	tppConnector.SetHTTPClient(httpClient)
 
-	resp, err := tppConnector.RefreshAccessToken(&endpoint.Authentication{
-		RefreshToken: cfg.Credentials.RefreshToken,
+	b.Logger().Debug("Refreshing token")
+	var resp tpp.OauthRefreshAccessTokenResponse
+	resp, err = tppConnector.RefreshAccessToken(&endpoint.Authentication{
+		RefreshToken: refreshToken,
 		ClientId:     "hashicorp-vault-by-venafi",
 		Scope:        "certificate:manage,revoke",
 	})
-
 	if resp.Access_token != "" && resp.Refresh_token != "" {
-		err := storeAccessData(b, ctx, req, roleName, resp)
-		if err != nil {
-			return err
-		}
-	} else {
-		return err
+		err = storeAccessData(b, ctx, req, role.Name, resp)
 	}
-	return nil
+	return err
 }
 
 func storeAccessData(b *backend, ctx context.Context, req *logical.Request, roleName string, resp tpp.OauthRefreshAccessTokenResponse) error {
@@ -284,8 +301,10 @@ func storeAccessData(b *backend, ctx context.Context, req *logical.Request, role
 		return err
 	}
 
+	venafiEntry.RefreshToken2 = venafiEntry.RefreshToken
 	venafiEntry.AccessToken = resp.Access_token
 	venafiEntry.RefreshToken = resp.Refresh_token
+	venafiEntry.NextRefresh = time.Now().Add(venafiEntry.RefreshInterval)
 
 	// Store it
 	jsonEntry, err := logical.StorageEntryJSON(CredentialsRootPath+entry.VenafiSecret, venafiEntry)

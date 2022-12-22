@@ -3,6 +3,8 @@ package pki
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
 )
@@ -66,11 +68,20 @@ Example for Venafi Cloud: e33f3e40-4e7e-11ea-8da3-b3c196ebeb0b`,
 			},
 			"access_token": {
 				Type:        framework.TypeString,
-				Description: `Access token for TPP, user should use this for authentication`,
+				Description: `Access token for TPP; omit if secrets engine should manage token refreshes`,
 			},
 			"refresh_token": {
 				Type:        framework.TypeString,
-				Description: `Refresh token for updating TPP access token when it expires`,
+				Description: `Primary refresh token for updating TPP access token before it expires`,
+			},
+			"refresh_token_2": {
+				Type:        framework.TypeString,
+				Description: `Secondary refresh token for ensuring no impact on certificate requests when tokens are refreshed`,
+			},
+			"refresh_interval": {
+				Type:        framework.TypeDurationSecond,
+				Description: `Frequency at which secrets engine should refresh tokens.`,
+				Default:     time.Duration(30*24) * time.Hour,
 			},
 			"apikey": {
 				Type:        framework.TypeString,
@@ -107,14 +118,15 @@ Example: trust_bundle_file="/path-to/bundle.pem""`,
 }
 
 const (
-	CredentialsRootPath   = `venafi/`
-	tokenMode             = `TPP Token (access_token, refresh_token)` // #nosec G101
-	tppMode               = `TPP Credentials (tpp_user, tpp_password)`
-	cloudMode             = `Cloud API Key (apikey)`
-	errorMultiModeMessage = `can't specify both: %s and %s modes in the same venafi secret`
-	errorTextURLEmpty     = `"url" argument is required`
-	errorTextZoneEmpty    = `"zone" argument is required`
-	errorTextInvalidMode  = "invalid mode: fakemode or apikey or tpp credentials or tpp access token required"
+	CredentialsRootPath         = `venafi/`
+	tokenMode                   = `TPP Token (access_token, refresh_token)` // #nosec G101
+	tppMode                     = `TPP Credentials (tpp_user, tpp_password)`
+	cloudMode                   = `Cloud API Key (apikey)`
+	errorMultiModeMessage       = `can't specify both: %s and %s modes in the same venafi secret`
+	errorTextURLEmpty           = `"url" argument is required`
+	errorTextZoneEmpty          = `"zone" argument is required`
+	errorTextInvalidMode        = "invalid mode: fakemode or apikey or tpp credentials or tpp access token required"
+	errorTextNeed2RefreshTokens = "secrets engine requires 2 refresh tokens for no impact token refresh"
 )
 
 var (
@@ -184,6 +196,9 @@ func (b *backend) pathVenafiSecretCreate(ctx context.Context, req *logical.Reque
 		TppPassword:     data.Get("tpp_password").(string),
 		AccessToken:     data.Get("access_token").(string),
 		RefreshToken:    data.Get("refresh_token").(string),
+		RefreshToken2:   data.Get("refresh_token_2").(string),
+		RefreshInterval: time.Duration(data.Get("refresh_interval").(int)) * time.Second,
+		NextRefresh:     time.Now(),
 		CloudURL:        cloudUrl,
 		Apikey:          data.Get("apikey").(string),
 		TrustBundleFile: data.Get("trust_bundle_file").(string),
@@ -195,34 +210,41 @@ func (b *backend) pathVenafiSecretCreate(ctx context.Context, req *logical.Reque
 		return logical.ErrorResponse(err.Error()), nil
 	}
 
-	if entry.RefreshToken != "" {
+	if entry.RefreshToken != "" && !entry.Fakemode {
 
-		cfg, err := createConfigFromFieldData(entry)
+		for i := 0; i < 2; i++ {
 
-		if err != nil {
-
-			return logical.ErrorResponse(err.Error()), nil
-
-		}
-
-		tokenInfo, err := getAccessData(cfg)
-
-		if err != nil {
-
-			return logical.ErrorResponse(err.Error()), nil
-
-		} else {
-
-			if tokenInfo.Access_token != "" {
-				entry.AccessToken = tokenInfo.Access_token
+			cfg, err := createConfigFromFieldData(entry)
+			if err != nil {
+				return logical.ErrorResponse(err.Error()), nil
 			}
 
-			if tokenInfo.Refresh_token != "" {
-				entry.RefreshToken = tokenInfo.Refresh_token
+			tokenInfo, err := getAccessData(cfg)
+			if err != nil {
+				return logical.ErrorResponse(err.Error()), nil
 			}
 
-		}
+			if i == 0 && tokenInfo.Refresh_token != "" {
+				// ensure refresh interval is proactive by not allowing it to be longer than access token is valid
+				maxInterval := time.Until(time.Unix(int64(tokenInfo.Expires), 0)).Round(time.Minute) - time.Duration(30)*time.Second
+				if maxInterval < entry.RefreshInterval {
+					entry.RefreshInterval = maxInterval
+				}
 
+				entry.RefreshToken = entry.RefreshToken2
+				entry.RefreshToken2 = tokenInfo.Refresh_token
+				entry.NextRefresh = time.Now().Add(entry.RefreshInterval)
+			}
+
+			if i > 0 {
+				if tokenInfo.Access_token != "" {
+					entry.AccessToken = tokenInfo.Access_token
+				}
+				if tokenInfo.Refresh_token != "" {
+					entry.RefreshToken = tokenInfo.Refresh_token
+				}
+			}
+		}
 	}
 
 	//Store it
@@ -298,6 +320,10 @@ func validateVenafiSecretEntry(entry *venafiSecretEntry) error {
 		if entry.AccessToken != "" && entry.Apikey != "" {
 			return fmt.Errorf(errorTextMixedTokenAndCloud)
 		}
+
+		if (entry.RefreshToken != "" && entry.RefreshToken2 == "") || (entry.RefreshToken == "" && entry.RefreshToken2 != "") {
+			return fmt.Errorf(errorTextNeed2RefreshTokens)
+		}
 	}
 	return nil
 }
@@ -326,17 +352,20 @@ func getWarnings(entry *venafiSecretEntry, name string) []string {
 }
 
 type venafiSecretEntry struct {
-	URL             string `json:"url"`
-	Zone            string `json:"zone"`
-	TppURL          string `json:"tpp_url"`
-	TppUser         string `json:"tpp_user"`
-	TppPassword     string `json:"tpp_password"`
-	AccessToken     string `json:"access_token"`
-	RefreshToken    string `json:"refresh_token"`
-	CloudURL        string `json:"cloud_url"`
-	Apikey          string `json:"apikey"`
-	TrustBundleFile string `json:"trust_bundle_file"`
-	Fakemode        bool   `json:"fakemode"`
+	URL             string        `json:"url"`
+	Zone            string        `json:"zone"`
+	TppURL          string        `json:"tpp_url"`
+	TppUser         string        `json:"tpp_user"`
+	TppPassword     string        `json:"tpp_password"`
+	AccessToken     string        `json:"access_token"`
+	RefreshToken    string        `json:"refresh_token"`
+	RefreshToken2   string        `json:"refresh_token_2"`
+	RefreshInterval time.Duration `json:"refresh_interval"`
+	NextRefresh     time.Time     `json:"next_refresh"`
+	CloudURL        string        `json:"cloud_url"`
+	Apikey          string        `json:"apikey"`
+	TrustBundleFile string        `json:"trust_bundle_file"`
+	Fakemode        bool          `json:"fakemode"`
 }
 
 func (p *venafiSecretEntry) ToResponseData() map[string]interface{} {
@@ -350,6 +379,9 @@ func (p *venafiSecretEntry) ToResponseData() map[string]interface{} {
 		"tpp_password":      p.getStringMask(),
 		"access_token":      p.getStringMask(),
 		"refresh_token":     p.getStringMask(),
+		"refresh_token_2":   p.getStringMask(),
+		"refresh_interval":  shortDurationString(p.RefreshInterval),
+		"next_refresh":      p.NextRefresh,
 		"apikey":            p.getStringMask(),
 		"trust_bundle_file": p.TrustBundleFile,
 		"fakemode":          p.Fakemode,

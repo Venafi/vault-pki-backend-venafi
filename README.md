@@ -99,7 +99,7 @@ Venafi secrets engine:
    link to /private/etc. To avoid errors, choose an alternative directory such
    as /private/etc/vault/vault_plugins.
 
-1. Download the latest `vault-pki-backend-venafi` [release package](../../releases/latest)
+2. Download the latest `vault-pki-backend-venafi` [release package](../../releases/latest)
    for your operating system. Unzip the binary to the plugin directory. Note
    that the URL for the zip file, referenced below, changes as new versions of the
    plugin are released.
@@ -114,7 +114,7 @@ Venafi secrets engine:
    available version of Vault at the time.  Backward compatibility with older versions of Vault
    is typical but not confirmed by testing.
 
-1. Update the Vault [server configuration](https://www.vaultproject.io/docs/configuration/)
+3. Update the Vault [server configuration](https://www.vaultproject.io/docs/configuration/)
    to specify the plugin directory:
 
    ```text
@@ -128,15 +128,15 @@ Venafi secrets engine:
    directory. For example "/private/etc/vault/vault_plugins". If you make this change,
    keep it in mind as you go through the remaining steps.
 
-1. Start your Vault using the [server command](https://www.vaultproject.io/docs/commands/server).
+4. Start your Vault using the [server command](https://www.vaultproject.io/docs/commands/server).
 
-1. Get the SHA-256 checksum of the `venafi-pki-backend` plugin binary:
+5. Get the SHA-256 checksum of the `venafi-pki-backend` plugin binary:
 
    ```text
    $ SHA256=$(sha256sum /etc/vault/vault_plugins/venafi-pki-backend| cut -d' ' -f1)
    ```
 
-1. Register the `venafi-pki-backend` plugin in the Vault
+6. Register the `venafi-pki-backend` plugin in the Vault
    [system catalog](https://www.vaultproject.io/docs/internals/plugins#plugin-catalog):
 
    ```text
@@ -150,18 +150,18 @@ Venafi secrets engine:
     plugin directory correctly with a non-symlinked directory as mentioned earlier. Also,
     make sure this change is reflected when calling for the SHA-256 checksum.
 
-1. Enable the Venafi secrets engine:
+7. Enable the Venafi secrets engine:
 
    ```text
    $ vault secrets enable -path=venafi-pki -plugin-name=venafi-pki-backend plugin
    Success! Enabled the pki-backend-venafi secrets engine at: venafi-pki/
    ```
 
-1. Configure a Venafi secret that maps a name in Vault to connection and authentication
+8. Configure a Venafi secret that maps a name in Vault to connection and authentication
    settings for enrolling certificate using Venafi. The zone is a policy folder for Trust
    Protection Platform or an Application name and Issuing Template API Alias (e.g.
-   "Business App\Enterprise CIT") for Venafi as a Service. Obtain the `access_token` and
-   `refresh_token` for Trust Protection Platform using the 
+   "Business App\Enterprise CIT") for Venafi as a Service. Obtain the `access_token` and (optional)
+   bootstrap two refresh tokens for `refresh_token` and `refresh_token_2` for Trust Protection Platform using the 
    [VCert CLI](https://github.com/Venafi/vcert/blob/master/README-CLI-PLATFORM.md#obtaining-an-authorization-token)
    (`getcred` action with `--client-id "hashicorp-vault-by-venafi"` and
    `--scope "certificate:manage"`) or the Platform's Authorize REST API method. To see
@@ -175,18 +175,78 @@ Venafi secrets engine:
        url="https://tpp.venafi.example" \
        access_token="tn1PwE1QTZorXmvnTowSyA==" \
        refresh_token="MGxV7DzNnclQi9CkJMCXCg==" \
+       refresh_token_2="p0WTt3sDPbzm2BDIkoJROQ==" \
+       zone="DevOps\\HashiCorp Vault" \
+       trust_bundle_file="/opt/venafi/bundle.pem"
+   Success! Data written to: venafi-pki/venafi/tpp
+   ```
+   
+   In order to set the refresh tokens you will need to get two token key pair. For example,
+   you can execute `vcert getcred` command twice as follows:
+   
+   ```
+   $ vcert getcred ...
+   OUTPUT:
+   vCert: 2023/01/21 12:05:30 Getting credentials...
+   access_token:  access_token_1
+   access_token_expires:  ...
+   refresh_token:  refresh_token_1
+   refresh_until:  ...
+   ```
+   
+   Then one more time:
+
+   ```
+   $ vcert getcred ...
+   OUTPUT:
+   vCert: 2023/01/21 12:05:32 Getting credentials...
+   access_token:  access_token_2
+   access_token_expires:  ...
+   refresh_token:  refresh_token_2
+   refresh_until:  ...
+   ```
+   
+   Now set 1st pair of `access_token` and `refresh_token` and from 2nd pair, set only the second 
+   `refresh_token_2` parameter as follows: (`access_token_1` and `access_token_2` are NOT interchangeable):
+
+   ```
+   $ vault write venafi-pki/venafi/tpp \
+       url="https://tpp.venafi.example" \
+       access_token=access_token_1 \
+       refresh_token=refresh_token_1 \
+       refresh_token_2=refresh_token_2 \
+       zone="DevOps\\HashiCorp Vault" \
+       trust_bundle_file="/opt/venafi/bundle.pem"
+   Success! Data written to: venafi-pki/venafi/tpp
+   ```
+
+   :pushpin: **NOTE**: You can also specify a `refresh_interval` for the Venafi secret
+   which represents the frequency at which secrets engine should refresh tokens.
+   We default it to 30 days, but internally we validate it to be not longer than the
+   `access_token` is valid. Generally, `refresh_interval` should not be more than 
+   half the token validity; example with `access_token` with validity of 1 day:
+
+   ```
+   $ vault write venafi-pki/venafi/tpp \
+       url="https://tpp.venafi.example" \
+       access_token="tn1PwE1QTZorXmvnTowSyA==" \
+       refresh_token="MGxV7DzNnclQi9CkJMCXCg==" \
+       refresh_token_2="p0WTt3sDPbzm2BDIkoJROQ==" \
+       refresh_interval="12h" \
        zone="DevOps\\HashiCorp Vault" \
        trust_bundle_file="/opt/venafi/bundle.pem"
    Success! Data written to: venafi-pki/venafi/tpp
    ```
 
    :warning: **CAUTION**: Do not create more than one Venafi secret for the same
-   pair of tokens. Supplying a `refresh_token` allows the secrets engine to
-   automatically obtain new tokens and operate without interruption whenever the
-   `access_token` expires. This behavior is important to understand because it 
-   may require you to provide a new `access_token` and `refresh_token` if you need
-   to modify the Venafi secret in the future (i.e. depending upon whether the
-   original set of tokens has been refreshed by the secrets engine plugin). Having
+   set of tokens. Supplying a `refresh_token` and `refresh_token_2` (both must be set)
+   allows the secrets engine to automatically obtain new tokens and operate without 
+   interruption whenever the `access_token` expires.
+
+   This behavior is important to understand because it may require you to provide 
+   a new `access_token`, `refresh_token` and `refresh_token_2` if you need to modify
+   the Venafi secret in the future (i.e. depending upon whether the original 
+   set of tokens has been refreshed by the secrets engine plugin). Having
    more than one Venafi secret for the same set of tokens would result in all but 
    one Venafi secret being rendered inoperable when the token is refreshed.
 
@@ -199,7 +259,7 @@ Venafi secrets engine:
    Success! Data written to: venafi-pki/roles/vaas
    ```
 
-1. Lastly, configure a [role](https://www.vaultproject.io/api-docs/secret/pki#create-update-role)
+9. Lastly, configure a [role](https://www.vaultproject.io/api-docs/secret/pki#create-update-role)
    that maps a name in Vault to a Venafi secret for enrollment. To see other available
    options for the role after it is created, use `vault path-help venafi-pki/roles/:name`.
 
