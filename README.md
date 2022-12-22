@@ -180,6 +180,44 @@ Venafi secrets engine:
        trust_bundle_file="/opt/venafi/bundle.pem"
    Success! Data written to: venafi-pki/venafi/tpp
    ```
+   
+   In order to set the refresh tokens you will need to get two token key pair. For example,
+   you can execute `vcert getcred` command twice as follows:
+   
+   ```
+   $ vcert getcred ...
+   OUTPUT:
+   vCert: 2023/01/21 12:05:30 Getting credentials...
+   access_token:  access_token_1
+   access_token_expires:  ...
+   refresh_token:  refresh_token_1
+   refresh_until:  ...
+   ```
+   
+   Then one more time:
+
+   ```
+   $ vcert getcred ...
+   OUTPUT:
+   vCert: 2023/01/21 12:05:32 Getting credentials...
+   access_token:  access_token_2
+   access_token_expires:  ...
+   refresh_token:  refresh_token_2
+   refresh_until:  ...
+   ```
+   
+   Now you can set the Venafi secret as follows (`access_token_1` and `access_token_2` are interchangeable):
+
+   ```
+   $ vault write venafi-pki/venafi/tpp \
+       url="https://tpp.venafi.example" \
+       access_token=access_token_1 \
+       refresh_token=refresh_token_1 \
+       refresh_token_2=refresh_token_2 \
+       zone="DevOps\\HashiCorp Vault" \
+       trust_bundle_file="/opt/venafi/bundle.pem"
+   Success! Data written to: venafi-pki/venafi/tpp
+   ```
 
    :pushpin: **NOTE**: You can also specify a `refresh_interval` for the Venafi secret
    which represents the frequency at which secrets engine should refresh tokens.
