@@ -30,6 +30,7 @@ type testEnv struct {
 	TestRandString    string
 	RoleName          string
 	CertificateSerial string
+	CertId            string
 	VenafiSecretName  string
 }
 
@@ -56,6 +57,7 @@ type testData struct {
 	serviceGeneratedCert bool
 	privateKeyFormat     string
 	minCertTimeLeft      time.Duration
+	ignoreLocalStorage   bool
 }
 
 const (
@@ -67,6 +69,9 @@ const (
 	venafiConfigCloudRestricted             venafiConfigString = "CloudRestricted"
 	venafiConfigToken                       venafiConfigString = "TppToken"
 	venafiConfigTokenPredefined             venafiConfigString = "TppTokenPredefined"
+	venafiConfigTokenWithRefresh            venafiConfigString = "TppTokenWithRefresh"
+	venafiConfigTokenWithOnlyOneRefresh     venafiConfigString = "TppTokenWithOnlyOneRefresh"
+	venafiConfigTokenWithSecondRefresh      venafiConfigString = "TppTokenWithOnlySecondRefresh"
 	venafiConfigTokenRestricted             venafiConfigString = "TppTokenRestricted"
 	venafiConfigFake                        venafiConfigString = "Fake"
 	venafiConfigFakeDeprecatedStoreByCN     venafiConfigString = "FakeDeprecatedStoreByCN"
@@ -149,6 +154,32 @@ var venafiTestTokenConfigPredefined = map[string]interface{}{
 	"trust_bundle_file": "/opt/venafi/bundle.pem",
 }
 
+var venafiTestConfigTokenWithRefresh = map[string]interface{}{
+	"url":               "https://tpp.example.com",
+	"access_token":      "admin",
+	"refresh_token":     "refresh1",
+	"refresh_token_2":   "refresh2",
+	"zone":              "devops\\vcert",
+	"trust_bundle_file": "/opt/venafi/bundle.pem",
+	"fakemode":          true,
+}
+
+var venafiTestConfigTokenWithOnlyOneRefresh = map[string]interface{}{
+	"url":               "https://tpp.example.com",
+	"access_token":      "admin",
+	"refresh_token":     "refresh1",
+	"zone":              "devops\\vcert",
+	"trust_bundle_file": "/opt/venafi/bundle.pem",
+}
+
+var venafiTestConfigTokenWithSecondRefresh = map[string]interface{}{
+	"url":               "https://tpp.example.com",
+	"access_token":      "admin",
+	"refresh_token_2":   "refresh2",
+	"zone":              "devops\\vcert",
+	"trust_bundle_file": "/opt/venafi/bundle.pem",
+}
+
 var venafiTestTokenConfigRestricted = map[string]interface{}{
 	"url":               os.Getenv("TPP_TOKEN_URL"),
 	"access_token":      os.Getenv("TPP_ACCESS_TOKEN"),
@@ -157,42 +188,49 @@ var venafiTestTokenConfigRestricted = map[string]interface{}{
 }
 
 var venafiTestFakeConfigDeprecatedStoreByCN = map[string]interface{}{
-	"generate_lease": true,
-	"store_by_cn":    true,
-	"store_pkey":     true,
+	"generate_lease":       true,
+	"store_by_cn":          true,
+	"store_pkey":           true,
+	"ignore_local_storage": true,
 }
 
 var venafiTestFakeConfigDeprecatedStoreBySerial = map[string]interface{}{
-	"generate_lease":  true,
-	"store_by_serial": true,
-	"store_pkey":      true,
+	"generate_lease":       true,
+	"store_by_serial":      true,
+	"store_pkey":           true,
+	"ignore_local_storage": true,
 }
 
 var venafiTestFakeConfigStoreByCN = map[string]interface{}{
-	"generate_lease": true,
-	"store_by":       "cn",
-	"store_pkey":     true,
+	"generate_lease":       true,
+	"store_by":             "cn",
+	"store_pkey":           true,
+	"ignore_local_storage": true,
 }
 
 var venafiTestFakeConfigStoreBySerial = map[string]interface{}{
-	"generate_lease": true,
-	"store_by":       "serial",
-	"store_pkey":     true,
+	"generate_lease":       true,
+	"store_by":             "serial",
+	"store_pkey":           true,
+	"ignore_local_storage": true,
 }
 
 var venafiTestFakeConfig = map[string]interface{}{
-	"generate_lease": true,
-	"store_pkey":     true,
+	"generate_lease":       true,
+	"store_pkey":           true,
+	"ignore_local_storage": true,
 }
 
 var venafiTestFakeConfigNoStore = map[string]interface{}{
-	"generate_lease": true,
-	"no_store":       true,
+	"generate_lease":       true,
+	"no_store":             true,
+	"ignore_local_storage": true,
 }
 
 var venafiTestFakeConfigNoStorePKey = map[string]interface{}{
-	"generate_lease": true,
-	"store_pkey":     false,
+	"generate_lease":       true,
+	"store_pkey":           false,
+	"ignore_local_storage": true,
 }
 
 var venafiTestMixedTppAndCloudConfig = map[string]interface{}{
@@ -273,6 +311,13 @@ func (e *testEnv) writeRoleToBackendWithData(t *testing.T, configString venafiCo
 	roleData["issuer_hint"] = util.IssuerHintMicrosoft
 	if data.storeBy != "" {
 		roleData["store_by"] = data.storeBy
+	}
+
+	if &data.ignoreLocalStorage != nil {
+		roleData["ignore_local_storage"] = data.ignoreLocalStorage
+	} else {
+		// Default's
+		roleData["ignore_local_storage"] = false
 	}
 
 	if data.minCertTimeLeft > 0 {
@@ -505,7 +550,7 @@ func (e *testEnv) failToWriteVenafiToBackend(t *testing.T, configString venafiCo
 	}
 
 	if resp != nil && !resp.IsError() {
-		t.Fatal("Venafi secret with mixed cloud api key and tpp url should fail to write")
+		t.Fatal("Venafi secret should fail have failed to write")
 	}
 
 	errText := resp.Data["error"].(string)
@@ -652,13 +697,93 @@ func (e *testEnv) IssueCertificateAndSaveSerial(t *testing.T, data testData, con
 		data.privateKey = resp.Data["private_key"].(string)
 	}
 
-	//it is need to determine if we're checking cloud signed certificate in checkStandartCert
+	// it is needed to determine if we're checking cloud signed certificate in checkStandartCert
 	data.provider = configString
 
 	checkStandardCert(t, data)
-
-	//save certificate serial for the next test
+	// save certificate serial for the next test
 	e.CertificateSerial = resp.Data["serial_number"].(string)
+}
+
+func (e *testEnv) IssueCertificateAndSaveSerialParallelism(t *testing.T, data testData, configString venafiConfigString) string {
+	// TODO: We need to refactor original function "IssueCertificateAndSaveSerial" to return serial and make according changes to dependant test
+	var issueData map[string]interface{}
+
+	var altNames []string
+
+	if data.dnsNS != "" {
+		altNames = append(altNames, data.dnsNS)
+	}
+	if data.dnsEmail != "" {
+		altNames = append(altNames, data.dnsEmail)
+	}
+	if data.dnsIP != "" {
+		altNames = append(altNames, data.dnsIP)
+	}
+
+	if data.keyPassword != "" {
+		issueData = map[string]interface{}{
+			"common_name":        data.cn,
+			"alt_names":          strings.Join(altNames, ","),
+			"ip_sans":            []string{data.onlyIP},
+			"key_password":       data.keyPassword,
+			"private_key_format": "der",
+		}
+	} else {
+		issueData = map[string]interface{}{
+			"common_name":        data.cn,
+			"alt_names":          strings.Join(altNames, ","),
+			"ip_sans":            []string{data.onlyIP},
+			"private_key_format": "der",
+		}
+	}
+
+	if data.privateKeyFormat != "" {
+		issueData["private_key_format"] = data.privateKeyFormat
+	}
+
+	if data.customFields != nil {
+		issueData["custom_fields"] = strings.Join(data.customFields, ",")
+	}
+
+	resp, err := e.Backend.HandleRequest(e.Context, &logical.Request{
+		Operation: logical.UpdateOperation,
+		Path:      "issue/" + e.RoleName,
+		Storage:   e.Storage,
+		Data:      issueData,
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp != nil && resp.IsError() {
+		t.Fatalf("failed to issue certificate, %#v", resp.Data["error"])
+	}
+
+	if resp == nil {
+		t.Fatalf("should be on output on issue certificate, but response is nil: %#v", resp)
+	}
+
+	data.cert = resp.Data["certificate"].(string)
+	if data.keyPassword != "" {
+		encryptedKey := resp.Data["private_key"].(string)
+		b, _ := pem.Decode([]byte(encryptedKey))
+		b.Bytes, err = x509.DecryptPEMBlock(b, []byte(data.keyPassword))
+		if err != nil {
+			t.Fatal(err)
+		}
+		data.privateKey = string(pem.EncodeToMemory(b))
+	} else {
+		data.privateKey = resp.Data["private_key"].(string)
+	}
+
+	// it is needed to determine if we're checking cloud signed certificate in checkStandartCert
+	data.provider = configString
+
+	checkStandardCert(t, data)
+	serial := resp.Data["serial_number"].(string)
+	return serial
 }
 
 func (e *testEnv) IssueCertificateAndValidateTTL(t *testing.T, data testData) {
@@ -1078,6 +1203,12 @@ func makeConfig(configString venafiConfigString) (roleData map[string]interface{
 		roleData = venafiTestTokenConfig
 	case venafiConfigTokenPredefined:
 		roleData = venafiTestTokenConfigPredefined
+	case venafiConfigTokenWithRefresh:
+		roleData = venafiTestConfigTokenWithRefresh
+	case venafiConfigTokenWithOnlyOneRefresh:
+		roleData = venafiTestConfigTokenWithOnlyOneRefresh
+	case venafiConfigTokenWithSecondRefresh:
+		roleData = venafiTestConfigTokenWithSecondRefresh
 	case venafiConfigTokenRestricted:
 		roleData = venafiTestTokenConfigRestricted
 	case venafiConfigMixedTppAndCloud:
@@ -1174,6 +1305,22 @@ func (e *testEnv) CreateVenafiToken(t *testing.T) {
 
 	var config = venafiConfigTokenPredefined
 	e.writeVenafiToBackend(t, config)
+}
+
+func (e *testEnv) CreateVenafiTokenWithRefresh(t *testing.T) {
+
+	var config = venafiConfigTokenWithRefresh
+	e.writeVenafiToBackend(t, config)
+}
+
+func (e *testEnv) FailCreateVenafiTokenWithOnlyOneRefresh(t *testing.T) {
+	var config = venafiConfigTokenWithOnlyOneRefresh
+	e.failToWriteVenafiToBackend(t, config, errorTextNeed2RefreshTokens)
+}
+
+func (e *testEnv) FailCreateVenafiTokenWithOnlySecondRefreshSet(t *testing.T) {
+	var config = venafiConfigTokenWithSecondRefresh
+	e.failToWriteVenafiToBackend(t, config, errorTextNeed2RefreshTokens)
 }
 
 func (e *testEnv) CreateVenafiMixedTppAndCloud(t *testing.T) {
@@ -1887,6 +2034,26 @@ func (e *testEnv) PreventReissuance(t *testing.T, data testData, config venafiCo
 	}
 }
 
+func (e *testEnv) NotPreventReissuance(t *testing.T, data testData, config venafiConfigString) {
+
+	randString := e.TestRandString
+	domain := "vfidev.com"
+	data.cn = randString + "." + domain
+	data.dnsNS = "alt-" + data.cn
+	data.storeBy = "serial"
+	data.storePkey = true
+
+	e.writeVenafiToBackend(t, config)
+	e.writeRoleToBackendWithData(t, config, data)
+	e.IssueCertificateAndSaveSerial(t, data, config)
+	currentCertificateSerial := e.CertificateSerial
+	e.IssueCertificateAndSaveSerial(t, data, config)
+	nextCertificateSerial := e.CertificateSerial
+	if currentCertificateSerial == nextCertificateSerial {
+		t.Fatal("The serials are equal")
+	}
+}
+
 func (e *testEnv) PreventReissuanceCNwithExtraSANDNS(t *testing.T, data testData, config venafiConfigString) {
 
 	randString := e.TestRandString
@@ -2133,6 +2300,395 @@ func checkStandardCert(t *testing.T, data testData) {
 		}
 	}
 
+}
+
+func (e *testEnv) PreventReissuanceLocal(t *testing.T, data testData, config venafiConfigString) {
+
+	randString := e.TestRandString
+	domain := "vfidev.com"
+	data.cn = randString + "." + domain
+	commonName := data.cn
+	data.dnsNS = "maria-" + commonName + "," + "rose-" + commonName + "," + "bob-" + commonName + "," + "bob-" + commonName + "," + "shina-" + commonName
+	data.storeBy = "hash"
+	data.storePkey = true
+
+	e.writeVenafiToBackend(t, config)
+	e.writeRoleToBackendWithData(t, config, data)
+	e.IssueCertificateAndSaveSerial(t, data, config)
+	currentCertificateSerial := e.CertificateSerial
+	e.IssueCertificateAndSaveSerial(t, data, config)
+	nextCertificateSerial := e.CertificateSerial
+	if currentCertificateSerial != nextCertificateSerial {
+		// means that we went to issue another certificate which shouldn't have happened
+		// as we intend to present the one in storage
+		t.Fatal("The serials are different")
+	}
+}
+
+func (e *testEnv) NotPreventReissuanceLocal(t *testing.T, data testData, config venafiConfigString) {
+
+	randString := e.TestRandString
+	domain := "vfidev.com"
+	data.cn = randString + "." + domain
+	commonName := data.cn
+	data.dnsNS = "maria-" + commonName + "," + "rose-" + commonName + "," + "bob-" + commonName + "," + "bob-" + commonName + "," + "shina-" + commonName
+	data.storeBy = "hash"
+	data.storePkey = true
+
+	e.writeVenafiToBackend(t, config)
+	e.writeRoleToBackendWithData(t, config, data)
+	e.IssueCertificateAndSaveSerial(t, data, config)
+	currentCertificateSerial := e.CertificateSerial
+	e.IssueCertificateAndSaveSerial(t, data, config)
+	nextCertificateSerial := e.CertificateSerial
+	if currentCertificateSerial == nextCertificateSerial {
+		t.Fatal("The serials are equal")
+	}
+}
+
+func (e *testEnv) PreventReissuanceLocalCNwithExtraSANDNS(t *testing.T, data testData, config venafiConfigString) {
+
+	randString := e.TestRandString
+	domain := "vfidev.com"
+	data.cn = randString + "." + domain
+	data.dnsNS = "alt-" + data.cn
+	data.storeBy = "hash"
+	data.storePkey = true
+
+	e.writeVenafiToBackend(t, config)
+	e.writeRoleToBackendWithData(t, config, data)
+	e.IssueCertificateAndSaveSerial(t, data, config)
+	currentCertificateSerial := e.CertificateSerial
+	data.dnsNS = data.dnsNS + ",alt2-" + data.cn
+	e.IssueCertificateAndSaveSerial(t, data, config)
+	nextCertificateSerial := e.CertificateSerial
+	if currentCertificateSerial == nextCertificateSerial {
+		// since a new SAN DNS was provided in second run, we should have issued
+		// another certificate, so serials should be different
+		t.Fatal("The serials are equal")
+	}
+}
+
+func (e *testEnv) PreventReissuanceLocalCNandRemovingSANDNS(t *testing.T, data testData, config venafiConfigString) {
+
+	randString := e.TestRandString
+	domain := "vfidev.com"
+	data.cn = randString + "." + domain
+	data.dnsNS = "alt-" + data.cn + ",alt2-" + data.cn + ",alt3-" + data.cn
+	data.storeBy = "hash"
+	data.storePkey = true
+
+	e.writeVenafiToBackend(t, config)
+	e.writeRoleToBackendWithData(t, config, data)
+	e.IssueCertificateAndSaveSerial(t, data, config)
+	currentCertificateSerial := e.CertificateSerial
+	data.dnsNS = "alt-" + data.cn + ",alt2-" + data.cn
+	e.IssueCertificateAndSaveSerial(t, data, config)
+	nextCertificateSerial := e.CertificateSerial
+	if currentCertificateSerial == nextCertificateSerial {
+		// since SAN DNS was removed in second run, we should have issued
+		// another certificate, so serials should be different
+		t.Fatal("The serials are equal")
+	}
+}
+
+func (e *testEnv) PreventReissuanceLocalCNandNoSANSDNS(t *testing.T, data testData, config venafiConfigString) {
+
+	randString := e.TestRandString
+	domain := "vfidev.com"
+	data.cn = randString + "." + domain
+	data.storeBy = "hash"
+	data.storePkey = true
+
+	e.writeVenafiToBackend(t, config)
+	e.writeRoleToBackendWithData(t, config, data)
+	e.IssueCertificateAndSaveSerial(t, data, config)
+	currentCertificateSerial := e.CertificateSerial
+	e.IssueCertificateAndSaveSerial(t, data, config)
+	nextCertificateSerial := e.CertificateSerial
+	if currentCertificateSerial != nextCertificateSerial {
+		// means that we went to issue another certificate which shouldn't have happened
+		// as we intend to present the one in storage
+		t.Fatal("The serials are different")
+	}
+}
+
+func (e *testEnv) PreventReissuanceLocalTTLnotValid(t *testing.T, data testData, config venafiConfigString) {
+
+	randString := e.TestRandString
+	domain := "vfidev.com"
+	data.cn = randString + "." + domain
+	data.dnsNS = "alt-" + data.cn
+	data.storeBy = "hash"
+	data.storePkey = true
+
+	e.writeVenafiToBackend(t, config)
+	e.writeRoleToBackendWithData(t, config, data)
+	e.IssueCertificateAndSaveSerial(t, data, config)
+	currentCertificateSerial := e.CertificateSerial
+	e.IssueCertificateAndSaveSerial(t, data, config)
+	nextCertificateSerial := e.CertificateSerial
+	if currentCertificateSerial == nextCertificateSerial {
+		// since TTL is less than time we consider a certificate to be valid, we should have issued
+		// another certificate, so serials should be different
+		t.Fatal("The serials are equal")
+	}
+}
+
+func (e *testEnv) PreventReissuanceLocalTTLvalid(t *testing.T, data testData, config venafiConfigString) {
+
+	randString := e.TestRandString
+	domain := "vfidev.com"
+	data.cn = randString + "." + domain
+	data.dnsNS = "alt-" + data.cn
+	data.storeBy = "hash"
+	data.storePkey = true
+
+	e.writeVenafiToBackend(t, config)
+	e.writeRoleToBackendWithData(t, config, data)
+	e.IssueCertificateAndSaveSerial(t, data, config)
+	currentCertificateSerial := e.CertificateSerial
+	e.IssueCertificateAndSaveSerial(t, data, config)
+	nextCertificateSerial := e.CertificateSerial
+	if currentCertificateSerial != nextCertificateSerial {
+		// since TTL is within than time we consider a certificate to be valid, we should have not issued
+		// another certificate, so serials should be equal
+		t.Fatal("The serials are different")
+	}
+}
+func (e *testEnv) PreventReissuanceLocalCNwithThreeSANDNS(t *testing.T, data testData, config venafiConfigString) {
+
+	randString := e.TestRandString
+	domain := "vfidev.com"
+	data.cn = randString + "." + domain
+	data.dnsNS = "alt-" + data.cn + "," + "alt2-" + data.cn + "," + "alt3" + data.cn
+	data.storeBy = "hash"
+	data.storePkey = true
+
+	e.writeVenafiToBackend(t, config)
+	e.writeRoleToBackendWithData(t, config, data)
+	e.IssueCertificateAndSaveSerial(t, data, config)
+	currentCertificateSerial := e.CertificateSerial
+	e.IssueCertificateAndSaveSerial(t, data, config)
+	nextCertificateSerial := e.CertificateSerial
+	if currentCertificateSerial != nextCertificateSerial {
+		t.Fatal("The serials are different")
+	}
+}
+
+func (e *testEnv) PreventReissuanceLocalCNwithDifferentCNandThreeSANDNS(t *testing.T, data testData, config venafiConfigString) {
+
+	randString := e.TestRandString
+	domain := "vfidev.com"
+	data.cn = randString + "." + domain
+	data.dnsNS = "alt-" + data.cn + "," + "alt2-" + data.cn + "," + "alt3" + data.cn
+	data.storeBy = "hash"
+	data.storePkey = true
+
+	e.writeVenafiToBackend(t, config)
+	e.writeRoleToBackendWithData(t, config, data)
+	e.IssueCertificateAndSaveSerial(t, data, config)
+	currentCertificateSerial := e.CertificateSerial
+	data.cn = e.TestRandString
+	e.IssueCertificateAndSaveSerial(t, data, config)
+	nextCertificateSerial := e.CertificateSerial
+	if currentCertificateSerial == nextCertificateSerial {
+		t.Fatal("The serials are equal")
+	}
+}
+
+func (e *testEnv) PreventReissuanceLocalCNwithNoCNandThreeSANDNS(t *testing.T, data testData, config venafiConfigString) {
+
+	randString := e.TestRandString
+	domain := "vfidev.com"
+	commonName := randString + "." + domain
+	data.cn = ""
+	data.dnsNS = "alt-" + commonName + "," + "alt2-" + commonName + "," + "alt3" + commonName
+	data.storeBy = "hash"
+	data.storePkey = true
+
+	e.writeVenafiToBackend(t, config)
+	e.writeRoleToBackendWithData(t, config, data)
+	e.IssueCertificateAndSaveSerial(t, data, config)
+	currentCertificateSerial := e.CertificateSerial
+	e.IssueCertificateAndSaveSerial(t, data, config)
+	nextCertificateSerial := e.CertificateSerial
+	if currentCertificateSerial != nextCertificateSerial {
+		t.Fatal("The serials are different")
+	}
+}
+
+func (e *testEnv) TPPnegativeIssueCertificate(t *testing.T) {
+
+	data := testData{}
+	randString := e.TestRandString
+	domain := "venafi.example.com"
+	data.cn = randString + "." + domain
+	data.dnsNS = "alt-" + data.cn
+	data.dnsIP = "192.168.1.1"
+	data.dnsEmail = "venafi@example.com"
+
+	var config = venafiConfigToken
+
+	e.writeNegativeTPPvenafiToBackend(t, config)
+	e.writeRoleToBackend(t, config)
+	e.NegativeIssueCertificateAndSaveSerial(t, data, config)
+
+}
+
+func (e *testEnv) VAASnegativeIssueCertificate(t *testing.T) {
+
+	data := testData{}
+	randString := e.TestRandString
+	domain := "venafi.example.com"
+	data.cn = randString + "." + domain
+	data.dnsNS = "alt-" + data.cn
+	data.dnsIP = "192.168.1.1"
+	data.dnsEmail = "venafi@example.com"
+
+	var config = venafiConfigCloud
+
+	e.writeNegativeVAASvenafiToBackend(t, config)
+	e.writeRoleToBackend(t, config)
+	e.NegativeIssueCertificateAndSaveSerial(t, data, config)
+
+}
+
+func (e *testEnv) TPPnegativeIssueCertificateParallelism(t *testing.T, data *testData, config venafiConfigString, randString *string) {
+
+	domain := "venafi.example.com"
+	if randString != nil {
+		data.cn = *randString + "." + domain
+	} else {
+		data.cn = e.TestRandString + "." + domain
+	}
+	data.dnsNS = "alt-" + data.cn
+	data.dnsIP = "192.168.1.1"
+	data.dnsEmail = "venafi@example.com"
+	data.storeBy = "hash"
+
+	e.writeNegativeTPPvenafiToBackend(t, config)
+	e.writeRoleToBackend(t, config)
+	e.NegativeIssueCertificateAndSaveSerial(t, *data, config)
+
+}
+
+func (e *testEnv) writeNegativeTPPvenafiToBackend(t *testing.T, configString venafiConfigString) {
+	roleData, err := makeConfig(configString)
+	if err != nil {
+		t.Fatal(err)
+	}
+	roleData = copyMap(roleData)
+	roleData["access_token"] = "sdsdsd" // bad input to trigger error on issue
+
+	resp, err := e.Backend.HandleRequest(e.Context, &logical.Request{
+		Operation: logical.UpdateOperation,
+		Path:      "venafi/" + e.VenafiSecretName,
+		Storage:   e.Storage,
+		Data:      roleData,
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp != nil && resp.IsError() {
+		t.Fatalf("failed to create venafi, %#v", resp)
+	}
+}
+
+func (e *testEnv) writeNegativeVAASvenafiToBackend(t *testing.T, configString venafiConfigString) {
+	roleData, err := makeConfig(configString)
+	if err != nil {
+		t.Fatal(err)
+	}
+	roleData = copyMap(roleData)
+	roleData["CLOUD_APIKEY"] = "sdsdsd" // bad input to trigger error on issue
+
+	resp, err := e.Backend.HandleRequest(e.Context, &logical.Request{
+		Operation: logical.UpdateOperation,
+		Path:      "venafi/" + e.VenafiSecretName,
+		Storage:   e.Storage,
+		Data:      roleData,
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp != nil && resp.IsError() {
+		t.Fatalf("failed to create venafi, %#v", resp)
+	}
+}
+
+func (e *testEnv) SetupParallelismEnv(t *testing.T, data *testData, config venafiConfigString, randString *string) {
+	domain := "vfidev.com"
+	if randString != nil {
+		data.cn = *randString + "." + domain
+	} else {
+		data.cn = e.TestRandString
+	}
+	commonName := data.cn
+	data.dnsNS = "maria-" + commonName + "," + "rose-" + commonName + "," + "bob-" + commonName + "," + "bob-" + commonName + "," + "shina-" + commonName
+	data.storeBy = "hash"
+	data.storePkey = true
+
+	e.writeVenafiToBackend(t, config)
+	e.writeRoleToBackendWithData(t, config, *data)
+
+}
+
+func (e *testEnv) NegativeIssueCertificateAndSaveSerial(t *testing.T, data testData, configString venafiConfigString) {
+
+	var issueData map[string]interface{}
+
+	var altNames []string
+
+	if data.dnsNS != "" {
+		altNames = append(altNames, data.dnsNS)
+	}
+	if data.dnsEmail != "" {
+		altNames = append(altNames, data.dnsEmail)
+	}
+	if data.dnsIP != "" {
+		altNames = append(altNames, data.dnsIP)
+	}
+
+	if data.keyPassword != "" {
+		issueData = map[string]interface{}{
+			"common_name":        data.cn,
+			"alt_names":          strings.Join(altNames, ","),
+			"ip_sans":            []string{data.onlyIP},
+			"key_password":       data.keyPassword,
+			"private_key_format": "der",
+		}
+	} else {
+		issueData = map[string]interface{}{
+			"common_name":        data.cn,
+			"alt_names":          strings.Join(altNames, ","),
+			"ip_sans":            []string{data.onlyIP},
+			"private_key_format": "der",
+		}
+	}
+
+	if data.privateKeyFormat != "" {
+		issueData["private_key_format"] = data.privateKeyFormat
+	}
+
+	if data.customFields != nil {
+		issueData["custom_fields"] = strings.Join(data.customFields, ",")
+	}
+
+	resp, err := e.Backend.HandleRequest(e.Context, &logical.Request{
+		Operation: logical.UpdateOperation,
+		Path:      "issue/" + e.RoleName,
+		Storage:   e.Storage,
+		Data:      issueData,
+	})
+
+	if err == nil && resp != nil {
+		t.Fatal("should have returned error and a nil logical response since credentials are wrong")
+	}
 }
 
 func newIntegrationTestEnv() (*testEnv, error) {

@@ -1,3 +1,8 @@
+# v0.11.0 (November 25, 2022)
+Added ability to store certificates by hash string
+
+Improved the prevention of an issuance of the certificate if it exists Vault storage, adding a new feature that bases searching using a hash string
+
 # v0.10.6 (September 12, 2022)
 Adds bug fix for Prevent-reissue feature to work on VaaS
 

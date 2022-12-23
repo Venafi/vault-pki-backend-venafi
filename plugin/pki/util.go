@@ -4,19 +4,13 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	//nolint // ignoring since we don't expect to use complex hashing
 	"crypto/sha1"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/hex"
 	"encoding/pem"
 	"fmt"
-	"github.com/Venafi/vault-pki-backend-venafi/plugin/pki/vpkierror"
-	"github.com/Venafi/vcert/v4"
-	"github.com/Venafi/vcert/v4/pkg/endpoint"
-	"github.com/Venafi/vcert/v4/pkg/util"
-	"github.com/Venafi/vcert/v4/pkg/venafi/tpp"
-	"github.com/hashicorp/vault/sdk/logical"
-	"github.com/youmark/pkcs8"
 	"io/ioutil"
 	mathrand "math/rand"
 	"net"
@@ -26,6 +20,14 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Venafi/vault-pki-backend-venafi/plugin/pki/vpkierror"
+	"github.com/Venafi/vcert/v4"
+	"github.com/Venafi/vcert/v4/pkg/endpoint"
+	"github.com/Venafi/vcert/v4/pkg/util"
+	"github.com/Venafi/vcert/v4/pkg/venafi/tpp"
+	"github.com/hashicorp/vault/sdk/logical"
+	"github.com/youmark/pkcs8"
 )
 
 const (
@@ -68,7 +70,7 @@ func addSeparatorToHexFormattedString(s string, sep string) (string, error) {
 	var ret bytes.Buffer
 	for n, v := range s {
 		if n > 0 && n%2 == 0 {
-			if _, err := fmt.Fprintf(&ret, sep); err != nil {
+			if _, err := fmt.Fprint(&ret, sep); err != nil {
 				return "", err
 			}
 		}
@@ -182,7 +184,6 @@ func areDNSNamesCorrect(actualAltNames []string, expectedCNNames []string, expec
 		}
 	} else {
 
-		//Checking expectedAltNames are in actualAltNames
 		if len(actualAltNames) < len(expectedAltNames) {
 			return false
 		}
@@ -243,32 +244,47 @@ func getTppConnector(cfg *vcert.Config) (*tpp.Connector, error) {
 	return tppConnector, nil
 }
 
-func updateAccessToken(cfg *vcert.Config, b *backend, ctx context.Context, req *logical.Request, roleName string) error {
+func isTokenRefreshNeeded(b *backend, ctx context.Context, storage logical.Storage, secretName string) (bool, string, error) {
+	secretEntry, err := b.getVenafiSecret(ctx, storage, secretName)
+	if err != nil {
+		return false, "", err
+	}
+	return secretEntry.NextRefresh.Before(time.Now()), secretEntry.RefreshToken2, nil
+}
+
+func updateAccessToken(b *backend, ctx context.Context, req *logical.Request, cfg *vcert.Config, role *roleEntry) error {
+	b.mux.Lock()
+	defer b.mux.Unlock()
+
+	refreshNeeded, refreshToken, err := isTokenRefreshNeeded(b, ctx, req.Storage, role.VenafiSecret)
+	if err != nil {
+		return err
+	}
+	if !refreshNeeded {
+		return nil // we're done, another thread beat us to it
+	}
+
 	tppConnector, _ := getTppConnector(cfg)
 
-	httpClient, err := getHTTPClient(cfg.ConnectionTrust)
+	var httpClient *http.Client
+	httpClient, err = getHTTPClient(cfg.ConnectionTrust)
 	if err != nil {
 		return err
 	}
 
 	tppConnector.SetHTTPClient(httpClient)
 
-	resp, err := tppConnector.RefreshAccessToken(&endpoint.Authentication{
-		RefreshToken: cfg.Credentials.RefreshToken,
+	b.Logger().Debug("Refreshing token")
+	var resp tpp.OauthRefreshAccessTokenResponse
+	resp, err = tppConnector.RefreshAccessToken(&endpoint.Authentication{
+		RefreshToken: refreshToken,
 		ClientId:     cfg.Credentials.ClientId,
 		Scope:        "certificate:manage,revoke",
 	})
 	if resp.Access_token != "" && resp.Refresh_token != "" {
-
-		err := storeAccessData(b, ctx, req, roleName, resp)
-		if err != nil {
-			return err
-		}
-
-	} else {
-		return err
+		err = storeAccessData(b, ctx, req, role.Name, resp)
 	}
-	return nil
+	return err
 }
 
 func storeAccessData(b *backend, ctx context.Context, req *logical.Request, roleName string, resp tpp.OauthRefreshAccessTokenResponse) error {
@@ -287,8 +303,10 @@ func storeAccessData(b *backend, ctx context.Context, req *logical.Request, role
 		return err
 	}
 
+	venafiEntry.RefreshToken2 = venafiEntry.RefreshToken
 	venafiEntry.AccessToken = resp.Access_token
 	venafiEntry.RefreshToken = resp.Refresh_token
+	venafiEntry.NextRefresh = time.Now().Add(venafiEntry.RefreshInterval)
 
 	// Store it
 	jsonEntry, err := logical.StorageEntryJSON(CredentialsRootPath+entry.VenafiSecret, venafiEntry)
@@ -398,8 +416,7 @@ func getStatusCode(msg string) int64 {
 
 func createConfigFromFieldData(data *venafiSecretEntry) (*vcert.Config, error) {
 
-	var cfg *vcert.Config
-	cfg = &vcert.Config{}
+	cfg := &vcert.Config{}
 
 	cfg.BaseUrl = data.URL
 	cfg.Zone = data.Zone
@@ -574,12 +591,11 @@ func loadCertificateFromStorage(b *backend, ctx context.Context, req *logical.Re
 	if entry == nil {
 		return nil, vpkierror.CertEntryNotFound{EntryPath: path}
 	}
-	//var cert VenafiCert
-	b.Logger().Debug("Getting venafi certificate")
+
+	b.Logger().Info(fmt.Sprintf("Getting venafi certificate from storage with ID: %v", certUID))
 
 	if err := entry.DecodeJSON(&cert); err != nil {
-		b.Logger().Error("error reading venafi configuration: %s", err)
-		return nil, err
+		return nil, fmt.Errorf("error reading venafi configuration: %s", err.Error())
 	}
 	b.Logger().Debug("certificate is:" + cert.Certificate)
 	b.Logger().Debug("chain is:" + cert.CertificateChain)
@@ -587,7 +603,7 @@ func loadCertificateFromStorage(b *backend, ctx context.Context, req *logical.Re
 	if keyPassword != "" {
 		encryptedPrivateKeyPem, err := encryptPrivateKey(cert.PrivateKey, keyPassword)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("error opening private key: %s", err.Error())
 		}
 		cert.PrivateKey = encryptedPrivateKeyPem
 	}
@@ -607,8 +623,34 @@ func shortDurationString(d time.Duration) string {
 }
 
 func sha1sum(s string) string {
+	//nolint
 	hash := sha1.New()
 	buffer := []byte(s)
 	hash.Write(buffer)
 	return hex.EncodeToString(hash.Sum(nil))
+}
+
+// we may want to enhance this function when we update to Go 1.18, since generics are only supported starting from that version
+func removeDuplicateStr(strSlice *[]string) {
+	allKeys := make(map[string]bool)
+	var list []string
+	for _, item := range *strSlice {
+		if _, value := allKeys[item]; !value {
+			allKeys[item] = true
+			list = append(list, item)
+		}
+	}
+	*strSlice = list
+}
+
+func stringSlicesEqual(a []string, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i, v := range a {
+		if v != b[i] {
+			return false
+		}
+	}
+	return true
 }
