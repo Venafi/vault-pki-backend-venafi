@@ -406,7 +406,8 @@ possibly erroneous results.
 ## Prevent Re-issue
 
 In order to prevent an issuance of a new certificate if current certificate exists in Vault's storage, we added a capability
-to return that certificate instead. To issue this feature you must set:
+to return that certificate instead. We rely on Venafi's platforms (TPP/VaaS) to find out is certificate already exist.
+To issue this feature you must set:
 
 - `min_cert_time_left` (_optional_): Golang's duration format string (e.g. 24h, 23h5m20s, 10000s, etc.). Default is 30 days.
 - `store_by="serial"` (_required_)
@@ -443,7 +444,8 @@ It's required to set any of (at least one): `Common Name` or `SAN DNS`.
 ### Using Prevent Re-issue Local
 
 In order to prevent an issuance of a new certificate if current certificate exists in Vault's storage, we added a capability
-to return that certificate instead. To issue this feature you must set:
+to return that certificate instead. We rely on hash in order to get certificate from local storage (no TPP/VaaS is involved).
+To issue this feature you must set:
 
 - `min_cert_time_left` (_optional_): Golang's duration format string (e.g. 24h, 23h5m20s, 10000s, etc.). Default is 30 days.
 - `store_by="hash"` (_required_)
