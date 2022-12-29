@@ -1,3 +1,9 @@
+# v0.12.0 (December 27, 2022)
+* Added ability to ignore search-certificate in local storage. Fixes behaviour for prevent-reissue features to have certificate default validity.
+* Introduced `proactive refresh` feature, which now relies on handling refreshing the `access_token` by passing two refresh tokens in the `venafi` secret (`refresh_token` and `refresh_token_2`)
+* Solved scenario when many requests are sent in parallel
+* Added flag `ignore_local` in role parameters to always ignore local storage when issuing a certificate
+
 # v0.11.0 (November 25, 2022)
 Added ability to store certificates by hash string
 
