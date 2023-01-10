@@ -101,11 +101,17 @@ compress:
 	rm -f $(DIST_DIR)/*
 	echo "Path $(CURRENT_DIR)/$(DIST_DIR)/$(PLUGIN_NAME)_$(VERSION)"
 	zip -j "$(CURRENT_DIR)/$(DIST_DIR)/$(PLUGIN_NAME)_$(VERSION)_linux.zip" \
-		"$(PLUGIN_DIR)/linux/$(PLUGIN_NAME)" "$(PLUGIN_DIR)/linux/$(PLUGIN_NAME).SHA256SUM" || exit 1
+		"$(PLUGIN_DIR)/linux/$(PLUGIN_NAME)" \
+		"$(PLUGIN_DIR)/linux/$(PLUGIN_NAME)_linux.sig" \
+		"$(PLUGIN_DIR)/linux/$(PLUGIN_NAME).SHA256SUM" || exit 1
 	zip -j "$(CURRENT_DIR)/$(DIST_DIR)/$(PLUGIN_NAME)_$(VERSION)_linux86.zip" \
-		"$(PLUGIN_DIR)/linux86/$(PLUGIN_NAME)" "$(PLUGIN_DIR)/linux86/$(PLUGIN_NAME).SHA256SUM" || exit 1
+		"$(PLUGIN_DIR)/linux86/$(PLUGIN_NAME)" \
+		"$(PLUGIN_DIR)/linux86/$(PLUGIN_NAME)_linux86.sig" \
+		"$(PLUGIN_DIR)/linux86/$(PLUGIN_NAME).SHA256SUM" || exit 1
 	zip -j "$(CURRENT_DIR)/$(DIST_DIR)/$(PLUGIN_NAME)_$(VERSION)_darwin.zip" \
-		"$(PLUGIN_DIR)/darwin/$(PLUGIN_NAME)" "$(PLUGIN_DIR)/darwin/$(PLUGIN_NAME).SHA256SUM" || exit 1
+		"$(PLUGIN_DIR)/darwin/$(PLUGIN_NAME)" \
+		"$(PLUGIN_DIR)/darwin/$(PLUGIN_NAME)_darwin.sig" \
+		"$(PLUGIN_DIR)/darwin/$(PLUGIN_NAME).SHA256SUM" || exit 1
 	zip -j "$(CURRENT_DIR)/$(DIST_DIR)/$(PLUGIN_NAME)_$(VERSION)_windows.zip" \
 		"$(PLUGIN_DIR)/windows/$(PLUGIN_NAME).exe" "$(PLUGIN_DIR)/windows/$(PLUGIN_NAME).exe.SHA256SUM" || exit 1
 	zip -j "$(CURRENT_DIR)/$(DIST_DIR)/$(PLUGIN_NAME)_$(VERSION)_windows86.zip"\
