@@ -175,7 +175,7 @@ func (b *backend) pathVenafiSecretDelete(ctx context.Context, req *logical.Reque
 func (b *backend) pathVenafiSecretCreate(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
 	var err error
 	name := data.Get("name").(string)
-
+	b.Logger().Info(fmt.Sprintf("Creating Venafi secret: %s", name))
 	url := data.Get("url").(string)
 	var tppUrl, cloudUrl string
 
@@ -205,22 +205,27 @@ func (b *backend) pathVenafiSecretCreate(ctx context.Context, req *logical.Reque
 		Fakemode:        data.Get("fakemode").(bool),
 	}
 
+	b.Logger().Info(fmt.Sprintf("Validating data for venafi secret %s", name))
 	err = validateVenafiSecretEntry(entry)
 	if err != nil {
+		b.Logger().Error(fmt.Sprintf("Error with venafi secret data: %s", err.Error()))
 		return logical.ErrorResponse(err.Error()), nil
 	}
-
 	if entry.RefreshToken != "" && !entry.Fakemode {
-
+		b.Logger().Info("Refresh token pair is provided. Setting up data")
 		for i := 0; i < 2; i++ {
 
+			b.Logger().Info("Refresh token pair is provided. Setting up data")
 			cfg, err := createConfigFromFieldData(entry)
 			if err != nil {
+				b.Logger().Error(fmt.Sprintf("Error during venafi secret creation: creating config error: %s", err.Error()))
 				return logical.ErrorResponse(err.Error()), nil
 			}
 
+			b.Logger().Info("Refreshing token during Venafi secret creation")
 			tokenInfo, err := getAccessData(cfg)
 			if err != nil {
+				b.Logger().Error(fmt.Sprintf("Error during venafi secret creation: refreshing tokens error: %s", err.Error()))
 				return logical.ErrorResponse(err.Error()), nil
 			}
 
@@ -228,6 +233,7 @@ func (b *backend) pathVenafiSecretCreate(ctx context.Context, req *logical.Reque
 				// ensure refresh interval is proactive by not allowing it to be longer than access token is valid
 				maxInterval := time.Until(time.Unix(int64(tokenInfo.Expires), 0)).Round(time.Minute) - time.Duration(30)*time.Second
 				if maxInterval < entry.RefreshInterval {
+					b.Logger().Info("Refresh interval is not correct since is longer than access token validity. Setting up a proper one")
 					entry.RefreshInterval = maxInterval
 				}
 
@@ -245,16 +251,21 @@ func (b *backend) pathVenafiSecretCreate(ctx context.Context, req *logical.Reque
 				}
 			}
 		}
+		b.Logger().Info("Success setting up refresh token data of Venafi secret")
 	}
 
 	//Store it
+	b.Logger().Info("Setting up data for entry of Venafi secret")
 	jsonEntry, err := logical.StorageEntryJSON(CredentialsRootPath+name, entry)
 	if err != nil {
+		b.Logger().Error(fmt.Sprintf("Error during venafi secret creation: error setting up refresh tokens for storage: %s", err.Error()))
 		return nil, err
 	}
 
+	b.Logger().Info("Storing entry of Venafi secret")
 	err = req.Storage.Put(ctx, jsonEntry)
 	if err != nil {
+		b.Logger().Error(fmt.Sprintf("Error during venafi secret creation: error storing refresh tokens: %s", err.Error()))
 		return nil, err
 	}
 
@@ -269,9 +280,10 @@ func (b *backend) pathVenafiSecretCreate(ctx context.Context, req *logical.Reque
 			Redirect: "",
 			Warnings: warnings,
 		}
+		b.Logger().Info(fmt.Sprintf("Sucess on creating Venafi secret %s (with warnings)", name))
 		return logResp, nil
 	}
-
+	b.Logger().Info(fmt.Sprintf("Sucess on creating Venafi secret %s", name))
 	return nil, nil
 }
 

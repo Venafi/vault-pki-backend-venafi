@@ -247,13 +247,18 @@ func isTokenRefreshNeeded(b *backend, ctx context.Context, storage logical.Stora
 	if err != nil {
 		return false, "", err
 	}
-	return secretEntry.NextRefresh.Before(time.Now()), secretEntry.RefreshToken2, nil
+	now := time.Now()
+	b.Logger().Info(fmt.Sprintf("Current time: %s", now.String()))
+	refreshNeeded := secretEntry.NextRefresh.Before(now)
+	b.Logger().Info(fmt.Sprintf("Refresh Needed: %v", refreshNeeded))
+	return refreshNeeded, secretEntry.RefreshToken2, nil
 }
 
 func updateAccessToken(b *backend, ctx context.Context, req *logical.Request, cfg *vcert.Config, role *roleEntry) error {
 	b.mux.Lock()
 	defer b.mux.Unlock()
 
+	b.Logger().Info("Verifying again if token still needs refresh")
 	refreshNeeded, refreshToken, err := isTokenRefreshNeeded(b, ctx, req.Storage, role.VenafiSecret)
 	if err != nil {
 		return err
@@ -272,13 +277,14 @@ func updateAccessToken(b *backend, ctx context.Context, req *logical.Request, cf
 
 	tppConnector.SetHTTPClient(httpClient)
 
-	b.Logger().Debug("Refreshing token")
+	b.Logger().Info("Refreshing token")
 	var resp tpp.OauthRefreshAccessTokenResponse
 	resp, err = tppConnector.RefreshAccessToken(&endpoint.Authentication{
 		RefreshToken: refreshToken,
 		ClientId:     "hashicorp-vault-by-venafi",
 		Scope:        "certificate:manage,revoke",
 	})
+	b.Logger().Info("Storing new token")
 	if resp.Access_token != "" && resp.Refresh_token != "" {
 		err = storeAccessData(b, ctx, req, role.Name, resp)
 	}
@@ -301,17 +307,23 @@ func storeAccessData(b *backend, ctx context.Context, req *logical.Request, role
 		return err
 	}
 
+	b.Logger().Info("swapping tokens: refresh_token2 = refresh_token1")
 	venafiEntry.RefreshToken2 = venafiEntry.RefreshToken
+	b.Logger().Info("storing new access_token")
 	venafiEntry.AccessToken = resp.Access_token
+	b.Logger().Info("storing new refresh_token for refresh_token1")
 	venafiEntry.RefreshToken = resp.Refresh_token
 	venafiEntry.NextRefresh = time.Now().Add(venafiEntry.RefreshInterval)
-
+	b.Logger().Info(fmt.Sprintf("Setting new time refresh: %s", venafiEntry.NextRefresh.String()))
+	b.Logger().Info("storing tokens")
 	// Store it
 	jsonEntry, err := logical.StorageEntryJSON(CredentialsRootPath+entry.VenafiSecret, venafiEntry)
 	if err != nil {
+		b.Logger().Error("Error on creating new tokens into venafi secret:", err.Error())
 		return err
 	}
 	if err := req.Storage.Put(ctx, jsonEntry); err != nil {
+		b.Logger().Error("Error on storing new tokens into venafi secret:", err.Error())
 		return err
 	}
 	return nil
@@ -438,7 +450,6 @@ func createConfigFromFieldData(data *venafiSecretEntry) (*vcert.Config, error) {
 	cfg.ConnectorType = endpoint.ConnectorTypeTPP
 
 	cfg.Credentials = &endpoint.Authentication{
-
 		AccessToken:  data.AccessToken,
 		RefreshToken: data.RefreshToken,
 	}
