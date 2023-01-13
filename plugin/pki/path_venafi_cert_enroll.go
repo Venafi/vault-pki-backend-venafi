@@ -77,6 +77,16 @@ If not specified the role default is used. Cannot be larger than the role max TT
 				Type:        framework.TypeBool,
 				Description: "Used to specify to retry (once) issuance of certificate if any error occurred",
 			},
+			"min_cert_time_left": {
+				Type:        framework.TypeDurationSecond,
+				Description: `When set, is used to determinate if certificate issuance is needed comparing certificate validity against desired remaining validity`,
+				Default:     time.Duration(30*24) * time.Hour,
+			},
+			"ignore_local_storage": {
+				Type:        framework.TypeBool,
+				Description: `When true, bypasses prevent re-issue logic to issue new certificate'`,
+				Default:     false,
+			},
 		},
 		Operations: map[logical.Operation]framework.OperationHandler{
 			logical.UpdateOperation: &framework.PathOperation{
@@ -217,16 +227,28 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, logicalRequest *logi
 		certId = getCertIdHash(*reqData, cfg.Zone, b.Logger())
 	}
 
-	if !role.IgnoreLocalStorage && role.StorePrivateKey && role.StoreBy == storeBySerialString && !signCSR {
+	// Checking if we need to ignore local storage
+	var ignoreLocalStorage bool // default is false
+
+	// If the ignoreLocalStorage flag has been declared during issue path level, it takes priority over the ignoreLocalStorage
+	// flag in the Venafi Role
+	ignoreLocalRaw, ok := data.GetOk("ignore_local_storage")
+	if ok {
+		ignoreLocalStorage = ignoreLocalRaw.(bool)
+	} else {
+		ignoreLocalStorage = role.IgnoreLocalStorage
+	}
+
+	if !ignoreLocalStorage && role.StorePrivateKey && role.StoreBy == storeBySerialString && !signCSR {
 		// if we don't receive a logic response, whenever is an error or the actual certificate found in storage
 		// means we need to issue a new one
-		logicalResp := preventReissue(b, ctx, logicalRequest, reqData, &connector, role, cfg.Zone)
+		logicalResp := preventReissue(b, ctx, logicalRequest, reqData, &connector, role, cfg.Zone, data)
 		if logicalResp != nil {
 			return logicalResp, nil
 		}
-	} else if !role.IgnoreLocalStorage && role.StorePrivateKey && role.StoreBy == storeByHASHstring && !signCSR {
+	} else if !ignoreLocalStorage && role.StorePrivateKey && role.StoreBy == storeByHASHstring && !signCSR {
 		b.Logger().Info(fmt.Sprintf("Calling prevent local for hash %v", certId))
-		logicalResp := preventReissueLocal(b, ctx, logicalRequest, reqData, role, certId)
+		logicalResp := preventReissueLocal(b, ctx, logicalRequest, reqData, role, certId, data)
 		if logicalResp != nil {
 			return logicalResp, nil
 		}
@@ -625,7 +647,7 @@ func issueCertificate(certReq *certificate.Request, keyPass string, cl endpoint.
 	return pemCollection, nil
 }
 
-func preventReissue(b *backend, ctx context.Context, req *logical.Request, reqData *requestData, cl *endpoint.Connector, role *roleEntry, zone string) *logical.Response {
+func preventReissue(b *backend, ctx context.Context, req *logical.Request, reqData *requestData, cl *endpoint.Connector, role *roleEntry, zone string, data *framework.FieldData) *logical.Response {
 	b.Logger().Info("Preventing re-issuance if certificate is already stored \nLooking if certificate exist in the platform")
 
 	sanitizeRequestData(reqData, b.Logger())
@@ -636,7 +658,16 @@ func preventReissue(b *backend, ctx context.Context, req *logical.Request, reqDa
 	}
 
 	// During search, if VaaS doesn't provide the CN and the CIT restricts the CN, then we will return an error since it's not supported.
-	certInfo, err := (*cl).SearchCertificate(zone, commonName, sans, role.MinCertTimeLeft)
+	// Getting minimum certificate time left to be considered valid
+	var minCertTimeLeft time.Duration
+	minCertTimeLeftRaw, ok := data.GetOk("min_cert_time_left")
+	if ok {
+		minCertTimeLeftInt := minCertTimeLeftRaw.(int)
+		minCertTimeLeft = time.Duration(minCertTimeLeftInt) * time.Second
+	} else {
+		minCertTimeLeft = role.MinCertTimeLeft // should at least equals to defined default value
+	}
+	certInfo, err := (*cl).SearchCertificate(zone, commonName, sans, minCertTimeLeft)
 	if err != nil && !(err == verror.NoCertificateFoundError || err == verror.NoCertificateWithMatchingZoneFoundError) {
 		return logical.ErrorResponse(err.Error())
 	}
@@ -683,7 +714,7 @@ func preventReissue(b *backend, ctx context.Context, req *logical.Request, reqDa
 	return nil
 }
 
-func preventReissueLocal(b *backend, ctx context.Context, req *logical.Request, reqData *requestData, role *roleEntry, certId string) *logical.Response {
+func preventReissueLocal(b *backend, ctx context.Context, req *logical.Request, reqData *requestData, role *roleEntry, certId string, data *framework.FieldData) *logical.Response {
 	b.Logger().Info(fmt.Sprintf("Looking for certificate in storage with hash %v", certId))
 	sanitizeRequestData(reqData, b.Logger())
 	venafiCert, err := loadCertificateFromStorage(b, ctx, req, certId, reqData.keyPassword)
@@ -703,9 +734,18 @@ func preventReissueLocal(b *backend, ctx context.Context, req *logical.Request, 
 		b.Logger().Info(fmt.Sprintf("For checking certificate with hash %v, current expiry date: %v", certId, cert.NotAfter))
 		currentDuration := cert.NotAfter.Sub(currentTime)
 		b.Logger().Info(fmt.Sprintf("For checking certificate with hash %v, current duration: %v", certId, currentDuration))
-		roleDuration := role.MinCertTimeLeft
-		b.Logger().Info(fmt.Sprintf("For checking certificate with hash %v, current role duration: %v", certId, roleDuration))
-		if currentDuration > roleDuration {
+		// Getting minimum certificate time left to be considered valid
+		var minCertTimeLeft time.Duration
+		minCertTimeLeftRaw, ok := data.GetOk("min_cert_time_left")
+		if ok {
+			minCertTimeLeftInt := minCertTimeLeftRaw.(int)
+			minCertTimeLeft = time.Duration(minCertTimeLeftInt) * time.Second
+		} else {
+			minCertTimeLeft = role.MinCertTimeLeft
+		}
+
+		b.Logger().Info(fmt.Sprintf("For checking certificate with hash %v, current set duration: %v", certId, minCertTimeLeft))
+		if currentDuration > minCertTimeLeft {
 			respData := map[string]interface{}{
 				"certificate_uid":   certId,
 				"serial_number":     venafiCert.SerialNumber,
@@ -730,7 +770,7 @@ func preventReissueLocal(b *backend, ctx context.Context, req *logical.Request, 
 		msg = msg + fmt.Sprintf("current time: %v\n", currentTime)
 		msg = msg + fmt.Sprintf("certitficate expiry date: %v\n", cert.NotAfter)
 		msg = msg + fmt.Sprintf("current duration: %v\n", currentDuration)
-		msg = msg + fmt.Sprintf("role duration: %v\n", roleDuration)
+		msg = msg + fmt.Sprintf("set duration: %v\n", minCertTimeLeft)
 		b.Logger().Info(msg)
 		return nil
 	}

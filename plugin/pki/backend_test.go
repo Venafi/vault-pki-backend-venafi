@@ -784,6 +784,83 @@ func TestTPPpreventLocal(t *testing.T) {
 		})
 }
 
+func TestTPPpreventLocalIssuanceLevelFlags(t *testing.T) {
+	// regular duration for testing
+	regDuration := time.Duration(168) * time.Hour // one week
+
+	// Since minCertTimeLeft defined at the issuance level takes precedence, then regDuration should overwrite
+	// the defined 8 years for the role level, which then should prevent-reissue fot this scenario
+	t.Run("TPP Token enroll same certificate and prevent-reissue locally", func(t *testing.T) {
+		integrationTestEnv, err := newIntegrationTestEnv()
+		if err != nil {
+			t.Fatal(err)
+		}
+		data := testData{
+			minCertTimeLeft:    time.Duration(70080) * time.Hour, // 8 years,
+			ignoreLocalStorage: false,
+		}
+		issuanceData := issueTestData{
+			minCertTimeLeft: regDuration,
+		}
+		integrationTestEnv.PreventReissuanceLocalWithIssuanceData(t, data, venafiConfigToken, issuanceData)
+	})
+
+	// Since minCertTimeLeft defined at the issuance level takes precedence, then 8 years should overwrite
+	// the regDuration defined for the role level, which then should NOT prevent-reissue fot this scenario
+	t.Run("TPP Token enroll same certificate and should not prevent-reissue locally", func(t *testing.T) {
+		integrationTestEnv, err := newIntegrationTestEnv()
+		if err != nil {
+			t.Fatal(err)
+		}
+		data := testData{
+			minCertTimeLeft:    regDuration,
+			ignoreLocalStorage: false,
+		}
+		issuanceData := issueTestData{
+			minCertTimeLeft: time.Duration(70080) * time.Hour, // 8 years,
+		}
+		integrationTestEnv.NotPreventReissuanceLocalWithIssuanceData(t, data, venafiConfigToken, issuanceData)
+	})
+
+	// Although we are trying to ignore the local storage from the role level, we ignore it and take precedence from
+	// the flag defined at the issuance path. Then we look that the regDuration, which issuance also takes precedence and should
+	// overwrite the 8 years defined at the role
+	t.Run("TPP Token enroll same certificate and prevent-reissue locally", func(t *testing.T) {
+		integrationTestEnv, err := newIntegrationTestEnv()
+		if err != nil {
+			t.Fatal(err)
+		}
+		data := testData{
+			minCertTimeLeft:    time.Duration(70080) * time.Hour, // 8 years,
+			ignoreLocalStorage: true,
+		}
+		issuanceData := issueTestData{
+			minCertTimeLeft:    regDuration,
+			ignoreLocalStorage: false,
+		}
+		integrationTestEnv.PreventReissuanceLocalWithIssuanceData(t, data, venafiConfigToken, issuanceData)
+	})
+	
+	// Regardless of the time defined left for a certificate to be valid, since we defined ignore local storage at the issuance
+	// level, we will alway create another cert for same re-issue
+	t.Run("TPP Token enroll same certificate and should not prevent-reissue locally", func(t *testing.T) {
+		integrationTestEnv, err := newIntegrationTestEnv()
+		if err != nil {
+			t.Fatal(err)
+		}
+		data := testData{
+			minCertTimeLeft:    time.Duration(70080) * time.Hour, // 8 years,
+			ignoreLocalStorage: false,
+		}
+		issuanceData := issueTestData{
+			minCertTimeLeft:    regDuration,
+			ignoreLocalStorage: true,
+		}
+		integrationTestEnv.NotPreventReissuanceLocalWithIssuanceData(t, data, venafiConfigToken, issuanceData)
+	})
+
+}
+
 func TestTPPpreventReissuance(t *testing.T) {
 	// regular duration for testing
 	regDuration := time.Duration(24) * time.Hour
