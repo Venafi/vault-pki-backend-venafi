@@ -3,10 +3,11 @@ package pki
 import (
 	"context"
 	"fmt"
+	"github.com/Venafi/vault-pki-backend-venafi/plugin/util"
 	"github.com/Venafi/vcert/v4/pkg/certificate"
 	"github.com/Venafi/vcert/v4/pkg/endpoint"
 	"github.com/Venafi/vcert/v4/pkg/policy"
-	"github.com/Venafi/vcert/v4/pkg/util"
+	vcertutil "github.com/Venafi/vcert/v4/pkg/util"
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
 	"strings"
@@ -153,13 +154,13 @@ func getDn(b *backend, c *endpoint.Connector, ctx context.Context, req *logical.
 
 	dn := CertId
 	switch storeByType {
-	case storeBySerialString:
+	case util.StoreBySerialString:
 		return getDnFromSerial(c, CertId)
-	case storeByCNString:
+	case util.StoreByCNString:
 		if (*c).GetType() == endpoint.ConnectorTypeTPP {
 
-			if !strings.HasPrefix(zone, util.PathSeparator) {
-				zone = util.PathSeparator + zone
+			if !strings.HasPrefix(zone, vcertutil.PathSeparator) {
+				zone = vcertutil.PathSeparator + zone
 			}
 
 			if !strings.HasPrefix(zone, policy.RootPath) {
@@ -172,7 +173,7 @@ func getDn(b *backend, c *endpoint.Connector, ctx context.Context, req *logical.
 			}
 
 		}
-	case storeByHASHstring:
+	case util.StoreByHASHstring:
 		cert, err := loadCertificateFromStorage(b, ctx, req, CertId, "")
 		if err != nil {
 			return "", err

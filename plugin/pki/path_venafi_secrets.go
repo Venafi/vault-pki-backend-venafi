@@ -3,8 +3,10 @@ package pki
 import (
 	"context"
 	"fmt"
-	"github.com/hashicorp/vault/sdk/helper/consts"
 	"time"
+
+	"github.com/Venafi/vault-pki-backend-venafi/plugin/util"
+	"github.com/hashicorp/vault/sdk/helper/consts"
 
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
@@ -12,7 +14,7 @@ import (
 
 func pathCredentialsList(b *backend) *framework.Path {
 	return &framework.Path{
-		Pattern: CredentialsRootPath + "?$",
+		Pattern: util.CredentialsRootPath + "?$",
 		Fields:  nil,
 		Operations: map[logical.Operation]framework.OperationHandler{
 			logical.ListOperation: &framework.PathOperation{
@@ -27,7 +29,7 @@ func pathCredentialsList(b *backend) *framework.Path {
 
 func pathCredentials(b *backend) *framework.Path {
 	return &framework.Path{
-		Pattern: CredentialsRootPath + framework.GenericNameRegex("name"),
+		Pattern: util.CredentialsRootPath + framework.GenericNameRegex("name"),
 		Fields: map[string]*framework.FieldSchema{
 			"name": {
 				Type:        framework.TypeString,
@@ -118,26 +120,8 @@ Example: trust_bundle_file="/path-to/bundle.pem""`,
 	}
 }
 
-const (
-	CredentialsRootPath         = `venafi/`
-	tokenMode                   = `TPP Token (access_token, refresh_token)` // #nosec G101
-	tppMode                     = `TPP Credentials (tpp_user, tpp_password)`
-	cloudMode                   = `Cloud API Key (apikey)`
-	errorMultiModeMessage       = `can't specify both: %s and %s modes in the same venafi secret`
-	errorTextURLEmpty           = `"url" argument is required`
-	errorTextZoneEmpty          = `"zone" argument is required`
-	errorTextInvalidMode        = "invalid mode: fakemode or apikey or tpp credentials or tpp access token required"
-	errorTextNeed2RefreshTokens = "secrets engine requires 2 refresh tokens for no impact token refresh"
-)
-
-var (
-	errorTextMixedTPPAndToken   = fmt.Sprintf(errorMultiModeMessage, tppMode, tokenMode)
-	errorTextMixedTPPAndCloud   = fmt.Sprintf(errorMultiModeMessage, tppMode, cloudMode)
-	errorTextMixedTokenAndCloud = fmt.Sprintf(errorMultiModeMessage, tokenMode, cloudMode)
-)
-
 func (b *backend) pathVenafiSecretList(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
-	entries, err := req.Storage.List(ctx, CredentialsRootPath)
+	entries, err := req.Storage.List(ctx, util.CredentialsRootPath)
 	if err != nil {
 		return nil, err
 	}
@@ -166,11 +150,12 @@ func (b *backend) pathVenafiSecretRead(ctx context.Context, req *logical.Request
 }
 
 func (b *backend) pathVenafiSecretDelete(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+
 	if b.System().ReplicationState().HasState(consts.ReplicationPerformanceStandby | consts.ReplicationPerformanceSecondary) {
 		// only the leader can handle deletion
 		return nil, logical.ErrReadOnly
 	}
-	err := req.Storage.Delete(ctx, CredentialsRootPath+data.Get("name").(string))
+	err := req.Storage.Delete(ctx, util.CredentialsRootPath+data.Get("name").(string))
 	if err != nil {
 		return nil, err
 	}
@@ -265,8 +250,10 @@ func (b *backend) pathVenafiSecretCreate(ctx context.Context, req *logical.Reque
 	}
 
 	//Store it
+
 	b.Logger().Info("Setting up data for entry of Venafi secret")
-	jsonEntry, err := logical.StorageEntryJSON(CredentialsRootPath+name, entry)
+	jsonEntry, err := logical.StorageEntryJSON(util.CredentialsRootPath+name, entry)
+
 	if err != nil {
 		b.Logger().Error(fmt.Sprintf("Error during venafi secret creation: error setting up refresh tokens for storage: %s", err.Error()))
 		return nil, err
@@ -298,7 +285,7 @@ func (b *backend) pathVenafiSecretCreate(ctx context.Context, req *logical.Reque
 }
 
 func (b *backend) getVenafiSecret(ctx context.Context, s logical.Storage, name string) (*venafiSecretEntry, error) {
-	entry, err := s.Get(ctx, CredentialsRootPath+name)
+	entry, err := s.Get(ctx, util.CredentialsRootPath+name)
 	if err != nil {
 		return nil, err
 	}
@@ -317,34 +304,34 @@ func (b *backend) getVenafiSecret(ctx context.Context, s logical.Storage, name s
 
 func validateVenafiSecretEntry(entry *venafiSecretEntry) error {
 	if !entry.Fakemode && entry.Apikey == "" && (entry.TppUser == "" || entry.TppPassword == "") && entry.RefreshToken == "" && entry.AccessToken == "" {
-		return fmt.Errorf(errorTextInvalidMode)
+		return fmt.Errorf(util.ErrorTextInvalidMode)
 	}
 
 	//Only validate other fields if mode is not fakemode
 	if !entry.Fakemode {
 		//When api key is null, that means
 		if entry.URL == "" && entry.Apikey == "" {
-			return fmt.Errorf(errorTextURLEmpty)
+			return fmt.Errorf(util.ErrorTextURLEmpty)
 		}
 
 		if entry.Zone == "" {
-			return fmt.Errorf(errorTextZoneEmpty)
+			return fmt.Errorf(util.ErrorTextZoneEmpty)
 		}
 
 		if entry.TppUser != "" && entry.Apikey != "" {
-			return fmt.Errorf(errorTextMixedTPPAndCloud)
+			return fmt.Errorf(util.ErrorTextMixedTPPAndCloud)
 		}
 
 		if entry.TppUser != "" && entry.AccessToken != "" {
-			return fmt.Errorf(errorTextMixedTPPAndToken)
+			return fmt.Errorf(util.ErrorTextMixedTPPAndToken)
 		}
 
 		if entry.AccessToken != "" && entry.Apikey != "" {
-			return fmt.Errorf(errorTextMixedTokenAndCloud)
+			return fmt.Errorf(util.ErrorTextMixedTokenAndCloud)
 		}
 
 		if (entry.RefreshToken != "" && entry.RefreshToken2 == "") || (entry.RefreshToken == "" && entry.RefreshToken2 != "") {
-			return fmt.Errorf(errorTextNeed2RefreshTokens)
+			return fmt.Errorf(util.ErrorTextNeed2RefreshTokens)
 		}
 	}
 	return nil
@@ -402,7 +389,7 @@ func (p *venafiSecretEntry) ToResponseData() map[string]interface{} {
 		"access_token":      p.getStringMask(),
 		"refresh_token":     p.getStringMask(),
 		"refresh_token_2":   p.getStringMask(),
-		"refresh_interval":  shortDurationString(p.RefreshInterval),
+		"refresh_interval":  util.ShortDurationString(p.RefreshInterval),
 		"next_refresh":      p.NextRefresh,
 		"apikey":            p.getStringMask(),
 		"trust_bundle_file": p.TrustBundleFile,

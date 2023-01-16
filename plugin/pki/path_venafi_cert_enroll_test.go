@@ -1,12 +1,13 @@
 package pki
 
 import (
+	"github.com/Venafi/vault-pki-backend-venafi/plugin/util"
 	"github.com/Venafi/vcert/v4"
 	"testing"
 )
 
 func TestOriginInRequest(t *testing.T) {
-	integrationTestEnv, err := newIntegrationTestEnv()
+	integrationTestEnv, err := NewIntegrationTestEnv()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -30,7 +31,7 @@ func TestOriginInRequest(t *testing.T) {
 }
 
 func TestSanitizeCertRequest(t *testing.T) {
-	integrationTestEnv, err := newIntegrationTestEnv()
+	integrationTestEnv, err := NewIntegrationTestEnv()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -47,7 +48,7 @@ func TestSanitizeCertRequest(t *testing.T) {
 		altNames:   []string{"bob-" + sd, "maria-" + sd, "rose-" + sd, "shina-" + sd, cn},
 	}
 	sanitizeRequestData(&reqData, integrationTestEnv.Backend.Logger())
-	if reqData.commonName != correctReqData.commonName || !stringSlicesEqual(reqData.altNames, correctReqData.altNames) {
+	if reqData.commonName != correctReqData.commonName || !util.StringSlicesEqual(reqData.altNames, correctReqData.altNames) {
 		t.Fatalf("Expected %s in request custom fields origin", utilityName)
 	}
 }

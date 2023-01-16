@@ -2,6 +2,7 @@ package pki
 
 import (
 	"fmt"
+	"github.com/Venafi/vault-pki-backend-venafi/plugin/util"
 	"testing"
 )
 
@@ -13,8 +14,8 @@ func TestRoleValidate(t *testing.T) {
 	if err == nil {
 		t.Fatalf("Expecting error")
 	}
-	if err.Error() != errorTextVenafiSecretEmpty {
-		t.Fatalf("Expecting error %s but got %s", errorTextInvalidMode, err)
+	if err.Error() != util.ErrorTextVenafiSecretEmpty {
+		t.Fatalf("Expecting error %s but got %s", util.ErrorTextInvalidMode, err)
 	}
 
 	entry = &roleEntry{
@@ -27,8 +28,8 @@ func TestRoleValidate(t *testing.T) {
 	if err == nil {
 		t.Fatalf("Expecting error")
 	}
-	if err.Error() != errorTextValueMustBeLess {
-		t.Fatalf("Expecting error %s but got %s", errorTextValueMustBeLess, err)
+	if err.Error() != util.ErrorTextValueMustBeLess {
+		t.Fatalf("Expecting error %s but got %s", util.ErrorTextValueMustBeLess, err)
 	}
 
 	entry = &roleEntry{
@@ -40,8 +41,8 @@ func TestRoleValidate(t *testing.T) {
 	if err == nil {
 		t.Fatalf("Expecting error")
 	}
-	if err.Error() != errorTextStoreByAndStoreByCNOrSerialConflict {
-		t.Fatalf("Expecting error %s but got %s", errorTextStoreByAndStoreByCNOrSerialConflict, err)
+	if err.Error() != util.ErrorTextStoreByAndStoreByCNOrSerialConflict {
+		t.Fatalf("Expecting error %s but got %s", util.ErrorTextStoreByAndStoreByCNOrSerialConflict, err)
 	}
 
 	entry = &roleEntry{
@@ -53,8 +54,8 @@ func TestRoleValidate(t *testing.T) {
 	if err == nil {
 		t.Fatalf("Expecting error")
 	}
-	if err.Error() != errorTextStoreByAndStoreByCNOrSerialConflict {
-		t.Fatalf("Expecting error %s but got %s", errorTextStoreByAndStoreByCNOrSerialConflict, err)
+	if err.Error() != util.ErrorTextStoreByAndStoreByCNOrSerialConflict {
+		t.Fatalf("Expecting error %s but got %s", util.ErrorTextStoreByAndStoreByCNOrSerialConflict, err)
 	}
 
 	entry = &roleEntry{
@@ -67,8 +68,8 @@ func TestRoleValidate(t *testing.T) {
 	if err == nil {
 		t.Fatalf("Expecting error")
 	}
-	if err.Error() != errorTextStoreByAndStoreByCNOrSerialConflict {
-		t.Fatalf("Expecting error %s but got %s", errorTextStoreByAndStoreByCNOrSerialConflict, err)
+	if err.Error() != util.ErrorTextStoreByAndStoreByCNOrSerialConflict {
+		t.Fatalf("Expecting error %s but got %s", util.ErrorTextStoreByAndStoreByCNOrSerialConflict, err)
 	}
 
 	entry = &roleEntry{
@@ -81,8 +82,8 @@ func TestRoleValidate(t *testing.T) {
 	if err == nil {
 		t.Fatalf("Expecting error")
 	}
-	if err.Error() != errorTextNoStoreAndStoreByCNOrSerialConflict {
-		t.Fatalf("Expecting error %s but got %s", errorTextNoStoreAndStoreByCNOrSerialConflict, err)
+	if err.Error() != util.ErrorTextNoStoreAndStoreByCNOrSerialConflict {
+		t.Fatalf("Expecting error %s but got %s", util.ErrorTextNoStoreAndStoreByCNOrSerialConflict, err)
 	}
 
 	entry = &roleEntry{
@@ -94,8 +95,8 @@ func TestRoleValidate(t *testing.T) {
 	if err == nil {
 		t.Fatalf("Expecting error")
 	}
-	if err.Error() != errorTextNoStoreAndStoreByConflict {
-		t.Fatalf("Expecting error %s but got %s", errorTextNoStoreAndStoreByConflict, err)
+	if err.Error() != util.ErrorTextNoStoreAndStoreByConflict {
+		t.Fatalf("Expecting error %s but got %s", util.ErrorTextNoStoreAndStoreByConflict, err)
 	}
 
 	entry = &roleEntry{
@@ -106,7 +107,7 @@ func TestRoleValidate(t *testing.T) {
 	if err == nil {
 		t.Fatalf("Expecting error")
 	}
-	expectingError := fmt.Sprintf(errTextStoreByWrongOption, storeBySerialString, storeByCNString, storeByHASHstring, "sebial")
+	expectingError := fmt.Sprintf(util.ErrTextStoreByWrongOption, util.StoreBySerialString, util.StoreByCNString, util.StoreByHASHstring, "sebial")
 	if err.Error() != expectingError {
 		t.Fatalf("Expecting error %s but got %s", expectingError, err)
 	}
@@ -121,8 +122,8 @@ func TestRoleValidate(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if entry.StoreBy != storeBySerialString {
-		t.Fatalf("Expecting store_by parameter will be set to %s", storeBySerialString)
+	if entry.StoreBy != util.StoreBySerialString {
+		t.Fatalf("Expecting store_by parameter will be set to %s", util.StoreBySerialString)
 	}
 
 	entry = &roleEntry{
@@ -134,7 +135,7 @@ func TestRoleValidate(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if entry.StoreBy != storeByCNString {
-		t.Fatalf("Expecting store_by parameter will be set to %s", storeByCNString)
+	if entry.StoreBy != util.StoreByCNString {
+		t.Fatalf("Expecting store_by parameter will be set to %s", util.StoreByCNString)
 	}
 }

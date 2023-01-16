@@ -10,7 +10,9 @@ import (
 	"errors"
 	"fmt"
 	"github.com/Venafi/vault-pki-backend-venafi/plugin/pki/vpkierror"
-	"github.com/Venafi/vcert/v4/pkg/util"
+	"github.com/Venafi/vault-pki-backend-venafi/plugin/util"
+	vcertutil "github.com/Venafi/vcert/v4/pkg/util"
+	"github.com/hashicorp/vault/sdk/logical"
 	"log"
 	"math/rand"
 	"net"
@@ -19,20 +21,7 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/hashicorp/vault/sdk/logical"
 )
-
-type testEnv struct {
-	Backend           logical.Backend
-	Context           context.Context
-	Storage           logical.Storage
-	TestRandString    string
-	RoleName          string
-	CertificateSerial string
-	CertId            string
-	VenafiSecretName  string
-}
 
 type venafiConfigString string
 
@@ -264,21 +253,32 @@ var venafiVenafiTestFakeConfig = map[string]interface{}{
 	"fakemode": true,
 }
 
+type testEnv struct {
+	Backend           logical.Backend
+	Context           context.Context
+	Storage           logical.Storage
+	TestRandString    string
+	RoleName          string
+	CertificateSerial string
+	CertId            string
+	VenafiSecretName  string
+}
+
 func (e *testEnv) writeRoleToBackend(t *testing.T, configString venafiConfigString) {
 	roleData, err := makeConfig(configString)
 	if err != nil {
 		t.Fatal(err)
 	}
-	roleData = copyMap(roleData)
+	roleData = util.CopyMap(roleData)
 
 	//Adding Venafi secret reference to Role
 	roleData["venafi_secret"] = e.VenafiSecretName
 	//Removing the zone from the data, as the Venafi secret zone must be used
 	roleData["zone"] = ""
 
-	ttl := strconv.Itoa(role_ttl_test_property) + "h"
+	ttl := strconv.Itoa(util.Role_ttl_test_property) + "h"
 	roleData["ttl"] = ttl
-	roleData["issuer_hint"] = util.IssuerHintMicrosoft
+	roleData["issuer_hint"] = vcertutil.IssuerHintMicrosoft
 
 	resp, err := e.Backend.HandleRequest(e.Context, &logical.Request{
 		Operation: logical.UpdateOperation,
@@ -301,19 +301,19 @@ func (e *testEnv) writeRoleToBackendWithData(t *testing.T, configString venafiCo
 	if err != nil {
 		t.Fatal(err)
 	}
-	roleData = copyMap(roleData)
+	roleData = util.CopyMap(roleData)
 
 	//Adding Venafi secret reference to Role
 	roleData["venafi_secret"] = e.VenafiSecretName
 	//Removing the zone from the data, as the Venafi secret zone must be used
 	roleData["zone"] = ""
 
-	ttl := strconv.Itoa(role_ttl_test_property) + "h"
+	ttl := strconv.Itoa(util.Role_ttl_test_property) + "h"
 	if &data.ttl != nil {
 		ttl = data.ttl.String()
 	}
 	roleData["ttl"] = ttl
-	roleData["issuer_hint"] = util.IssuerHintMicrosoft
+	roleData["issuer_hint"] = vcertutil.IssuerHintMicrosoft
 	if data.storeBy != "" {
 		roleData["store_by"] = data.storeBy
 	}
@@ -358,14 +358,14 @@ func (e *testEnv) writeRoleWithZoneToBackend(t *testing.T, configString venafiCo
 	if err != nil {
 		t.Fatal(err)
 	}
-	roleData = copyMap(roleData)
+	roleData = util.CopyMap(roleData)
 
 	//Adding Venafi secret reference to Role
 	roleData["venafi_secret"] = e.VenafiSecretName
 
-	ttl := strconv.Itoa(role_ttl_test_property) + "h"
+	ttl := strconv.Itoa(util.Role_ttl_test_property) + "h"
 	roleData["ttl"] = ttl
-	roleData["issuer_hint"] = util.IssuerHintMicrosoft
+	roleData["issuer_hint"] = vcertutil.IssuerHintMicrosoft
 
 	resp, err := e.Backend.HandleRequest(e.Context, &logical.Request{
 		Operation: logical.UpdateOperation,
@@ -388,14 +388,14 @@ func (e *testEnv) writeRoleWithPreventIssuanceToBackend(t *testing.T, configStri
 	if err != nil {
 		t.Fatal(err)
 	}
-	roleData = copyMap(roleData)
+	roleData = util.CopyMap(roleData)
 
 	//Adding Venafi secret reference to Role
 	roleData["venafi_secret"] = e.VenafiSecretName
 
-	ttl := strconv.Itoa(role_ttl_test_property) + "h"
+	ttl := strconv.Itoa(util.Role_ttl_test_property) + "h"
 	roleData["ttl"] = ttl
-	roleData["issuer_hint"] = util.IssuerHintMicrosoft
+	roleData["issuer_hint"] = vcertutil.IssuerHintMicrosoft
 
 	resp, err := e.Backend.HandleRequest(e.Context, &logical.Request{
 		Operation: logical.UpdateOperation,
@@ -436,8 +436,8 @@ func (e *testEnv) failToWriteRoleToBackend(t *testing.T, configString venafiConf
 
 	errText := resp.Data["error"].(string)
 
-	if errText != errorTextVenafiSecretEmpty {
-		t.Fatalf("Expecting error with text %s but got %s", errorTextVenafiSecretEmpty, errText)
+	if errText != util.ErrorTextVenafiSecretEmpty {
+		t.Fatalf("Expecting error with text %s but got %s", util.ErrorTextVenafiSecretEmpty, errText)
 	}
 }
 
@@ -461,7 +461,7 @@ func (e *testEnv) listRolesInBackend(t *testing.T) {
 		t.Fatalf("Expected there will be roles in the keys list")
 	}
 
-	if !sliceContains(resp.Data["keys"].([]string), e.RoleName) {
+	if !util.SliceContains(resp.Data["keys"].([]string), e.RoleName) {
 		t.Fatalf("expected role name %s in list %s", e.RoleName, resp.Data["keys"])
 	}
 }
@@ -489,7 +489,7 @@ func (e *testEnv) readRolesInBackend(t *testing.T, config map[string]interface{}
 	sensitiveData := []string{"tpp_password", "apikey"}
 
 	for k, v := range config {
-		if sliceContains(sensitiveData, k) {
+		if util.SliceContains(sensitiveData, k) {
 			if resp.Data[k] != nil {
 				t.Fatalf("Sensitive data %s should be hidden", k)
 			}
@@ -519,7 +519,7 @@ func (e *testEnv) writeVenafiToBackend(t *testing.T, configString venafiConfigSt
 	if err != nil {
 		t.Fatal(err)
 	}
-	roleData = copyMap(roleData)
+	roleData = util.CopyMap(roleData)
 
 	resp, err := e.Backend.HandleRequest(e.Context, &logical.Request{
 		Operation: logical.UpdateOperation,
@@ -585,7 +585,7 @@ func (e *testEnv) listVenafiInBackend(t *testing.T) {
 		t.Fatalf("Expected there will be venafi secrets in the keys list")
 	}
 
-	if !sliceContains(resp.Data["keys"].([]string), e.VenafiSecretName) {
+	if !util.SliceContains(resp.Data["keys"].([]string), e.VenafiSecretName) {
 		t.Fatalf("expected venafi secret name %s in list %s", e.VenafiSecretName, resp.Data["keys"])
 	}
 }
@@ -613,7 +613,7 @@ func (e *testEnv) readVenafiInBackend(t *testing.T, config map[string]interface{
 	sensitiveData := []string{"tpp_password", "apikey", "access_token", "refresh_token"}
 
 	for k, v := range config {
-		if sliceContains(sensitiveData, k) {
+		if util.SliceContains(sensitiveData, k) {
 			if resp.Data[k] != "********" {
 				t.Fatalf("Sensitive data %s should be hidden", k)
 			}
@@ -900,10 +900,10 @@ func (e *testEnv) IssueCertificateAndValidateTTL(t *testing.T, data testData) {
 			"ip_sans":     []string{data.onlyIP},
 		}
 	}
-	expectedTTL := role_ttl_test_property
+	expectedTTL := util.Role_ttl_test_property
 	if data.ttl > 0 {
 		issueData["ttl"] = strconv.Itoa(int(data.ttl.Hours())) + "h"
-		expectedTTL = ttl_test_property
+		expectedTTL = util.Ttl_test_property
 	}
 
 	resp, err := e.Backend.HandleRequest(e.Context, &logical.Request{
@@ -1126,7 +1126,7 @@ func (e *testEnv) SignCertificateWithTTL(t *testing.T, data testData, configStri
 	//so for comparing them we need to have both dates on utc.
 	loc, _ := time.LoadLocation("UTC")
 	utcNow := time.Now().In(loc)
-	expectedValidDate := utcNow.AddDate(0, 0, ttl_test_property/24).Format("2006-01-02")
+	expectedValidDate := utcNow.AddDate(0, 0, util.Ttl_test_property/24).Format("2006-01-02")
 
 	if expectedValidDate != certValidUntil {
 		t.Fatalf("Expiration date is different than expected, expected: %s, but got %s: ", expectedValidDate, certValidUntil)
@@ -1399,32 +1399,32 @@ func (e *testEnv) CreateVenafiTokenWithRefresh(t *testing.T) {
 
 func (e *testEnv) FailCreateVenafiTokenWithOnlyOneRefresh(t *testing.T) {
 	var config = venafiConfigTokenWithOnlyOneRefresh
-	e.failToWriteVenafiToBackend(t, config, errorTextNeed2RefreshTokens)
+	e.failToWriteVenafiToBackend(t, config, util.ErrorTextNeed2RefreshTokens)
 }
 
 func (e *testEnv) FailCreateVenafiTokenWithOnlySecondRefreshSet(t *testing.T) {
 	var config = venafiConfigTokenWithSecondRefresh
-	e.failToWriteVenafiToBackend(t, config, errorTextNeed2RefreshTokens)
+	e.failToWriteVenafiToBackend(t, config, util.ErrorTextNeed2RefreshTokens)
 }
 
 func (e *testEnv) CreateVenafiMixedTppAndCloud(t *testing.T) {
 
 	var config = venafiConfigMixedTppAndCloud
-	e.failToWriteVenafiToBackend(t, config, errorTextMixedTPPAndCloud)
+	e.failToWriteVenafiToBackend(t, config, util.ErrorTextMixedTPPAndCloud)
 
 }
 
 func (e *testEnv) CreateVenafiMixedTppAndToken(t *testing.T) {
 
 	var config = venafiConfigMixedTppAndToken
-	e.failToWriteVenafiToBackend(t, config, errorTextMixedTPPAndToken)
+	e.failToWriteVenafiToBackend(t, config, util.ErrorTextMixedTPPAndToken)
 
 }
 
 func (e *testEnv) CreateVenafiMixedTokenAndCloud(t *testing.T) {
 
 	var config = venafiConfigMixedTokenAndCloud
-	e.failToWriteVenafiToBackend(t, config, errorTextMixedTokenAndCloud)
+	e.failToWriteVenafiToBackend(t, config, util.ErrorTextMixedTokenAndCloud)
 
 }
 
@@ -1472,7 +1472,7 @@ func (e *testEnv) FakeCheckThatThereIsNoCertificate(t *testing.T) {
 	domain := "venafi.example.com"
 	data.cn = randString + "." + domain
 
-	e.CheckThatThereIsNoCertificate(t, normalizeSerial(e.CertificateSerial))
+	e.CheckThatThereIsNoCertificate(t, util.NormalizeSerial(e.CertificateSerial))
 
 }
 
@@ -1482,7 +1482,7 @@ func (e *testEnv) FakeCheckThatThereIsNoPKey(t *testing.T) {
 	domain := "venafi.example.com"
 	data.cn = randString + "." + domain
 
-	e.CheckThatThereIsNoPKey(t, normalizeSerial(e.CertificateSerial))
+	e.CheckThatThereIsNoPKey(t, util.NormalizeSerial(e.CertificateSerial))
 }
 
 func (e *testEnv) DeleteRole(t *testing.T) {
@@ -1602,7 +1602,7 @@ func (e *testEnv) FakeReadCertificateBySerial(t *testing.T) {
 	data.dnsEmail = "venafi@example.com"
 
 	var config = venafiConfigFakeDeprecatedStoreBySerial
-	e.ReadCertificate(t, data, config, normalizeSerial(e.CertificateSerial))
+	e.ReadCertificate(t, data, config, util.NormalizeSerial(e.CertificateSerial))
 
 }
 
@@ -1631,7 +1631,7 @@ func (e *testEnv) FakeRevokeCertificateBySerial(t *testing.T) {
 	data.dnsIP = "192.168.1.1"
 	data.onlyIP = "127.0.0.1"
 	data.dnsEmail = "venafi@example.com"
-	serial := normalizeSerial(e.CertificateSerial)
+	serial := util.NormalizeSerial(e.CertificateSerial)
 
 	e.RevokeCertificate(t, serial)
 
@@ -1985,7 +1985,7 @@ func (e *testEnv) TokenIntegrationRevokeCertificateSerial(t *testing.T) {
 	e.writeVenafiToBackend(t, config)
 	e.writeRoleToBackend(t, config)
 	e.IssueCertificateAndSaveSerial(t, data, config)
-	serial := normalizeSerial(e.CertificateSerial)
+	serial := util.NormalizeSerial(e.CertificateSerial)
 	log.Println("Testing Serial:", serial)
 	e.RevokeCertificate(t, serial)
 }
@@ -2018,7 +2018,7 @@ func (e *testEnv) TokenIntegrationSignWithTTLCertificate(t *testing.T) {
 	data.dnsIP = "127.0.0.1"
 	data.onlyIP = "192.168.0.1"
 	data.signCSR = true
-	data.ttl = time.Duration(ttl_test_property) * time.Hour
+	data.ttl = time.Duration(util.Ttl_test_property) * time.Hour
 
 	var config = venafiConfigToken
 
@@ -2055,7 +2055,7 @@ func (e *testEnv) TokenIntegrationIssueCertificateWithTTLOnIssueData(t *testing.
 	data.dnsIP = "192.168.1.1"
 	data.dnsEmail = "venafi@example.com"
 	data.keyPassword = "Pass0rd!"
-	data.ttl = time.Duration(ttl_test_property) * time.Hour
+	data.ttl = time.Duration(util.Ttl_test_property) * time.Hour
 
 	var config = venafiConfigToken
 
@@ -2368,18 +2368,18 @@ func checkStandardCert(t *testing.T, data testData) {
 	// since we allow setting only the CN (although the CN will be added to the SANs) during the request and we intend to
 	// validate data only passed during the request, we make sure is not empty before passing the validation
 	if len(wantDNSNames) > 0 {
-		if !areDNSNamesCorrect(parsedCertificate.DNSNames, []string{data.cn}, wantDNSNames) {
+		if !util.AreDNSNamesCorrect(parsedCertificate.DNSNames, []string{data.cn}, wantDNSNames) {
 			t.Fatalf("Certificate Subject Alternative Names %v doesn't match to requested %v", parsedCertificate.DNSNames, wantDNSNames)
 		}
 	}
 
-	if !SameIpSlice(ips, parsedCertificate.IPAddresses) {
+	if !util.SameIpSlice(ips, parsedCertificate.IPAddresses) {
 		t.Fatalf("Certificate IPs %v doesn`t match requested %v", parsedCertificate.IPAddresses, ips)
 	}
 
 	if data.dnsEmail != "" {
 		wantEmail := []string{data.dnsEmail}
-		if !SameStringSlice(parsedCertificate.EmailAddresses, wantEmail) {
+		if !util.SameStringSlice(parsedCertificate.EmailAddresses, wantEmail) {
 			t.Fatalf("Certificate emails %v doesn't match requested %v", parsedCertificate.EmailAddresses, wantEmail)
 		}
 	}
@@ -2708,7 +2708,7 @@ func (e *testEnv) writeNegativeTPPvenafiToBackend(t *testing.T, configString ven
 	if err != nil {
 		t.Fatal(err)
 	}
-	roleData = copyMap(roleData)
+	roleData = util.CopyMap(roleData)
 	roleData["access_token"] = "sdsdsd" // bad input to trigger error on issue
 
 	resp, err := e.Backend.HandleRequest(e.Context, &logical.Request{
@@ -2732,7 +2732,7 @@ func (e *testEnv) writeNegativeVAASvenafiToBackend(t *testing.T, configString ve
 	if err != nil {
 		t.Fatal(err)
 	}
-	roleData = copyMap(roleData)
+	roleData = util.CopyMap(roleData)
 	roleData["CLOUD_APIKEY"] = "sdsdsd" // bad input to trigger error on issue
 
 	resp, err := e.Backend.HandleRequest(e.Context, &logical.Request{
@@ -2821,28 +2821,44 @@ func (e *testEnv) NegativeIssueCertificateAndSaveSerial(t *testing.T, data testD
 	}
 }
 
-func newIntegrationTestEnv() (*testEnv, error) {
-	ctx := context.Background()
+//type NEWPKI interface {
+//	Backend(conf *logical.BackendConfig) ven.VenBackend
+//}
 
-	config := logical.TestBackendConfig()
-	config.StorageView = &logical.InmemStorage{}
+//
+//type TEST struct {
+//	NEWPKI newpki
+//}
+//
+//func New(newpki newpki) *TEST {
+//	return &TEST{
+//		NEWPKI: newpki,
+//	}
+//}
 
-	var err error
-	b := Backend(config)
-	err = b.Setup(context.Background(), config)
-	if err != nil {
-		return nil, err
-	}
-
-	return &testEnv{
-		Backend:          b,
-		Context:          ctx,
-		Storage:          config.StorageView,
-		TestRandString:   randSeq(9),
-		RoleName:         randSeq(9) + "-role",
-		VenafiSecretName: randSeq(9) + "-venafi",
-	}, nil
-}
+//func NewIntegrationTestEnv() (*testEnv, error) {
+//	ctx := context.Background()
+//
+//	config := logical.TestBackendConfig()
+//	config.StorageView = &logical.InmemStorage{}
+//
+//	var err error
+//
+//	b := NEWPKI.Backend(config)
+//	err = b.Setup(context.Background(), config)
+//	if err != nil {
+//		return nil, err
+//	}
+//
+//	return &testEnv{
+//		Backend:          b,
+//		Context:          ctx,
+//		Storage:          config.StorageView,
+//		TestRandString:   randSeq(9),
+//		RoleName:         randSeq(9) + "-role",
+//		VenafiSecretName: randSeq(9) + "-venafi",
+//	}, nil
+//}
 
 func randSeq(n int) string {
 	rand.Seed(time.Now().UTC().UnixNano())

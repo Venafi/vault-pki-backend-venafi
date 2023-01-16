@@ -2,6 +2,7 @@ package pki
 
 import (
 	"context"
+	"github.com/Venafi/vault-pki-backend-venafi/plugin/util"
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
 )
@@ -52,7 +53,7 @@ func (b *backend) pathVenafiCertRead(ctx context.Context, req *logical.Request, 
 	}
 
 	if keyPassword != "" {
-		encryptedPrivateKeyPem, err := encryptPrivateKey(cert.PrivateKey, keyPassword)
+		encryptedPrivateKeyPem, err := util.EncryptPrivateKey(cert.PrivateKey, keyPassword)
 		if err != nil {
 			return nil, err
 		}

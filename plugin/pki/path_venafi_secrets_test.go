@@ -1,6 +1,9 @@
 package pki
 
-import "testing"
+import (
+	"github.com/Venafi/vault-pki-backend-venafi/plugin/util"
+	"testing"
+)
 
 func TestVenafiSecretValidate(t *testing.T) {
 	entry := &venafiSecretEntry{}
@@ -9,8 +12,8 @@ func TestVenafiSecretValidate(t *testing.T) {
 	if err == nil {
 		t.Fatalf("Expecting error")
 	}
-	if err.Error() != errorTextInvalidMode {
-		t.Fatalf("Expecting error %s but got %s", errorTextInvalidMode, err)
+	if err.Error() != util.ErrorTextInvalidMode {
+		t.Fatalf("Expecting error %s but got %s", util.ErrorTextInvalidMode, err)
 	}
 
 	entry = &venafiSecretEntry{
@@ -21,8 +24,8 @@ func TestVenafiSecretValidate(t *testing.T) {
 	if err == nil {
 		t.Fatalf("Expecting error")
 	}
-	if err.Error() != errorTextURLEmpty {
-		t.Fatalf("Expecting error %s but got %s", errorTextURLEmpty, err)
+	if err.Error() != util.ErrorTextURLEmpty {
+		t.Fatalf("Expecting error %s but got %s", util.ErrorTextURLEmpty, err)
 	}
 
 	entry = &venafiSecretEntry{
@@ -34,8 +37,8 @@ func TestVenafiSecretValidate(t *testing.T) {
 	if err == nil {
 		t.Fatalf("Expecting error")
 	}
-	if err.Error() != errorTextZoneEmpty {
-		t.Fatalf("Expecting error %s but got %s", errorTextZoneEmpty, err)
+	if err.Error() != util.ErrorTextZoneEmpty {
+		t.Fatalf("Expecting error %s but got %s", util.ErrorTextZoneEmpty, err)
 	}
 
 	entry = &venafiSecretEntry{
@@ -50,8 +53,8 @@ func TestVenafiSecretValidate(t *testing.T) {
 	if err == nil {
 		t.Fatalf("Expecting error")
 	}
-	if err.Error() != errorTextMixedTPPAndCloud {
-		t.Fatalf("Expecting error %s but got %s", errorTextMixedTPPAndCloud, err)
+	if err.Error() != util.ErrorTextMixedTPPAndCloud {
+		t.Fatalf("Expecting error %s but got %s", util.ErrorTextMixedTPPAndCloud, err)
 	}
 
 	entry = &venafiSecretEntry{
@@ -66,8 +69,8 @@ func TestVenafiSecretValidate(t *testing.T) {
 	if err == nil {
 		t.Fatalf("Expecting error")
 	}
-	if err.Error() != errorTextMixedTPPAndToken {
-		t.Fatalf("Expecting error %s but got %s", errorTextMixedTPPAndToken, err)
+	if err.Error() != util.ErrorTextMixedTPPAndToken {
+		t.Fatalf("Expecting error %s but got %s", util.ErrorTextMixedTPPAndToken, err)
 	}
 
 	entry = &venafiSecretEntry{
@@ -81,7 +84,7 @@ func TestVenafiSecretValidate(t *testing.T) {
 	if err == nil {
 		t.Fatalf("Expecting error")
 	}
-	if err.Error() != errorTextMixedTokenAndCloud {
-		t.Fatalf("Expecting error %s but got %s", errorTextMixedTokenAndCloud, err)
+	if err.Error() != util.ErrorTextMixedTokenAndCloud {
+		t.Fatalf("Expecting error %s but got %s", util.ErrorTextMixedTokenAndCloud, err)
 	}
 }

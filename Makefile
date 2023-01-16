@@ -136,10 +136,10 @@ test_e2e:
 	cd plugin/pki/e2e && ginkgo -v
 
 test_tpp:
-	go test -run  ^TestTPPIntegration$ -v github.com/Venafi/vault-pki-backend-venafi/plugin/pki
+	go test -tags=tpp -run ^TestTPP -v github.com/Venafi/vault-pki-backend-venafi/plugin/pki
 
-test_cloud:
-	go test -run  ^TestCloudIntegration$ -v github.com/Venafi/vault-pki-backend-venafi/plugin/pki
+test_vaas:
+	go test -tags=vaas -run  ^TestVAAS -v github.com/Venafi/vault-pki-backend-venafi/plugin/pki
 
 test_fake:
 	go test -run  ^TestFake -v github.com/Venafi/vault-pki-backend-venafi/plugin/pki

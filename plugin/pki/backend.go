@@ -17,6 +17,12 @@ func Factory(ctx context.Context, conf *logical.BackendConfig) (logical.Backend,
 	return b, nil
 }
 
+type backend struct {
+	*framework.Backend
+	Storage logical.Storage
+	mux     sync.Mutex
+}
+
 // Backend returns a new Backend framework struct
 func Backend(conf *logical.BackendConfig) *backend {
 	var b backend
@@ -47,14 +53,8 @@ func Backend(conf *logical.BackendConfig) *backend {
 
 		BackendType: logical.TypeLogical,
 	}
-	b.storage = conf.StorageView
+	b.Storage = conf.StorageView
 	return &b
-}
-
-type backend struct {
-	*framework.Backend
-	storage logical.Storage
-	mux     sync.Mutex
 }
 
 const (
