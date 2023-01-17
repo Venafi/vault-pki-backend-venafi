@@ -278,6 +278,9 @@ func updateAccessToken(b *backend, ctx context.Context, req *logical.Request, cf
 	tppConnector.SetHTTPClient(httpClient)
 
 	b.Logger().Info("Refreshing token")
+	b.Logger().Info(fmt.Sprintf("current set access_token: %s", cfg.Credentials.AccessToken))
+	b.Logger().Info(fmt.Sprintf("current set refresh_token: %s", cfg.Credentials.RefreshToken))
+	b.Logger().Info(fmt.Sprintf("current refresh_token_2 for refrehsing: %s", refreshToken))
 	var resp tpp.OauthRefreshAccessTokenResponse
 	resp, err = tppConnector.RefreshAccessToken(&endpoint.Authentication{
 		RefreshToken: refreshToken,

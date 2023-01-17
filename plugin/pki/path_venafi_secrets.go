@@ -215,7 +215,7 @@ func (b *backend) pathVenafiSecretCreate(ctx context.Context, req *logical.Reque
 		b.Logger().Info("Refresh token pair is provided. Setting up data")
 		for i := 0; i < 2; i++ {
 
-			b.Logger().Info("Refresh token pair is provided. Setting up data")
+			b.Logger().Info("Refresh setting config for refresjing tokens")
 			cfg, err := createConfigFromFieldData(entry)
 			if err != nil {
 				b.Logger().Error(fmt.Sprintf("Error during venafi secret creation: creating config error: %s", err.Error()))
@@ -223,6 +223,8 @@ func (b *backend) pathVenafiSecretCreate(ctx context.Context, req *logical.Reque
 			}
 
 			b.Logger().Info("Refreshing token during Venafi secret creation")
+			b.Logger().Info(fmt.Sprintf("current provided access_token: %s", cfg.Credentials.AccessToken))
+			b.Logger().Info(fmt.Sprintf("current provided refresh_token: %s", cfg.Credentials.RefreshToken))
 			tokenInfo, err := getAccessData(cfg)
 			if err != nil {
 				b.Logger().Error(fmt.Sprintf("Error during venafi secret creation: refreshing tokens error: %s", err.Error()))
