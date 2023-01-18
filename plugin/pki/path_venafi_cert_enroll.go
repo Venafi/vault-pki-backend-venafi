@@ -195,7 +195,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, logicalRequest *logi
 	// here we already filter proper "Zone" to later use with cfg.Zone
 	connector, cfg, err := b.ClientVenafi(ctx, logicalRequest, role)
 	if err != nil {
-		b.Logger().Error("error creating Venafi connector: %s", err.Error())
+		b.Logger().Error(fmt.Sprintf("error creating Venafi connector: %s", err.Error()))
 		return nil, err
 	}
 
@@ -212,8 +212,8 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, logicalRequest *logi
 		}
 		if secretEntry.RefreshToken != "" && secretEntry.RefreshToken2 != "" {
 			connector, err = validateAccessToken(b, ctx, connector, cfg, logicalRequest, role)
-			b.Logger().Error("error validating access token: %s", err.Error())
 			if err != nil {
+				b.Logger().Error("error validating access token: %s", err.Error())
 				return nil, err
 			}
 		}
