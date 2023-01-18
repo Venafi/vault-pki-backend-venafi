@@ -200,6 +200,11 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, logicalRequest *logi
 	}
 
 	if connector.GetType() == endpoint.ConnectorTypeTPP {
+		if b.System().ReplicationState().HasState(consts.ReplicationPerformanceStandby | consts.ReplicationPerformanceSecondary) {
+			// only the leader can handle token refreshing, we don't ever want to enter into refreshing process if we are
+			// getting request in vault follower node
+			return nil, logical.ErrReadOnly
+		}
 		var secretEntry *venafiSecretEntry
 		secretEntry, err = b.getVenafiSecret(ctx, logicalRequest.Storage, role.VenafiSecret)
 		if err != nil {
@@ -1033,11 +1038,6 @@ func validateAccessToken(b *backend, ctx context.Context, connector endpoint.Con
 		return nil, err
 	}
 	if refreshNeeded {
-		if b.System().ReplicationState().HasState(consts.ReplicationPerformanceStandby | consts.ReplicationPerformanceSecondary) {
-			// only the leader can handle token refreshing
-
-			return nil, logical.ErrReadOnly
-		}
 		b.Logger().Info("Token refresh is needed")
 		if err != nil {
 			return nil, err

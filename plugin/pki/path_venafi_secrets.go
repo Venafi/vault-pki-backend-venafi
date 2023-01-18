@@ -3,6 +3,7 @@ package pki
 import (
 	"context"
 	"fmt"
+	"github.com/hashicorp/vault/sdk/helper/consts"
 	"time"
 
 	"github.com/hashicorp/vault/sdk/framework"
@@ -165,6 +166,10 @@ func (b *backend) pathVenafiSecretRead(ctx context.Context, req *logical.Request
 }
 
 func (b *backend) pathVenafiSecretDelete(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+	if b.System().ReplicationState().HasState(consts.ReplicationPerformanceStandby | consts.ReplicationPerformanceSecondary) {
+		// only the leader can handle deletion
+		return nil, logical.ErrReadOnly
+	}
 	err := req.Storage.Delete(ctx, CredentialsRootPath+data.Get("name").(string))
 	if err != nil {
 		return nil, err
@@ -173,6 +178,11 @@ func (b *backend) pathVenafiSecretDelete(ctx context.Context, req *logical.Reque
 }
 
 func (b *backend) pathVenafiSecretCreate(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+	if b.System().ReplicationState().HasState(consts.ReplicationPerformanceStandby | consts.ReplicationPerformanceSecondary) {
+		// only the leader can handle token creating, we don't ever want to enter into refreshing process if we are
+		// getting request in vault follower node
+		return nil, logical.ErrReadOnly
+	}
 	var err error
 	name := data.Get("name").(string)
 	b.Logger().Info(fmt.Sprintf("Creating Venafi secret: %s", name))
