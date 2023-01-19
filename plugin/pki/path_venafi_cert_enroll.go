@@ -195,7 +195,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, logicalRequest *logi
 	// here we already filter proper "Zone" to later use with cfg.Zone
 	connector, cfg, err := b.ClientVenafi(ctx, logicalRequest, role)
 	if err != nil {
-		b.Logger().Error("error creating Venafi connector: %s", err.Error())
+		b.Logger().Error(fmt.Sprintf("error creating Venafi connector: %s", err.Error()))
 		return nil, err
 	}
 
@@ -208,6 +208,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, logicalRequest *logi
 		if secretEntry.RefreshToken != "" && secretEntry.RefreshToken2 != "" {
 			connector, err = validateAccessToken(b, ctx, connector, cfg, logicalRequest, role)
 			if err != nil {
+				b.Logger().Error(fmt.Sprintf("error validating access token: %s", err.Error()))
 				return nil, err
 			}
 		}
@@ -1033,27 +1034,29 @@ func validateAccessToken(b *backend, ctx context.Context, connector endpoint.Con
 	}
 	if refreshNeeded {
 		if b.System().ReplicationState().HasState(consts.ReplicationPerformanceStandby | consts.ReplicationPerformanceSecondary) {
-			// only the leader can handle token refreshing
-
+			// only the leader can handle token refreshing, we don't ever want to enter into refreshing process if we are
+			// getting request in vault follower node
 			return nil, logical.ErrReadOnly
 		}
 		b.Logger().Info("Token refresh is needed")
 		if err != nil {
 			return nil, err
 		}
+		b.Logger().Info("Updating access_token")
 		err = updateAccessToken(b, ctx, logReq, cfg, role)
 		if err != nil {
 			return nil, err
 		}
-		// reload the client since the access token changed
+		b.Logger().Info("Successfully updated tokens. Refreshing the connector with new token")
 		var newConnector endpoint.Connector
 		newConnector, cfg, err = b.ClientVenafi(ctx, logReq, role)
 		if err != nil {
-			b.Logger().Debug("got error: token is not ready")
+			b.Logger().Error(fmt.Sprintf("got error when getting new connector: %s", err.Error()))
 			return nil, err
 		}
 		connector = newConnector
 	}
+	b.Logger().Info("Successfully updated connector with new token")
 	return connector, nil
 }
 
