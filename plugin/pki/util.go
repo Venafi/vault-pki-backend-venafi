@@ -264,6 +264,7 @@ func updateAccessToken(b *backend, ctx context.Context, req *logical.Request, cf
 		return err
 	}
 	if !refreshNeeded {
+		b.Logger().Info("Refresh is not needed. Another process updated the tokens already")
 		return nil // we're done, another thread beat us to it
 	}
 
@@ -277,19 +278,13 @@ func updateAccessToken(b *backend, ctx context.Context, req *logical.Request, cf
 
 	tppConnector.SetHTTPClient(httpClient)
 
-	b.Logger().Info("Refreshing token")
-	b.Logger().Info(fmt.Sprintf("current set access_token: %s", cfg.Credentials.AccessToken))
-	b.Logger().Info(fmt.Sprintf("current set refresh_token: %s", cfg.Credentials.RefreshToken))
-	b.Logger().Info(fmt.Sprintf("current refresh_token_2 for refreshing: %s", refreshToken))
+	b.Logger().Info("Refreshing access_token")
 	var resp tpp.OauthRefreshAccessTokenResponse
 	resp, err = tppConnector.RefreshAccessToken(&endpoint.Authentication{
 		RefreshToken: refreshToken,
 		ClientId:     "hashicorp-vault-by-venafi",
 		Scope:        "certificate:manage,revoke",
 	})
-
-	b.Logger().Info(fmt.Sprintf("current resp access_token: %s", resp.Access_token))
-	b.Logger().Info(fmt.Sprintf("current resp refresh_token: %s", resp.Refresh_token))
 	if resp.Access_token != "" && resp.Refresh_token != "" {
 		b.Logger().Info("Storing new token")
 		err = storeAccessData(b, ctx, req, role, resp)
@@ -308,23 +303,24 @@ func storeAccessData(b *backend, ctx context.Context, req *logical.Request, role
 		return err
 	}
 
-	b.Logger().Info(fmt.Sprintf("swapping tokens: refresh_token2 %s = refresh_token1 %s", venafiEntry.RefreshToken2, venafiEntry.RefreshToken))
+	b.Logger().Info("swapping tokens")
 	venafiEntry.RefreshToken2 = venafiEntry.RefreshToken
-	b.Logger().Info(fmt.Sprintf("storing new access_token: %s", resp.Access_token))
+	b.Logger().Info("setting new access_token")
 	venafiEntry.AccessToken = resp.Access_token
-	b.Logger().Info(fmt.Sprintf("storing new refresh_token for refresh_token1 %s", resp.Refresh_token))
+	b.Logger().Info("setting new refresh_token")
 	venafiEntry.RefreshToken = resp.Refresh_token
 	venafiEntry.NextRefresh = time.Now().Add(venafiEntry.RefreshInterval)
 	b.Logger().Info(fmt.Sprintf("Setting new time refresh: %s", venafiEntry.NextRefresh.String()))
-	b.Logger().Info("storing tokens")
 	// Store it
+	b.Logger().Info("preparing tokens for storage")
 	jsonEntry, err := logical.StorageEntryJSON(CredentialsRootPath+role.VenafiSecret, venafiEntry)
 	if err != nil {
 		b.Logger().Error("Error on creating new tokens into venafi secret:", err.Error())
 		return err
 	}
+	b.Logger().Info("storing new tokens")
 	if err := req.Storage.Put(ctx, jsonEntry); err != nil {
-		b.Logger().Error("Error on storing new tokens into venafi secret:", err.Error())
+		b.Logger().Error("Error on storing new tokens into Venafi secret:", err.Error())
 		return err
 	}
 	return nil

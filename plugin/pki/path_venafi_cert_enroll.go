@@ -1042,21 +1042,21 @@ func validateAccessToken(b *backend, ctx context.Context, connector endpoint.Con
 		if err != nil {
 			return nil, err
 		}
-		b.Logger().Info(fmt.Sprintf("cfg access_token %s", cfg.Credentials.AccessToken))
-		b.Logger().Info(fmt.Sprintf("cfg refresh_token %s", cfg.Credentials.RefreshToken))
+		b.Logger().Info("Updating access_token")
 		err = updateAccessToken(b, ctx, logReq, cfg, role)
 		if err != nil {
 			return nil, err
 		}
+		b.Logger().Info("Successfully updated tokens. Refreshing the connector with new token")
 		var newConnector endpoint.Connector
 		newConnector, cfg, err = b.ClientVenafi(ctx, logReq, role)
 		if err != nil {
-			b.Logger().Error("got error: token is not ready")
+			b.Logger().Error(fmt.Sprintf("got error when getting new connector: %s", err.Error()))
 			return nil, err
 		}
 		connector = newConnector
 	}
-	b.Logger().Info("successfully updated connector with new token")
+	b.Logger().Info("Successfully updated connector with new token")
 	return connector, nil
 }
 

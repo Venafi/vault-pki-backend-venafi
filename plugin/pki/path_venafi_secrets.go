@@ -222,19 +222,17 @@ func (b *backend) pathVenafiSecretCreate(ctx context.Context, req *logical.Reque
 		return logical.ErrorResponse(err.Error()), nil
 	}
 	if entry.RefreshToken != "" && !entry.Fakemode {
-		b.Logger().Info("Refresh token pair is provided. Setting up data")
+		b.Logger().Info("Refresh tokens are provided. Setting up data")
 		for i := 0; i < 2; i++ {
 
-			b.Logger().Info("Refresh setting config for refresjing tokens")
+			b.Logger().Info("creating config for refreshing tokens")
 			cfg, err := createConfigFromFieldData(entry)
 			if err != nil {
 				b.Logger().Error(fmt.Sprintf("Error during venafi secret creation: creating config error: %s", err.Error()))
 				return logical.ErrorResponse(err.Error()), nil
 			}
 
-			b.Logger().Info("Refreshing token during Venafi secret creation")
-			b.Logger().Info(fmt.Sprintf("current provided access_token: %s", cfg.Credentials.AccessToken))
-			b.Logger().Info(fmt.Sprintf("current provided refresh_token: %s", cfg.Credentials.RefreshToken))
+			b.Logger().Info("Refreshing tokens during Venafi secret creation")
 			tokenInfo, err := getAccessData(cfg)
 			if err != nil {
 				b.Logger().Error(fmt.Sprintf("Error during venafi secret creation: refreshing tokens error: %s", err.Error()))
@@ -397,16 +395,13 @@ func (p *venafiSecretEntry) ToResponseData() map[string]interface{} {
 		//Sensible data will not be disclosed.
 		//tpp_password, api_key, access_token, refresh_token
 
-		"url":          p.URL,
-		"zone":         p.Zone,
-		"tpp_user":     p.TppUser,
-		"tpp_password": p.getStringMask(),
-		//"access_token":      p.getStringMask(),
-		//"refresh_token":     p.getStringMask(),
-		//"refresh_token_2":   p.getStringMask(),
-		"access_token":      p.AccessToken,
-		"refresh_token":     p.RefreshToken,
-		"refresh_token_2":   p.RefreshToken2,
+		"url":               p.URL,
+		"zone":              p.Zone,
+		"tpp_user":          p.TppUser,
+		"tpp_password":      p.getStringMask(),
+		"access_token":      p.getStringMask(),
+		"refresh_token":     p.getStringMask(),
+		"refresh_token_2":   p.getStringMask(),
 		"refresh_interval":  shortDurationString(p.RefreshInterval),
 		"next_refresh":      p.NextRefresh,
 		"apikey":            p.getStringMask(),
