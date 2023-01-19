@@ -200,11 +200,6 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, logicalRequest *logi
 	}
 
 	if connector.GetType() == endpoint.ConnectorTypeTPP {
-		if b.System().ReplicationState().HasState(consts.ReplicationPerformanceStandby | consts.ReplicationPerformanceSecondary) {
-			// only the leader can handle token refreshing, we don't ever want to enter into refreshing process if we are
-			// getting request in vault follower node
-			return nil, logical.ErrReadOnly
-		}
 		var secretEntry *venafiSecretEntry
 		secretEntry, err = b.getVenafiSecret(ctx, logicalRequest.Storage, role.VenafiSecret)
 		if err != nil {
@@ -213,7 +208,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, logicalRequest *logi
 		if secretEntry.RefreshToken != "" && secretEntry.RefreshToken2 != "" {
 			connector, err = validateAccessToken(b, ctx, connector, cfg, logicalRequest, role)
 			if err != nil {
-				b.Logger().Error("error validating access token: %s", err.Error())
+				b.Logger().Error(fmt.Sprintf("error validating access token: %s", err.Error()))
 				return nil, err
 			}
 		}
@@ -1038,15 +1033,21 @@ func validateAccessToken(b *backend, ctx context.Context, connector endpoint.Con
 		return nil, err
 	}
 	if refreshNeeded {
+		if b.System().ReplicationState().HasState(consts.ReplicationPerformanceStandby | consts.ReplicationPerformanceSecondary) {
+			// only the leader can handle token refreshing, we don't ever want to enter into refreshing process if we are
+			// getting request in vault follower node
+			return nil, logical.ErrReadOnly
+		}
 		b.Logger().Info("Token refresh is needed")
 		if err != nil {
 			return nil, err
 		}
+		b.Logger().Info(fmt.Sprintf("cfg access_token %s", cfg.Credentials.AccessToken))
+		b.Logger().Info(fmt.Sprintf("cfg refresh_token %s", cfg.Credentials.RefreshToken))
 		err = updateAccessToken(b, ctx, logReq, cfg, role)
 		if err != nil {
 			return nil, err
 		}
-		// reload the client since the access token changed
 		var newConnector endpoint.Connector
 		newConnector, cfg, err = b.ClientVenafi(ctx, logReq, role)
 		if err != nil {
