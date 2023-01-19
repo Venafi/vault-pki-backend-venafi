@@ -1,3 +1,11 @@
+# v0.12.1 (January 19, 2023)
+* Added `ignore_local_storage` and `min_cert_time_left` new attributes at `issue` path, which
+bypasses `prevent-reissue-local` feature, if enabled, and requests the certificate, and handles
+certificate time left considered to be valid, respectively
+* Fixes bug that wouldn't let to create `venafi` secret in a Vault cluster environment where refresh tokens were provided
+* Added more logs for refresh token process
+* Starting from release, binaries are signed
+
 # v0.12.0 (December 27, 2022)
 * Added ability to ignore search-certificate in local storage. Fixes behaviour for prevent-reissue features to have certificate default validity.
 * Introduced `proactive refresh` feature, which now relies on handling refreshing the `access_token` by passing two refresh tokens in the `venafi` secret (`refresh_token` and `refresh_token_2`)
