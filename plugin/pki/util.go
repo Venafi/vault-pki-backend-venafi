@@ -247,11 +247,7 @@ func isTokenRefreshNeeded(b *backend, ctx context.Context, storage logical.Stora
 	if err != nil {
 		return false, "", err
 	}
-	now := time.Now()
-	b.Logger().Info(fmt.Sprintf("Current time: %s", now.String()))
-	refreshNeeded := secretEntry.NextRefresh.Before(now)
-	b.Logger().Info(fmt.Sprintf("Refresh Needed: %v", refreshNeeded))
-	return refreshNeeded, secretEntry.RefreshToken2, nil
+	return secretEntry.NextRefresh.Before(time.Now()), secretEntry.RefreshToken2, nil
 }
 
 func updateAccessToken(b *backend, ctx context.Context, req *logical.Request, cfg *vcert.Config, role *roleEntry) error {
