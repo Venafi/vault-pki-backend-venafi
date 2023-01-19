@@ -241,14 +241,14 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, logicalRequest *logi
 		ignoreLocalStorage = role.IgnoreLocalStorage
 	}
 
-	if !ignoreLocalStorage && role.StorePrivateKey && role.StoreBy == storeBySerialString && !signCSR {
+	if !ignoreLocalStorage && role.StorePrivateKey && role.StoreBy == util.StoreBySerialString && !signCSR {
 		// if we don't receive a logic response, whenever is an error or the actual certificate found in storage
 		// means we need to issue a new one
 		logicalResp := preventReissue(b, ctx, logicalRequest, reqData, &connector, role, cfg.Zone, data)
 		if logicalResp != nil {
 			return logicalResp, nil
 		}
-	} else if !ignoreLocalStorage && role.StorePrivateKey && role.StoreBy == storeByHASHstring && !signCSR {
+	} else if !ignoreLocalStorage && role.StorePrivateKey && role.StoreBy == util.StoreByHASHstring && !signCSR {
 		b.Logger().Info(fmt.Sprintf("Calling prevent local for hash %v", certId))
 		logicalResp := preventReissueLocal(b, ctx, logicalRequest, reqData, role, certId, data)
 		if logicalResp != nil {
