@@ -12,7 +12,7 @@ import (
 func (b *backend) ClientVenafi(ctx context.Context, req *logical.Request, role *roleEntry) (
 	endpoint.Connector, *vcert.Config, error) {
 
-	cfg, err := b.getConfig(ctx, req, role, false)
+	cfg, err := b.getConfig(ctx, req, role)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -26,7 +26,7 @@ func (b *backend) ClientVenafi(ctx context.Context, req *logical.Request, role *
 
 }
 
-func (b *backend) getConfig(ctx context.Context, req *logical.Request, role *roleEntry, includeRefreshToken bool) (*vcert.Config, error) {
+func (b *backend) getConfig(ctx context.Context, req *logical.Request, role *roleEntry) (*vcert.Config, error) {
 	var cfg *vcert.Config
 
 	venafiSecret, err := b.getVenafiSecret(ctx, req.Storage, role.VenafiSecret)
@@ -84,9 +84,6 @@ func (b *backend) getConfig(ctx context.Context, req *logical.Request, role *rol
 		b.Logger().Debug(fmt.Sprintf("Using Venafi Platform with URL %s to issue certificate", venafiSecret.URL))
 		cfg.ConnectorType = endpoint.ConnectorTypeTPP
 		var refreshToken string
-		if includeRefreshToken {
-			refreshToken = venafiSecret.RefreshToken
-		}
 		cfg.Credentials = &endpoint.Authentication{
 			AccessToken:  venafiSecret.AccessToken,
 			RefreshToken: refreshToken,
