@@ -91,6 +91,9 @@ func (b *backend) getConfig(ctx context.Context, req *logical.Request, role *rol
 			AccessToken:  venafiSecret.AccessToken,
 			RefreshToken: refreshToken,
 		}
+		if venafiSecret.RefreshToken != "" {
+			cfg.Credentials.RefreshToken = venafiSecret.RefreshToken
+		}
 
 	} else if venafiSecret.Apikey != "" {
 		b.Logger().Debug("Using Venafi Cloud to issue certificate")
