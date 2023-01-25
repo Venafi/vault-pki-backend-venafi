@@ -395,13 +395,16 @@ func (p *venafiSecretEntry) ToResponseData() map[string]interface{} {
 		//Sensible data will not be disclosed.
 		//tpp_password, api_key, access_token, refresh_token
 
-		"url":               p.URL,
-		"zone":              p.Zone,
-		"tpp_user":          p.TppUser,
-		"tpp_password":      p.getStringMask(),
-		"access_token":      p.getStringMask(),
-		"refresh_token":     p.getStringMask(),
-		"refresh_token_2":   p.getStringMask(),
+		"url":      p.URL,
+		"zone":     p.Zone,
+		"tpp_user": p.TppUser,
+		//"tpp_password":      p.getStringMask(),
+		//"access_token":      p.getStringMask(),
+		//"refresh_token":     p.getStringMask(),
+		//"refresh_token_2":   p.getStringMask(),
+		"access_token":      p.AccessToken,
+		"refresh_token":     p.RefreshToken,
+		"refresh_token_2":   p.RefreshToken2,
 		"refresh_interval":  shortDurationString(p.RefreshInterval),
 		"next_refresh":      p.NextRefresh,
 		"apikey":            p.getStringMask(),

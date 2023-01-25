@@ -206,7 +206,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, logicalRequest *logi
 			return nil, err
 		}
 		if secretEntry.RefreshToken != "" && secretEntry.RefreshToken2 != "" {
-			connector, err = validateAccessToken(b, ctx, connector, cfg, logicalRequest, role)
+			connector, err = validateAccessToken(b, ctx, connector, cfg, logicalRequest, role, secretEntry)
 			if err != nil {
 				b.Logger().Error(fmt.Sprintf("error validating access token: %s", err.Error()))
 				return nil, err
@@ -1026,9 +1026,9 @@ func sanitizeRequestData(reqData *requestData, logger hclog.Logger) {
 	orderSANDNS(reqData, logger)
 }
 
-func validateAccessToken(b *backend, ctx context.Context, connector endpoint.Connector, cfg *vcert.Config, logReq *logical.Request, role *roleEntry) (endpoint.Connector, error) {
-
-	refreshNeeded, _, err := isTokenRefreshNeeded(b, ctx, logReq.Storage, role.VenafiSecret)
+func validateAccessToken(b *backend, ctx context.Context, connector endpoint.Connector, cfg *vcert.Config, logReq *logical.Request, role *roleEntry, secretEntry *venafiSecretEntry) (endpoint.Connector, error) {
+	b.Logger().Info("Validating access_token")
+	refreshNeeded, _, err := isTokenRefreshNeeded(secretEntry)
 	if err != nil {
 		return nil, err
 	}
@@ -1039,11 +1039,16 @@ func validateAccessToken(b *backend, ctx context.Context, connector endpoint.Con
 			return nil, logical.ErrReadOnly
 		}
 		b.Logger().Info("Token refresh is needed")
+		b.Logger().Info(fmt.Sprintf("Current set access_token in cfg: %s \n", cfg.Credentials.AccessToken))
+		b.Logger().Info(fmt.Sprintf("Current set refresh_token in cfg: %s \n", cfg.Credentials.RefreshToken))
+		b.Logger().Info(fmt.Sprintf("Current set access_token in secretEntry: %s \n", secretEntry.AccessToken))
+		b.Logger().Info(fmt.Sprintf("Current set refresh_token in secretEntry: %s \n", secretEntry.RefreshToken))
+		b.Logger().Info(fmt.Sprintf("Current set refresh_token_2 in secretEntry: %s \n", secretEntry.RefreshToken2))
 		if err != nil {
 			return nil, err
 		}
 		b.Logger().Info("Updating access_token")
-		err = updateAccessToken(b, ctx, logReq, cfg, role)
+		err = updateAccessToken(b, ctx, logReq, cfg, role, secretEntry)
 		if err != nil {
 			return nil, err
 		}

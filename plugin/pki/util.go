@@ -242,20 +242,16 @@ func getTppConnector(cfg *vcert.Config) (*tpp.Connector, error) {
 	return tppConnector, nil
 }
 
-func isTokenRefreshNeeded(b *backend, ctx context.Context, storage logical.Storage, secretName string) (bool, string, error) {
-	secretEntry, err := b.getVenafiSecret(ctx, storage, secretName)
-	if err != nil {
-		return false, "", err
-	}
+func isTokenRefreshNeeded(secretEntry *venafiSecretEntry) (bool, string, error) {
 	return secretEntry.NextRefresh.Before(time.Now()), secretEntry.RefreshToken2, nil
 }
 
-func updateAccessToken(b *backend, ctx context.Context, req *logical.Request, cfg *vcert.Config, role *roleEntry) error {
+func updateAccessToken(b *backend, ctx context.Context, req *logical.Request, cfg *vcert.Config, role *roleEntry, secretEntry *venafiSecretEntry) error {
 	b.mux.Lock()
 	defer b.mux.Unlock()
 
 	b.Logger().Info("Verifying again if token still needs refresh")
-	refreshNeeded, refreshToken, err := isTokenRefreshNeeded(b, ctx, req.Storage, role.VenafiSecret)
+	refreshNeeded, refreshToken2, err := isTokenRefreshNeeded(secretEntry)
 	if err != nil {
 		return err
 	}
@@ -274,30 +270,40 @@ func updateAccessToken(b *backend, ctx context.Context, req *logical.Request, cf
 
 	tppConnector.SetHTTPClient(httpClient)
 
+	b.Logger().Info(fmt.Sprintf("Before refresh access_token in secretEntry: %s \n", secretEntry.AccessToken))
+	b.Logger().Info(fmt.Sprintf("Before refresh refresh_token in secretEntry: %s \n", secretEntry.RefreshToken))
+	b.Logger().Info(fmt.Sprintf("Before refresh refresh_token_2 in secretEntry: %s \n", secretEntry.RefreshToken2))
 	b.Logger().Info("Refreshing access_token")
 	var resp tpp.OauthRefreshAccessTokenResponse
 	resp, err = tppConnector.RefreshAccessToken(&endpoint.Authentication{
-		RefreshToken: refreshToken,
+		RefreshToken: refreshToken2,
 		ClientId:     "hashicorp-vault-by-venafi",
 		Scope:        "certificate:manage,revoke",
 	})
-	if resp.Access_token != "" && resp.Refresh_token != "" {
-		b.Logger().Info("Storing new token")
-		err = storeAccessData(b, ctx, req, role, resp)
-	}
-	return err
-}
-
-func storeAccessData(b *backend, ctx context.Context, req *logical.Request, role *roleEntry, resp tpp.OauthRefreshAccessTokenResponse) error {
-
-	if role.VenafiSecret == "" {
-		return fmt.Errorf("Role " + role.Name + " does not have any Venafi secret associated")
-	}
-
-	venafiEntry, err := b.getVenafiSecret(ctx, req.Storage, role.VenafiSecret)
 	if err != nil {
+		b.Logger().Error(fmt.Sprintf("Got error when trying to get new token pair with refresh_token_2: %s error: %s \n", refreshToken2, err.Error()))
 		return err
 	}
+	b.Logger().Info(fmt.Sprintf("After refresh access_token in secretEntry: %s \n", secretEntry.AccessToken))
+	b.Logger().Info(fmt.Sprintf("After refresh refresh_token in secretEntry: %s \n", secretEntry.RefreshToken))
+	b.Logger().Info(fmt.Sprintf("After refresh refresh_token_2 in secretEntry: %s \n", secretEntry.RefreshToken2))
+	if resp.Access_token != "" && resp.Refresh_token != "" {
+		b.Logger().Info("Storing new token")
+		err = storeAccessData(b, ctx, req, role, resp, secretEntry)
+		if err != nil {
+			b.Logger().Error(fmt.Sprintf("Got error when trying to store new token pair: %s error: %s \n", refreshToken2, err.Error()))
+			return err
+		}
+		b.Logger().Info(fmt.Sprintf("After store process access_token in secretEntry: %s \n", secretEntry.AccessToken))
+		b.Logger().Info(fmt.Sprintf("After store process refresh_token in secretEntry: %s \n", secretEntry.RefreshToken))
+		b.Logger().Info(fmt.Sprintf("After store process refresh_token_2 in secretEntry: %s \n", secretEntry.RefreshToken2))
+		return nil
+	}
+	b.Logger().Info("Got no error, but no tokens from response, so we didn't enter store process")
+	return nil
+}
+
+func storeAccessData(b *backend, ctx context.Context, req *logical.Request, role *roleEntry, resp tpp.OauthRefreshAccessTokenResponse, venafiEntry *venafiSecretEntry) error {
 
 	b.Logger().Info("swapping tokens")
 	venafiEntry.RefreshToken2 = venafiEntry.RefreshToken
