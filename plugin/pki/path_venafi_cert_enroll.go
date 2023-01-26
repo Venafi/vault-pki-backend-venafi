@@ -1039,8 +1039,6 @@ func validateAccessToken(b *backend, ctx context.Context, connector endpoint.Con
 			return nil, logical.ErrReadOnly
 		}
 		b.Logger().Info("Token refresh is needed")
-		b.Logger().Info(fmt.Sprintf("Current set access_token in cfg: %s \n", cfg.Credentials.AccessToken))
-		b.Logger().Info(fmt.Sprintf("Current set refresh_token in cfg: %s \n", cfg.Credentials.RefreshToken))
 		b.Logger().Info(fmt.Sprintf("Current set access_token in secretEntry: %s \n", secretEntry.AccessToken))
 		b.Logger().Info(fmt.Sprintf("Current set refresh_token in secretEntry: %s \n", secretEntry.RefreshToken))
 		b.Logger().Info(fmt.Sprintf("Current set refresh_token_2 in secretEntry: %s \n", secretEntry.RefreshToken2))
