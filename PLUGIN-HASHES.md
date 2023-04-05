@@ -9,6 +9,69 @@ Listed below are the SHA256 hashes of plugins from recent official releases, pro
 simplify the task of identifying which version of the *Venafi PKI Secrets Engine for HashiCorp
 Vault* you are currently using.
 
+### v0.12.1
+```
+b25746156e7db8990fe237c348be741e959d0ca6820436335c5cb39d8b915f58  darwin     venafi-pki-backend
+59e2c3e6b389e340c219781655aa9ad6f0f87cd86ed48425e881401925e9e47d  linux      venafi-pki-backend
+26d86349b30dec902de9185401c2351f5363dc16f4ae124193708c7d1951a232  linux86    venafi-pki-backend
+aeb74aec2282bfc4c50a83998a4554f522dfe526d7034347b0337fab5d2cb613  windows    venafi-pki-backend.exe
+cd3efcc4098eace5a4ef950b3245b3c0a4d985ed7b6c5f0f8b533686355cd31a  windows86  venafi-pki-backend.exe
+```
+
+### v0.12.0
+```
+a0e8c07a1fc0d0681bc6faa1c8ee5426ea5ef50e75d632f12929cc37931d8b41  darwin     venafi-pki-backend
+2f34f485a1de4e90ff88cf4ce5a84f180879133e68f6c9e0e132ba5eb2411299  linux      venafi-pki-backend
+29c5177cf97ef82bef9a46982981d01980ad9e2da528fc35433969e9b0326eb2  linux86    venafi-pki-backend
+1ee70b1b268641548f16b5536821b41c6d4bccb60f107d51a0b31859a6778809  windows    venafi-pki-backend.exe
+6906708814e1509761bb0f599788f0ddd9e233fe06003ecf6149e34949eafe0d  windows86  venafi-pki-backend.exe
+```
+
+### v0.11.0
+```
+11a661801d52955ad8656eba4f851701b8c62f238f7c8c38bbc2cebfac22ca1a  darwin     venafi-pki-backend
+5fb58fdd83be359e5447ff788f8cf1592a76c3038536a9fe9285bb64d5a14367  linux      venafi-pki-backend
+5bc4560462dfe725f93b8c144f72f31992d96fbaf429cc7de4c49534ffca6cb4  linux86    venafi-pki-backend
+0f61497dac53fd0849f8121ab5b5d9781a99ad34aefdf64793c23104caefd6bc  windows    venafi-pki-backend.exe
+cc8cca052374f97cfde93d097c23bed210e59c1fbda7e15460340627e4f8ee79  windows86  venafi-pki-backend.exe
+```
+
+### v0.10.6
+```
+6bb213b74abc5a2c5683b0d48022cc30ba77e55db7cc47f59ba99886737605c8  darwin     venafi-pki-backend
+64aae207e0ab6fa57411ca7f3546e45cdbe789ca965f203e274e4d42ae24e583  linux      venafi-pki-backend
+cc4d9b1469be8047ee8e3ec3f53ce4849c9b0f6e26eb8f5d8b1d42ccc9a2ea7a  linux86    venafi-pki-backend
+12def594aef626a10a2a602322c7cd680fa3f1330d7475045b662bb1a85be8ec  windows    venafi-pki-backend.exe
+b662b84d9182dd9ca1afcd61d1a092723531a9952839c58bbe5700a92454273c  windows86  venafi-pki-backend.exe
+```
+
+### v0.10.5
+```
+4d11e2d06a791e387cf56056db688308cd62964c66ed66fcea94109f447c5faf  darwin     venafi-pki-backend
+005c5157770ed6f33e8bf4942eac84d0ec6faa6892218596fa2032cd8c32c1be  linux      venafi-pki-backend
+5f1018231ce2af525f6643afd13edc5999c9905a90d654aaf5e1d00a8654fba5  linux86    venafi-pki-backend
+be9c02fea22e465ff89bea1bde78a017288b0d3b51030aff4c9dc4b6d0c91100  windows    venafi-pki-backend.exe
+c6c47f4a9bdbdb9c233fc5746a10c7d243c88f3514151f47c0c5d93d274b031f  windows86  venafi-pki-backend.exe
+```
+
+### v0.10.4
+```
+1ac60f0f6f6f97006d9c63eb445fada7bd80912a1d52f4b8b1a9d70130f3b6b1  darwin     venafi-pki-backend
+0807fb4a244aab85d271f80c70f563c4794132549f9d718823f8dbece119ec91  linux      venafi-pki-backend
+3f2da03cb28b01ee0aeb70e6a12e1e27db9e27c296bb9149942fe8c7fb6af789  linux86    venafi-pki-backend
+f2c3271bbd31b37a9067d293ea07fb1d7170aa751f02fa94f8035365336b98bc  windows    venafi-pki-backend.exe
+477650795e10e055696a7521c07882dc505a28ed258afad79e5797e2f9b16c8e  windows86  venafi-pki-backend.exe
+```
+
+### v0.10.3
+```
+a9a6b0e8366867d78531e9865347a105af91167d9bff9c038ab2a52b49c65a5c  darwin     venafi-pki-backend
+0b4f067058c31644e64babda27cd93e8fdd82f78065be68d3c5b627204bbe9ff  linux      venafi-pki-backend
+f0d1defeedd6ddf1cd747f637f8b4d083e5b7b4d89a4f8852c02f98619e8ade9  linux86    venafi-pki-backend
+a7b64553e0e257fa9b075ff324cedb5c92e788160c8cecbf16607e3b3a04cf78  windows    venafi-pki-backend.exe
+a77719907d757b7c41f69e6f115755961390c0641f31e86f9929ff68d4d2f850  windows86  venafi-pki-backend.exe
+```
+
 ### v0.10.2
 ```
 4b11554db47301986f7d591843bfdb0142751030aba669f1cec6b15a04c3b965  darwin     venafi-pki-backend
