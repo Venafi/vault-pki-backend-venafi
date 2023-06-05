@@ -9,10 +9,6 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"github.com/Venafi/vault-pki-backend-venafi/plugin/pki/vpkierror"
-	"github.com/Venafi/vault-pki-backend-venafi/plugin/util"
-	vcertutil "github.com/Venafi/vcert/v4/pkg/util"
-	"github.com/hashicorp/vault/sdk/logical"
 	"log"
 	"math/rand"
 	"net"
@@ -21,6 +17,11 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/Venafi/vault-pki-backend-venafi/plugin/pki/vpkierror"
+	"github.com/Venafi/vault-pki-backend-venafi/plugin/util"
+	vcertutil "github.com/Venafi/vcert/v4/pkg/util"
+	"github.com/hashicorp/vault/sdk/logical"
 )
 
 type venafiConfigString string
@@ -2820,45 +2821,6 @@ func (e *testEnv) NegativeIssueCertificateAndSaveSerial(t *testing.T, data testD
 		t.Fatal("should have returned error and a nil logical response since credentials are wrong")
 	}
 }
-
-//type NEWPKI interface {
-//	Backend(conf *logical.BackendConfig) ven.VenBackend
-//}
-
-//
-//type TEST struct {
-//	NEWPKI newpki
-//}
-//
-//func New(newpki newpki) *TEST {
-//	return &TEST{
-//		NEWPKI: newpki,
-//	}
-//}
-
-//func NewIntegrationTestEnv() (*testEnv, error) {
-//	ctx := context.Background()
-//
-//	config := logical.TestBackendConfig()
-//	config.StorageView = &logical.InmemStorage{}
-//
-//	var err error
-//
-//	b := NEWPKI.Backend(config)
-//	err = b.Setup(context.Background(), config)
-//	if err != nil {
-//		return nil, err
-//	}
-//
-//	return &testEnv{
-//		Backend:          b,
-//		Context:          ctx,
-//		Storage:          config.StorageView,
-//		TestRandString:   randSeq(9),
-//		RoleName:         randSeq(9) + "-role",
-//		VenafiSecretName: randSeq(9) + "-venafi",
-//	}, nil
-//}
 
 func randSeq(n int) string {
 	rand.Seed(time.Now().UTC().UnixNano())
