@@ -1,14 +1,15 @@
 package main
 
 import (
+	"log"
+	"os"
+
 	pki "github.com/Venafi/vault-pki-backend-venafi/plugin/pki"
 	"github.com/hashicorp/vault/api"
 	"github.com/hashicorp/vault/sdk/plugin"
-	"log"
-	"os"
 )
 
-//Plugin config
+// Plugin config
 func main() {
 	apiClientMeta := &api.PluginAPIClientMeta{}
 	flags := apiClientMeta.FlagSet()
