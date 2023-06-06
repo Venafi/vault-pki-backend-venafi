@@ -3,6 +3,7 @@ package pki
 import (
 	"context"
 	"fmt"
+	"github.com/Venafi/vault-pki-backend-venafi/plugin/util"
 	"time"
 
 	"github.com/hashicorp/vault/sdk/framework"
@@ -158,18 +159,6 @@ attached to them. Defaults to "false".`,
 		HelpDescription: pathRoleHelpDesc,
 	}
 }
-
-const (
-	storeByCNString                              = "cn"
-	storeByHASHstring                            = "hash"
-	storeBySerialString                          = "serial"
-	errorTextValueMustBeLess                     = `"ttl" value must be less than "max_ttl" value`
-	errorTextStoreByAndStoreByCNOrSerialConflict = `Can't specify both story_by and store_by_cn or store_by_serial options '`
-	errorTextNoStoreAndStoreByCNOrSerialConflict = `Can't specify both no_store and store_by_cn or store_by_serial options '`
-	errorTextNoStoreAndStoreByConflict           = `Can't specify both no_store and store_by options '`
-	errTextStoreByWrongOption                    = "Option store_by can be %s, %s or %s, not %s"
-	errorTextVenafiSecretEmpty                   = `"venafi_secret" argument is required`
-)
 
 func (b *backend) getRole(ctx context.Context, s logical.Storage, n string) (*roleEntry, error) {
 	entry, err := s.Get(ctx, "role/"+n)
@@ -428,28 +417,28 @@ func validateEntry(entry *roleEntry) (err error) {
 
 	credName := entry.VenafiSecret
 	if credName == "" {
-		return fmt.Errorf(errorTextVenafiSecretEmpty)
+		return fmt.Errorf(util.ErrorTextVenafiSecretEmpty)
 	}
 
 	if entry.MaxTTL > 0 && entry.TTL > entry.MaxTTL {
 		return fmt.Errorf(
-			errorTextValueMustBeLess,
+			util.ErrorTextValueMustBeLess,
 		)
 	}
 
 	if (entry.StoreByCN || entry.StoreBySerial) && entry.StoreBy != "" {
-		return fmt.Errorf(errorTextStoreByAndStoreByCNOrSerialConflict)
+		return fmt.Errorf(util.ErrorTextStoreByAndStoreByCNOrSerialConflict)
 	}
 	if (entry.StoreByCN || entry.StoreBySerial) && entry.NoStore {
-		return fmt.Errorf(errorTextNoStoreAndStoreByCNOrSerialConflict)
+		return fmt.Errorf(util.ErrorTextNoStoreAndStoreByCNOrSerialConflict)
 	}
 	if entry.StoreBy != "" && entry.NoStore {
-		return fmt.Errorf(errorTextNoStoreAndStoreByConflict)
+		return fmt.Errorf(util.ErrorTextNoStoreAndStoreByConflict)
 	}
 	if entry.StoreBy != "" {
-		if (entry.StoreBy != storeBySerialString) && (entry.StoreBy != storeByCNString) && (entry.StoreBy != storeByHASHstring) {
+		if (entry.StoreBy != util.StoreBySerialString) && (entry.StoreBy != util.StoreByCNString) && (entry.StoreBy != util.StoreByHASHstring) {
 			return fmt.Errorf(
-				fmt.Sprintf(errTextStoreByWrongOption, storeBySerialString, storeByCNString, storeByHASHstring, entry.StoreBy),
+				fmt.Sprintf(util.ErrTextStoreByWrongOption, util.StoreBySerialString, util.StoreByCNString, util.StoreByHASHstring, entry.StoreBy),
 			)
 		}
 	}
@@ -458,9 +447,9 @@ func validateEntry(entry *roleEntry) (err error) {
 	//if one of them is set we will set store_by option
 	//if both are set then we set store_by to serial
 	if entry.StoreBySerial {
-		entry.StoreBy = storeBySerialString
+		entry.StoreBy = util.StoreBySerialString
 	} else if entry.StoreByCN {
-		entry.StoreBy = storeByCNString
+		entry.StoreBy = util.StoreByCNString
 	}
 
 	return nil
@@ -523,7 +512,7 @@ func (r *roleEntry) ToResponseData() map[string]interface{} {
 		"max_ttl":                int64(r.MaxTTL.Seconds()),
 		"generate_lease":         r.GenerateLease,
 		"chain_option":           r.ChainOption,
-		"min_cert_time_left":     shortDurationString(r.MinCertTimeLeft),
+		"min_cert_time_left":     util.ShortDurationString(r.MinCertTimeLeft),
 		"ignore_local_storage":   r.IgnoreLocalStorage,
 	}
 	return responseData

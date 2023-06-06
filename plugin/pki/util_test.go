@@ -1,6 +1,7 @@
 package pki
 
 import (
+	"github.com/Venafi/vault-pki-backend-venafi/plugin/util"
 	"testing"
 )
 
@@ -10,7 +11,7 @@ func TestSHA1SUM(t *testing.T) {
 	SHA1SUMstringValue := "aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d"
 
 	s := "hello"
-	SHA1SUMvalue := sha1sum(s)
+	SHA1SUMvalue := util.Sha1sum(s)
 	if SHA1SUMstringValue != SHA1SUMvalue {
 		t.Fatalf("sha1sum function is not outputting expected value")
 	}
