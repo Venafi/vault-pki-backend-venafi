@@ -44,6 +44,7 @@ type RunContext struct {
 	TPPIssuerCN         string
 	CloudIssuerCN       string
 	FakeIssuerCN        string
+	ClientId            string
 }
 
 func GetContext() *RunContext {
@@ -61,6 +62,7 @@ func GetContext() *RunContext {
 
 	c.TokenUrl = os.Getenv("TPP_TOKEN_URL")
 	c.AccessToken = os.Getenv("ACCESS_TOKEN")
+	c.ClientId = os.Getenv("TPP_CLIENT_ID")
 
 	c.TPPTestingEnabled, _ = strconv.ParseBool(os.Getenv("VENAFI_TPP_TESTING"))
 	c.CloudTestingEnabled, _ = strconv.ParseBool(os.Getenv("VENAFI_CLOUD_TESTING"))
@@ -127,7 +129,7 @@ func updateAccessToken(b *backend, ctx context.Context, req *logical.Request, cf
 	var resp tpp.OauthRefreshAccessTokenResponse
 	resp, err = tppConnector.RefreshAccessToken(&endpoint.Authentication{
 		RefreshToken: refreshToken,
-		ClientId:     "hashicorp-vault-by-venafi",
+		ClientId:     cfg.Credentials.ClientId,
 		Scope:        "certificate:manage,revoke",
 	})
 	if resp.Access_token != "" && resp.Refresh_token != "" {
@@ -257,6 +259,7 @@ func createConfigFromFieldData(data *venafiSecretEntry) (*vcert.Config, error) {
 	cfg.Credentials = &endpoint.Authentication{
 		AccessToken:  data.AccessToken,
 		RefreshToken: data.RefreshToken,
+		ClientId:     data.ClientId,
 	}
 
 	return cfg, nil
@@ -276,7 +279,7 @@ func getAccessData(cfg *vcert.Config) (tpp.OauthRefreshAccessTokenResponse, erro
 
 	tokenInfoResponse, err = tppConnector.RefreshAccessToken(&endpoint.Authentication{
 		RefreshToken: cfg.Credentials.RefreshToken,
-		ClientId:     "hashicorp-vault-by-venafi",
+		ClientId:     cfg.Credentials.ClientId,
 		Scope:        "certificate:manage,revoke",
 	})
 

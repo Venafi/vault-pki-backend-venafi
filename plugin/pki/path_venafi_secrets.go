@@ -100,6 +100,11 @@ Example: trust_bundle_file="/path-to/bundle.pem""`,
 				Description: `Set it to true to use fake CA instead of Cloud or Platform to issue certificates. Useful for testing.`,
 				Default:     false,
 			},
+			"client_id": {
+				Type:        framework.TypeString,
+				Description: `Use to specify the application that will be using the token.`,
+				Default:     `hashicorp-vault-by-venafi`,
+			},
 		},
 		Operations: map[logical.Operation]framework.OperationHandler{
 			logical.ReadOperation: &framework.PathOperation{
@@ -198,6 +203,7 @@ func (b *backend) pathVenafiSecretCreate(ctx context.Context, req *logical.Reque
 		Apikey:          data.Get("apikey").(string),
 		TrustBundleFile: data.Get("trust_bundle_file").(string),
 		Fakemode:        data.Get("fakemode").(bool),
+		ClientId:        data.Get("client_id").(string),
 	}
 
 	b.Logger().Info(fmt.Sprintf("Validating data for venafi secret %s", name))
@@ -375,6 +381,7 @@ type venafiSecretEntry struct {
 	Apikey          string        `json:"apikey"`
 	TrustBundleFile string        `json:"trust_bundle_file"`
 	Fakemode        bool          `json:"fakemode"`
+	ClientId        string        `json:"client_id"`
 }
 
 func (p *venafiSecretEntry) ToResponseData() map[string]interface{} {
@@ -394,6 +401,7 @@ func (p *venafiSecretEntry) ToResponseData() map[string]interface{} {
 		"apikey":            p.getStringMask(),
 		"trust_bundle_file": p.TrustBundleFile,
 		"fakemode":          p.Fakemode,
+		"client_id":         p.ClientId,
 	}
 	return responseData
 }
