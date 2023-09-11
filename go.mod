@@ -1,6 +1,6 @@
 module github.com/Venafi/vault-pki-backend-venafi
 
-go 1.21.1
+go 1.21
 
 require (
 	github.com/Venafi/vcert/v4 v4.24.0
