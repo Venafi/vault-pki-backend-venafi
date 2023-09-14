@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"strings"
+
 	"github.com/Venafi/vault-pki-backend-venafi/plugin/pki"
-	"github.com/Venafi/vcert/test"
+	"github.com/Venafi/vault-pki-backend-venafi/plugin/util"
+	"github.com/Venafi/vcert/v4/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"strings"
 )
 
 const (
@@ -150,7 +152,7 @@ var _ = Describe("Vault PKI Venafi backend e2e tests	", func() {
 							wantDNSNames := []string{cn, dns1, dns2}
 							haveDNSNames := parsedCertificate.DNSNames
 							By("Should have requested SANs and CN in DNSNames " + strings.Join(wantDNSNames, " ") + " same as " + strings.Join(haveDNSNames, " "))
-							Expect(pki.SameStringSlice(haveDNSNames, wantDNSNames)).To(BeTrue())
+							Expect(util.SameStringSlice(haveDNSNames, wantDNSNames)).To(BeTrue())
 						}
 
 						By("Should have valid issuer CN")
