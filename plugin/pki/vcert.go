@@ -3,10 +3,11 @@ package pki
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
+
 	"github.com/Venafi/vcert/v4"
 	"github.com/Venafi/vcert/v4/pkg/endpoint"
 	"github.com/hashicorp/vault/sdk/logical"
-	"io/ioutil"
 )
 
 func (b *backend) ClientVenafi(ctx context.Context, req *logical.Request, role *roleEntry) (
@@ -90,6 +91,7 @@ func (b *backend) getConfig(ctx context.Context, req *logical.Request, role *rol
 		cfg.Credentials = &endpoint.Authentication{
 			AccessToken:  venafiSecret.AccessToken,
 			RefreshToken: refreshToken,
+			ClientId:     venafiSecret.ClientId,
 		}
 
 	} else if venafiSecret.Apikey != "" {
