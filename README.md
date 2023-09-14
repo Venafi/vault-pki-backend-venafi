@@ -70,8 +70,8 @@ Vault.
 
 If you are using Venafi as a Service, verify the following:
 
-- The Venafi as a Service REST API at [https://api.venafi.cloud](https://api.venafi.cloud/swagger-ui.html)
-  or https://api.eu.venafi.cloud(if you have an EU account) is accessible from the systems where Vault will be running.
+- The Venafi as a Service REST API at [https://api.venafi.cloud](https://api.venafi.cloud/vaas)
+  or [https://api.venafi.eu](https://api.venafi.eu/vaas) (if you have an EU account) is accessible from the systems where Vault will be running.
 - You have successfully registered for a Venafi as a Service account, have been granted at least the
 "Resource Owner" role, and know your API key.
 - A CA Account and Issuing Template exist and have been configured with:
@@ -268,7 +268,7 @@ Venafi secrets engine:
 
    ```
    $ vault write venafi-pki/venafi/vaas \
-       url="https://api.eu.venafi.cloud/" \
+       url="https://api.venafi.eu" \
        apikey="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" \
        zone="Business App\\Enterprise CIT"
    Success! Data written to: venafi-pki/roles/vaas
