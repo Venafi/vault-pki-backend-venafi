@@ -2,8 +2,9 @@ package pki
 
 import (
 	"fmt"
-	"github.com/Venafi/vault-pki-backend-venafi/plugin/util"
 	"testing"
+
+	"github.com/Venafi/vault-pki-backend-venafi/plugin/util"
 )
 
 func TestRoleValidate(t *testing.T) {

@@ -1,8 +1,9 @@
 package pki
 
 import (
-	"github.com/Venafi/vault-pki-backend-venafi/plugin/util"
 	"testing"
+
+	"github.com/Venafi/vault-pki-backend-venafi/plugin/util"
 )
 
 func TestVenafiSecretValidate(t *testing.T) {

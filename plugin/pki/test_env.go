@@ -18,10 +18,11 @@ import (
 	"testing"
 	"time"
 
+	vcertutil "github.com/Venafi/vcert/v5/pkg/util"
+	"github.com/hashicorp/vault/sdk/logical"
+
 	"github.com/Venafi/vault-pki-backend-venafi/plugin/pki/vpkierror"
 	"github.com/Venafi/vault-pki-backend-venafi/plugin/util"
-	vcertutil "github.com/Venafi/vcert/v4/pkg/util"
-	"github.com/hashicorp/vault/sdk/logical"
 )
 
 type venafiConfigString string

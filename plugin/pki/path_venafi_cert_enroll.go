@@ -9,24 +9,25 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"github.com/Venafi/vault-pki-backend-venafi/plugin/util"
-	"github.com/Venafi/vcert/v4"
 	"net"
 	"regexp"
+	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Venafi/vault-pki-backend-venafi/plugin/pki/vpkierror"
-	"github.com/Venafi/vcert/v4/pkg/certificate"
-	"github.com/Venafi/vcert/v4/pkg/endpoint"
-	vcertutil "github.com/Venafi/vcert/v4/pkg/util"
-	"github.com/Venafi/vcert/v4/pkg/verror"
+	"github.com/Venafi/vcert/v5"
+	"github.com/Venafi/vcert/v5/pkg/certificate"
+	"github.com/Venafi/vcert/v5/pkg/endpoint"
+	vcertutil "github.com/Venafi/vcert/v5/pkg/util"
+	"github.com/Venafi/vcert/v5/pkg/verror"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/helper/consts"
 	"github.com/hashicorp/vault/sdk/logical"
-	"sort"
-	"sync"
+
+	"github.com/Venafi/vault-pki-backend-venafi/plugin/util"
 )
 
 type SyncedResponse struct {
@@ -936,9 +937,9 @@ func formRequest(reqData requestData, role *roleEntry, cl *endpoint.Connector, s
 	return certReq, nil
 }
 
-func getIssuerHint(is string) string {
+func getIssuerHint(is string) vcertutil.IssuerHint {
 
-	issuerHint := ""
+	issuerHint := vcertutil.IssuerHintGeneric
 
 	if is != "" {
 

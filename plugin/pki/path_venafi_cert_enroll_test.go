@@ -1,9 +1,10 @@
 package pki
 
 import (
-	"github.com/Venafi/vault-pki-backend-venafi/plugin/util"
-	"github.com/Venafi/vcert/v4"
 	"testing"
+
+	"github.com/Venafi/vault-pki-backend-venafi/plugin/util"
+	"github.com/Venafi/vcert/v5"
 )
 
 func TestOriginInRequest(t *testing.T) {

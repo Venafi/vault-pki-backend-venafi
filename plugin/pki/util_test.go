@@ -1,8 +1,9 @@
 package pki
 
 import (
-	"github.com/Venafi/vault-pki-backend-venafi/plugin/util"
 	"testing"
+
+	"github.com/Venafi/vault-pki-backend-venafi/plugin/util"
 )
 
 func TestSHA1SUM(t *testing.T) {

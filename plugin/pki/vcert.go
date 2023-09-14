@@ -3,14 +3,15 @@ package pki
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"os"
 
-	"github.com/Venafi/vcert/v4"
-	"github.com/Venafi/vcert/v4/pkg/endpoint"
+	"github.com/Venafi/vcert/v5"
+	"github.com/Venafi/vcert/v5/pkg/endpoint"
 	"github.com/hashicorp/vault/sdk/logical"
 )
 
 func (b *backend) ClientVenafi(ctx context.Context, req *logical.Request, role *roleEntry) (
+
 	endpoint.Connector, *vcert.Config, error) {
 
 	cfg, err := b.getConfig(ctx, req, role, false)
@@ -41,7 +42,8 @@ func (b *backend) getConfig(ctx context.Context, req *logical.Request, role *rol
 	var trustBundlePEM string
 	if venafiSecret.TrustBundleFile != "" {
 		b.Logger().Debug(fmt.Sprintf("Reading trust bundle from file: " + venafiSecret.TrustBundleFile))
-		trustBundle, err := ioutil.ReadFile(venafiSecret.TrustBundleFile)
+
+		trustBundle, err := os.ReadFile(venafiSecret.TrustBundleFile)
 		if err != nil {
 			return cfg, err
 		}

@@ -2,9 +2,11 @@ package pki
 
 import (
 	"context"
-	"github.com/Venafi/vault-pki-backend-venafi/plugin/util"
-	"github.com/hashicorp/vault/sdk/logical"
 	"testing"
+
+	"github.com/hashicorp/vault/sdk/logical"
+
+	"github.com/Venafi/vault-pki-backend-venafi/plugin/util"
 )
 
 func TestFakeRolesConfigurations(t *testing.T) {
@@ -55,7 +57,7 @@ func TestFakeVenafiSecretsConfigurations(t *testing.T) {
 	t.Run("delete venafi secret", integrationTestEnv.DeleteVenafi)
 }
 
-//Testing all endpoints with fake vcert CA
+// Testing all endpoints with fake vcert CA
 func TestFakeEndpoints(t *testing.T) {
 	integrationTestEnv, err := NewIntegrationTestEnv()
 	if err != nil {
@@ -75,7 +77,7 @@ func TestFakeEndpoints(t *testing.T) {
 
 }
 
-//testing store_by no_store and deprecated store_by_cn and store_by_serial options
+// testing store_by no_store and deprecated store_by_cn and store_by_serial options
 func TestFakeStoreByOptions(t *testing.T) {
 	integrationTestEnv, err := NewIntegrationTestEnv()
 	if err != nil {

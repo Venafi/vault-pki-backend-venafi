@@ -3,14 +3,16 @@ package pki
 import (
 	"context"
 	"fmt"
-	"github.com/Venafi/vault-pki-backend-venafi/plugin/util"
-	"github.com/Venafi/vcert/v4/pkg/certificate"
-	"github.com/Venafi/vcert/v4/pkg/endpoint"
-	"github.com/Venafi/vcert/v4/pkg/policy"
-	vcertutil "github.com/Venafi/vcert/v4/pkg/util"
+	"strings"
+
+	"github.com/Venafi/vcert/v5/pkg/certificate"
+	"github.com/Venafi/vcert/v5/pkg/endpoint"
+	"github.com/Venafi/vcert/v5/pkg/policy"
+	vcertutil "github.com/Venafi/vcert/v5/pkg/util"
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
-	"strings"
+
+	"github.com/Venafi/vault-pki-backend-venafi/plugin/util"
 )
 
 func pathVenafiCertRevoke(b *backend) *framework.Path {
@@ -70,6 +72,7 @@ func (b *backend) venafiCertRevoke(ctx context.Context, req *logical.Request, d 
 	}
 
 	b.Logger().Debug("Creating Venafi client:")
+
 	cl, cfg, err := b.ClientVenafi(ctx, req, role)
 
 	if err != nil {
