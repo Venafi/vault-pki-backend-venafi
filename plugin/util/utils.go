@@ -7,14 +7,15 @@ import (
 	"encoding/hex"
 	"encoding/pem"
 	"fmt"
-	"github.com/Venafi/vcert/v4/pkg/util"
-	"github.com/youmark/pkcs8"
 	mathrand "math/rand"
 	"net"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Venafi/vcert/v5/pkg/util"
+	"github.com/youmark/pkcs8"
 )
 
 func SliceContains(slice []string, item string) bool {

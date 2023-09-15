@@ -3,11 +3,12 @@ package pki
 import (
 	"context"
 	"fmt"
-	"github.com/Venafi/vault-pki-backend-venafi/plugin/util"
 	"time"
 
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
+
+	"github.com/Venafi/vault-pki-backend-venafi/plugin/util"
 )
 
 func pathListRoles(b *backend) *framework.Path {

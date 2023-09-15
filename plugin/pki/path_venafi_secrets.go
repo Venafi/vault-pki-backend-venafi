@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Venafi/vault-pki-backend-venafi/plugin/util"
-	"github.com/hashicorp/vault/sdk/helper/consts"
-
 	"github.com/hashicorp/vault/sdk/framework"
+	"github.com/hashicorp/vault/sdk/helper/consts"
 	"github.com/hashicorp/vault/sdk/logical"
+
+	"github.com/Venafi/vault-pki-backend-venafi/plugin/util"
 )
 
 func pathCredentialsList(b *backend) *framework.Path {

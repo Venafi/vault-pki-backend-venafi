@@ -2,9 +2,6 @@ package pki
 
 import (
 	"context"
-
-	"github.com/Venafi/vault-pki-backend-venafi/plugin/util"
-
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
@@ -15,11 +12,13 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/Venafi/vault-pki-backend-venafi/plugin/pki/vpkierror"
-	"github.com/Venafi/vcert/v4"
-	"github.com/Venafi/vcert/v4/pkg/endpoint"
-	"github.com/Venafi/vcert/v4/pkg/venafi/tpp"
+	"github.com/Venafi/vcert/v5"
+	"github.com/Venafi/vcert/v5/pkg/endpoint"
+	"github.com/Venafi/vcert/v5/pkg/venafi/tpp"
 	"github.com/hashicorp/vault/sdk/logical"
+
+	"github.com/Venafi/vault-pki-backend-venafi/plugin/pki/vpkierror"
+	"github.com/Venafi/vault-pki-backend-venafi/plugin/util"
 )
 
 const (

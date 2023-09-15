@@ -2,10 +2,11 @@ package pki
 
 import (
 	"context"
-	"github.com/hashicorp/vault/sdk/framework"
-	"github.com/hashicorp/vault/sdk/logical"
 	"strings"
 	"sync"
+
+	"github.com/hashicorp/vault/sdk/framework"
+	"github.com/hashicorp/vault/sdk/logical"
 )
 
 // Factory creates a new backend implementing the logical.Backend interface

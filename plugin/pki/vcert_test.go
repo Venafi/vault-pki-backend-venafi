@@ -7,13 +7,14 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
-	"github.com/Venafi/vcert/v4"
-	"github.com/Venafi/vcert/v4/pkg/certificate"
-	"github.com/Venafi/vcert/v4/pkg/endpoint"
-	"github.com/hashicorp/vault/sdk/logical"
 	"log"
 	"strings"
 	"testing"
+
+	"github.com/Venafi/vcert/v5"
+	"github.com/Venafi/vcert/v5/pkg/certificate"
+	"github.com/Venafi/vcert/v5/pkg/endpoint"
+	"github.com/hashicorp/vault/sdk/logical"
 )
 
 func TestPKIVcertIsWorking(t *testing.T) {
