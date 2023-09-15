@@ -939,7 +939,7 @@ func formRequest(reqData requestData, role *roleEntry, cl *endpoint.Connector, s
 
 func getIssuerHint(is string) vcertutil.IssuerHint {
 
-	issuerHint := vcertutil.IssuerHintGeneric
+	var issuerHint vcertutil.IssuerHint
 
 	if is != "" {
 

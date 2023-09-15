@@ -280,7 +280,8 @@ func (e *testEnv) writeRoleToBackend(t *testing.T, configString venafiConfigStri
 
 	ttl := strconv.Itoa(util.Role_ttl_test_property) + "h"
 	roleData["ttl"] = ttl
-	roleData["issuer_hint"] = vcertutil.IssuerHintMicrosoft
+	issuerHint := vcertutil.IssuerHintMicrosoft
+	roleData["issuer_hint"] = issuerHint.String()
 
 	resp, err := e.Backend.HandleRequest(e.Context, &logical.Request{
 		Operation: logical.UpdateOperation,
@@ -315,7 +316,8 @@ func (e *testEnv) writeRoleToBackendWithData(t *testing.T, configString venafiCo
 		ttl = data.ttl.String()
 	}
 	roleData["ttl"] = ttl
-	roleData["issuer_hint"] = vcertutil.IssuerHintMicrosoft
+	issuerHint := vcertutil.IssuerHintMicrosoft
+	roleData["issuer_hint"] = issuerHint.String()
 	if data.storeBy != "" {
 		roleData["store_by"] = data.storeBy
 	}
