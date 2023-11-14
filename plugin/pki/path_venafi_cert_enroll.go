@@ -973,7 +973,6 @@ func getCustomFields(customFields string) (*[]string, error) {
 		"you can provide as follows:" +
 		"\"\nkey=\"value1,value2\",key2=value3\" or \"'key=value1,value2',key2=value\"\n"
 
-	// "'custom=vaultTest,bob@venafi.com,alice@venafi.com',cfList=item2,cfListMulti=tier1,cfListMulti=tier4"
 	auxSplit := strings.Split(customFields, ",")
 	singleQuoteStringWithCommas := ""
 	doubleQuotesStringWithCommas := ""
