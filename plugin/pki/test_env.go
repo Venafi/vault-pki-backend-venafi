@@ -41,7 +41,7 @@ type testData struct {
 	privateKey           string
 	provider             venafiConfigString
 	signCSR              bool
-	customFields         []string
+	customFields         string
 	ttl                  time.Duration
 	storeBy              string
 	storePkey            bool
@@ -666,12 +666,12 @@ func (e *testEnv) IssueCertificateAndSaveSerial(t *testing.T, data testData, con
 		}
 	}
 
-	if data.privateKeyFormat != "" {
-		issueData["private_key_format"] = data.privateKeyFormat
+	if data.customFields != "" {
+		issueData["custom_fields"] = data.customFields
 	}
 
-	if data.customFields != nil {
-		issueData["custom_fields"] = strings.Join(data.customFields, ",")
+	if data.privateKeyFormat != "" {
+		issueData["private_key_format"] = data.privateKeyFormat
 	}
 
 	resp, err := e.Backend.HandleRequest(e.Context, &logical.Request{
@@ -751,8 +751,8 @@ func (e *testEnv) IssueCertificateAndSaveSerialParallelism(t *testing.T, data te
 		issueData["private_key_format"] = data.privateKeyFormat
 	}
 
-	if data.customFields != nil {
-		issueData["custom_fields"] = strings.Join(data.customFields, ",")
+	if data.customFields != "" {
+		issueData["custom_fields"] = data.customFields
 	}
 
 	resp, err := e.Backend.HandleRequest(e.Context, &logical.Request{
@@ -830,8 +830,8 @@ func (e *testEnv) IssueCertificateAndSaveSerialWithIssuanceData(t *testing.T, da
 		issueData["private_key_format"] = data.privateKeyFormat
 	}
 
-	if data.customFields != nil {
-		issueData["custom_fields"] = strings.Join(data.customFields, ",")
+	if data.customFields != "" {
+		issueData["custom_fields"] = data.customFields
 	}
 
 	resp, err := e.Backend.HandleRequest(e.Context, &logical.Request{
@@ -1006,7 +1006,8 @@ func (e *testEnv) SignCertificate(t *testing.T, data testData, configString vena
 		Path:      "sign/" + e.RoleName,
 		Storage:   e.Storage,
 		Data: map[string]interface{}{
-			"csr": pemCSR,
+			"csr":           pemCSR,
+			"custom_fields": data.customFields,
 		},
 	})
 
@@ -1956,9 +1957,8 @@ func (e *testEnv) TokenIntegrationSignCertificate(t *testing.T) {
 
 }
 
-func (e *testEnv) TokenIntegrationSignCertificateWithCustomFields(t *testing.T) {
+func (e *testEnv) TokenIntegrationSignCertificateWithCustomFields(t *testing.T, data testData) {
 
-	data := testData{}
 	randString := e.TestRandString
 	domain := "vfidev.com"
 	data.cn = randString + "." + domain
@@ -1966,7 +1966,6 @@ func (e *testEnv) TokenIntegrationSignCertificateWithCustomFields(t *testing.T) 
 	data.dnsIP = "127.0.0.1"
 	data.onlyIP = "192.168.0.1"
 	data.signCSR = true
-	data.customFields = []string{"custom=vaultTest", "cfList=item2", "cfListMulti=tier1", "cfListMulti=tier4"}
 
 	var config = venafiConfigToken
 
@@ -2032,8 +2031,8 @@ func (e *testEnv) TokenIntegrationSignWithTTLCertificate(t *testing.T) {
 
 }
 
-func (e *testEnv) TokenIntegrationIssueCertificateWithCustomFields(t *testing.T) {
-	data := testData{}
+func (e *testEnv) TokenIntegrationIssueCertificateWithCustomFields(t *testing.T, data testData) {
+
 	randString := e.TestRandString
 	domain := "venafi.example.com"
 	data.cn = randString + "." + domain
@@ -2041,7 +2040,6 @@ func (e *testEnv) TokenIntegrationIssueCertificateWithCustomFields(t *testing.T)
 	data.dnsIP = "192.168.1.1"
 	data.dnsEmail = "venafi@example.com"
 	data.keyPassword = "Pass0rd!"
-	data.customFields = []string{"custom=vaultTest", "cfList=item2", "cfListMulti=tier1", "cfListMulti=tier4"}
 
 	var config = venafiConfigToken
 
@@ -2809,8 +2807,8 @@ func (e *testEnv) NegativeIssueCertificateAndSaveSerial(t *testing.T, data testD
 		issueData["private_key_format"] = data.privateKeyFormat
 	}
 
-	if data.customFields != nil {
-		issueData["custom_fields"] = strings.Join(data.customFields, ",")
+	if data.customFields != "" {
+		issueData["custom_fields"] = data.customFields
 	}
 
 	resp, err := e.Backend.HandleRequest(e.Context, &logical.Request{

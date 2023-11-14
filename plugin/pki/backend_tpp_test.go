@@ -28,7 +28,7 @@ func TestTPPdeprecratedAuth(t *testing.T) {
 
 }
 
-//Testing Venafi TPP Token integration
+// Testing Venafi TPP Token integration
 func TestTPPintegration(t *testing.T) {
 	t.Parallel()
 	integrationTestEnv, err := NewIntegrationTestEnv()
@@ -37,13 +37,83 @@ func TestTPPintegration(t *testing.T) {
 	}
 
 	t.Run("TPP Token base enroll", integrationTestEnv.TokenIntegrationIssueCertificate)
-	t.Run("TPP Token base enroll with custom fields", integrationTestEnv.TokenIntegrationIssueCertificateWithCustomFields)
+	t.Run("TPP Token base enroll with custom fields", func(t *testing.T) {
+		data := testData{
+			customFields: "custom=vaultTest,cfList=item2,cfListMulti=tier1,cfListMulti=tier4",
+		}
+		integrationTestEnv.TokenIntegrationIssueCertificateWithCustomFields(t, data)
+	})
+	t.Run("TPP Token base enroll with custom fields with single quotes at beginning", func(t *testing.T) {
+		data := testData{
+			customFields: "'custom=vaultTest,bob@venafi.com,alice@venafi.com',cfList=item2,cfListMulti=tier1,cfListMulti=tier4",
+		}
+		integrationTestEnv.TokenIntegrationIssueCertificateWithCustomFields(t, data)
+	})
+	t.Run("TPP Token base enroll with custom fields with single quotes at middle", func(t *testing.T) {
+		data := testData{
+			customFields: "cfList=item2,'custom=middle,bob@venafi.com,alice@venafi.com',cfListMulti=tier1,cfListMulti=tier4",
+		}
+		integrationTestEnv.TokenIntegrationIssueCertificateWithCustomFields(t, data)
+	})
+	t.Run("TPP Token base enroll with custom fields with single quotes at end", func(t *testing.T) {
+		data := testData{
+			customFields: "cfList=item2,cfListMulti=tier1,cfListMulti=tier4,'custom=middle,bob@venafi.com,alice@venafi.com'",
+		}
+		integrationTestEnv.TokenIntegrationIssueCertificateWithCustomFields(t, data)
+	})
+	t.Run("TPP Token base enroll with custom fields with single quotes complex in the middle", func(t *testing.T) {
+		data := testData{
+			customFields: "cfList=item2,'Server Names=server1,server2',cfListMulti=tier1,'custom=middle,bob@venafi.com,alice@venafi.com',cfListMulti=tier4",
+		}
+		integrationTestEnv.TokenIntegrationIssueCertificateWithCustomFields(t, data)
+	})
+	t.Run("TPP Token base enroll with custom fields with mixed single and double quotes", func(t *testing.T) {
+		data := testData{
+			customFields: "cfList=item2,'Server Names=server1,server2',cfListMulti=tier1,\"custom=middle,bob@venafi.com,alice@venafi.com\",cfListMulti=tier4",
+		}
+		integrationTestEnv.TokenIntegrationIssueCertificateWithCustomFields(t, data)
+	})
 	t.Run("TPP Token base enroll and verify ttl", integrationTestEnv.TokenIntegrationIssueCertificateAndValidateTTL)
 	t.Run("TPP Token base enroll with ttl on request", integrationTestEnv.TokenIntegrationIssueCertificateWithTTLOnIssueData)
 	t.Run("TPP Token base enroll with password", integrationTestEnv.TokenIntegrationIssueCertificateWithPassword)
 	t.Run("TPP Token restricted enroll", integrationTestEnv.TokenIntegrationIssueCertificateRestricted)
 	t.Run("TPP Token sign certificate", integrationTestEnv.TokenIntegrationSignCertificate)
-	t.Run("TPP Token sign certificate with custom fields", integrationTestEnv.TokenIntegrationSignCertificateWithCustomFields)
+	t.Run("TPP Token sign certificate with custom fields", func(t *testing.T) {
+		data := testData{
+			customFields: "custom=vaultTest,cfList=item2,cfListMulti=tier1,cfListMulti=tier4",
+		}
+		integrationTestEnv.TokenIntegrationSignCertificateWithCustomFields(t, data)
+	})
+	t.Run("TPP Token sign certificate with custom fields with single quotes at beginning", func(t *testing.T) {
+		data := testData{
+			customFields: "'custom=vaultTest,bob@venafi.com,alice@venafi.com',cfList=item2,cfListMulti=tier1,cfListMulti=tier4",
+		}
+		integrationTestEnv.TokenIntegrationSignCertificateWithCustomFields(t, data)
+	})
+	t.Run("TPP Token sign certificate with custom fields with single quotes at middle", func(t *testing.T) {
+		data := testData{
+			customFields: "cfList=item2,'custom=middle,bob@venafi.com,alice@venafi.com',cfListMulti=tier1,cfListMulti=tier4",
+		}
+		integrationTestEnv.TokenIntegrationSignCertificateWithCustomFields(t, data)
+	})
+	t.Run("TPP Token sign certificate with custom fields with single quotes at end", func(t *testing.T) {
+		data := testData{
+			customFields: "cfList=item2,cfListMulti=tier1,cfListMulti=tier4,'custom=middle,bob@venafi.com,alice@venafi.com'",
+		}
+		integrationTestEnv.TokenIntegrationSignCertificateWithCustomFields(t, data)
+	})
+	t.Run("TPP Token sign certificate with custom fields with single quotes complex in the middle", func(t *testing.T) {
+		data := testData{
+			customFields: "cfList=item2,'Server Names=server1,server2',cfListMulti=tier1,'custom=middle,bob@venafi.com,alice@venafi.com',cfListMulti=tier4",
+		}
+		integrationTestEnv.TokenIntegrationSignCertificateWithCustomFields(t, data)
+	})
+	t.Run("TPP Token sign certificate with custom fields with mixed single and double quotes", func(t *testing.T) {
+		data := testData{
+			customFields: "cfList=item2,'Server Names=server1,server2',cfListMulti=tier1,\"custom=middle,bob@venafi.com,alice@venafi.com\",cfListMulti=tier4",
+		}
+		integrationTestEnv.TokenIntegrationSignCertificateWithCustomFields(t, data)
+	})
 	t.Run("TPP Token sign certificate and ttl attribute", integrationTestEnv.TokenIntegrationSignWithTTLCertificate)
 	t.Run("TPP Token revoke certificate by cn", integrationTestEnv.TokenIntegrationRevokeCertificateCN)
 	t.Run("TPP Token revoke certificate by serial", integrationTestEnv.TokenIntegrationRevokeCertificateSerial)

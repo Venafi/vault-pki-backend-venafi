@@ -67,7 +67,7 @@ func pathVenafiCertEnroll(b *backend) *framework.Path {
 				Description: "For specifiying the private key format ",
 			},
 			"custom_fields": {
-				Type:        framework.TypeCommaStringSlice,
+				Type:        framework.TypeString,
 				Description: "Use to specify custom fields in format 'key=value'. Use comma to separate multiple values: 'key1=value1,key2=value2'",
 			},
 			"ttl": {
@@ -120,7 +120,7 @@ If not specified the role default is used. Cannot be larger than the role max TT
 				Description: `The desired role with configuration for this request`,
 			},
 			"custom_fields": {
-				Type:        framework.TypeCommaStringSlice,
+				Type:        framework.TypeString,
 				Description: "Use to specify custom fields in format 'key=value'. Use comma to separate multiple values: 'key1=value1,key2=value2'",
 			},
 			"retry": {
@@ -404,9 +404,14 @@ func populateReqData(data *framework.FieldData, role *roleEntry) (*requestData, 
 		reqData.csrString = csrStringRaw.(string)
 	}
 
-	customFields, ok := data.GetOk("custom_fields")
+	customFieldsRaw, ok := data.GetOk("custom_fields")
 	if ok {
-		reqData.customFields = customFields.([]string)
+		customFields := customFieldsRaw.(string)
+		customFieldsList, err := getCustomFields(customFields)
+		if err != nil {
+			return nil, err
+		}
+		reqData.customFields = *customFieldsList
 	}
 
 	if ttl, ok := data.GetOk("ttl"); ok {
@@ -920,11 +925,6 @@ func formRequest(reqData requestData, role *roleEntry, cl *endpoint.Connector, s
 
 	//Adding origin custom field with utility name to certificate metadata
 	certReq.CustomFields = []certificate.CustomField{{Type: certificate.CustomFieldOrigin, Value: utilityName}}
-
-	//Adding custom fields to certificate
-	if !isValidCustomFields(reqData.customFields) {
-		return certReq, fmt.Errorf("invalid custom fields; must be 'key=value' using commas to separate multiple key-value pairs")
-	}
 	for _, f := range reqData.customFields {
 		tuple := strings.Split(f, "=")
 		if len(tuple) == 2 {
@@ -962,21 +962,104 @@ func getIssuerHint(is string) vcertutil.IssuerHint {
 
 }
 
-func isValidCustomFields(customFields []string) bool {
-	//Any character is accepted as key, any character is accepted as value
+func getCustomFields(customFields string) (*[]string, error) {
+	var resultingCustomFields []string
 	regex, err := regexp.Compile("^([^=]+=[^=]+)$")
 	if err != nil {
-		return false
+		return nil, err
 	}
-	if len(customFields) > 0 {
-		for _, data := range customFields {
-			if !regex.MatchString(data) {
-				return false
-			}
-		}
-	}
+	msg := "invalid custom fields; must be 'key=value' using commas to separate multiple key-value pairs." +
+		"If you want to provide a comma in a custom field that is type string a long with other custom fields," +
+		"you can provide as follows:" +
+		"\"\nkey=\"value1,value2\",key2=value3\" or \"'key=value1,value2',key2=value\"\n"
 
-	return true
+	// "'custom=vaultTest,bob@venafi.com,alice@venafi.com',cfList=item2,cfListMulti=tier1,cfListMulti=tier4"
+	auxSplit := strings.Split(customFields, ",")
+	singleQuoteStringWithCommas := ""
+	doubleQuotesStringWithCommas := ""
+	for index, data := range auxSplit {
+
+		// we are looking for inner single quote string
+		if strings.HasPrefix(data, singleQuote) {
+			if doubleQuotesStringWithCommas != "" {
+				return nil, fmt.Errorf("bad formatted string, already filling double quotes value. Invalid string: %s", customFields)
+			}
+			if strings.HasPrefix(singleQuoteStringWithCommas, singleQuote) && singleQuoteStringWithCommas != "" {
+				return nil, fmt.Errorf("bad formatted string, encountered leading single quote in an already filled value. Invalid string: %s", customFields)
+			}
+			if len(auxSplit)-1 == index {
+				// means we couldn't find the closing single quote
+				return nil, fmt.Errorf("bad formatted string, couldn't find closing single quote. Invalid string: %s", customFields)
+			}
+			singleQuoteStringWithCommas = singleQuoteStringWithCommas + data + ","
+			continue
+		}
+		// we are looking for inner double comma string
+		if strings.HasPrefix(data, doubleQuotes) {
+			if singleQuoteStringWithCommas != "" {
+				return nil, fmt.Errorf("bad formatted string, already filling single quote value. Invalid string: %s", customFields)
+			}
+			if strings.HasPrefix(doubleQuotesStringWithCommas, doubleQuotes) && doubleQuotesStringWithCommas != "" {
+				return nil, fmt.Errorf("bad formatted string, encountered leading double quotes in an already filled value. Invalid string: %s", customFields)
+			}
+			if len(auxSplit)-1 == index {
+				// means we couldn't find the closing double quotes
+				return nil, fmt.Errorf("bad formatted string, couldn't find closing double quotes. Invalid string: %s", customFields)
+			}
+			doubleQuotesStringWithCommas = doubleQuotesStringWithCommas + data + ","
+			continue
+		}
+		// we are looking for inner single quote string
+		if singleQuoteStringWithCommas != "" {
+			if doubleQuotesStringWithCommas != "" {
+				return nil, fmt.Errorf("bad formatted string, already filling double quotes value. Invalid string: %s", customFields)
+			}
+			if len(auxSplit)-1 == index && !strings.HasSuffix(data, singleQuote) {
+				// means we couldn't find the closing single quote
+				return nil, fmt.Errorf("bad formatted string, couldn't find closing single quote. Invalid string: %s", customFields)
+			}
+			if strings.HasSuffix(data, singleQuote) {
+				singleQuoteStringWithCommas = singleQuoteStringWithCommas + data
+				if !regex.MatchString(singleQuoteStringWithCommas) {
+					return nil, fmt.Errorf(msg)
+				}
+				resultingCustomFields = append(resultingCustomFields, strings.Trim(singleQuoteStringWithCommas, singleQuote))
+
+				singleQuoteStringWithCommas = "" // we clean
+				continue
+			}
+			singleQuoteStringWithCommas = singleQuoteStringWithCommas + data + ","
+			continue
+		}
+		// we are looking for inner double comma string
+		if doubleQuotesStringWithCommas != "" {
+			if singleQuoteStringWithCommas != "" {
+				return nil, fmt.Errorf("bad formatted string, already filling single quote value. Invalid string: %s", customFields)
+			}
+			if len(auxSplit)-1 == index && !strings.HasSuffix(data, doubleQuotes) {
+				// means we couldn't find the closing single quote
+				return nil, fmt.Errorf("bad formatted string, couldn't find closing double quotes. Invalid string: %s", customFields)
+			}
+			if strings.HasSuffix(data, doubleQuotes) {
+				doubleQuotesStringWithCommas = doubleQuotesStringWithCommas + data
+				if !regex.MatchString(doubleQuotesStringWithCommas) {
+					return nil, fmt.Errorf(msg)
+				}
+				resultingCustomFields = append(resultingCustomFields, strings.Trim(doubleQuotesStringWithCommas, doubleQuotes))
+
+				doubleQuotesStringWithCommas = "" // we clean
+				continue
+			}
+			doubleQuotesStringWithCommas = doubleQuotesStringWithCommas + data + ","
+			continue
+		}
+		// if we are not looking for string inside our string, then we validate regex normally against data
+		if !regex.MatchString(data) {
+			return nil, fmt.Errorf(msg)
+		}
+		resultingCustomFields = append(resultingCustomFields, data)
+	}
+	return &resultingCustomFields, nil
 }
 
 func getCertIdHash(reqData requestData, zone string, logger hclog.Logger) string {
@@ -1105,4 +1188,6 @@ Sign Venafi certificate
 	pathVenafiCertSignDesc = `
 Sign Venafi certificate
 `
+	singleQuote  = "'"
+	doubleQuotes = "\""
 )
