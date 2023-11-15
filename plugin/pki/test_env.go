@@ -1001,14 +1001,18 @@ func (e *testEnv) SignCertificate(t *testing.T, data testData, configString vena
 		Bytes: csr,
 	})))
 
+	reqData := make(map[string]interface{})
+	reqData["csr"] = pemCSR
+
+	if data.customFields != "" {
+		reqData["custom_fields"] = data.customFields
+	}
+
 	resp, err := e.Backend.HandleRequest(e.Context, &logical.Request{
 		Operation: logical.UpdateOperation,
 		Path:      "sign/" + e.RoleName,
 		Storage:   e.Storage,
-		Data: map[string]interface{}{
-			"csr":           pemCSR,
-			"custom_fields": data.customFields,
-		},
+		Data:      reqData,
 	})
 
 	if err != nil {
