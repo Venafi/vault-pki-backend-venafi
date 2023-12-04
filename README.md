@@ -388,9 +388,45 @@ token with the proper permission, it can enroll certificates using Venafi.
    serial_number        76:55:e2:14:de:c8:3f:e1:64:4a:fa:37:d4:6e:f5:ef:5e:4c:16:5b
    ```
 
+### Custom Fields for TLSPDC (p. k. a. TPP)
 Custom Fields can be set when requesting certificates from Trust Protection
 Platform using the `custom_fields` parameter (e.g.
 `custom_fields="field1_name=valueX,field2_name=valueY,field2_name=valueZ"`).
+
+#### More extended usage
+
+If you would like to insert commas within the values (assuming the Custom Field is type of `string`, 
+you would need to provide them as the following:
+
+**Vault CLI**
+
+```
+$ vault write venafi-pki/sign/tpp csr="-----BEGIN CERTIFICATE REQUEST-----
+MIICeTCCAWECAQAwGDEWMBQGA1UEAxMNbHVpcy50ZXN0LmNvbTCCASIwDQYJKoZI
+...
++MuJtq1+tKhPdHo36v1qMDUEC7StRnoI0BMK0YzPP17BCdXBo9JHgoS08vaUisd7
+OZPoXsqUv7B4eYKjuQ==
+-----END CERTIFICATE REQUEST-----"
+custom_fields="field1_name=valueX,valueY,valueZ" custom_fields="field2_name=valueA" custom_fields="field2_name=valueB"
+```
+
+**Vault API**
+```
+vault write venafi-pki/sign/tpp csr="-----BEGIN CERTIFICATE REQUEST-----
+MIICeTCCAWECAQAwGDEWMBQGA1UEAxMNbHVpcy50ZXN0LmNvbTCCASIwDQYJKoZI
+...
++MuJtq1+tKhPdHo36v1qMDUEC7StRnoI0BMK0YzPP17BCdXBo9JHgoS08vaUisd7
+OZPoXsqUv7B4eYKjuQ==
+custom_fields="field1_name=valueX,valueY,valueZ" custom_fields="field2_name=valueA" custom_fields="field2_name=valueB"
+```
+
+Where our Custom Fields in TLSPDC are:
+
+- **field1_name:** `String`
+- **field2_name:** `List Type (MultiSelect)`
+
+Notice we didn't use commas in `field2_name` since in our server the value is fixed for `valueA` which doesn't
+include commas, unlike `field1_name` which is defined as `string` type.
 
 ## API
 
