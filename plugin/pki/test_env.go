@@ -6,13 +6,16 @@ import (
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"github.com/magiconair/properties/assert"
 	"log"
 	"math/rand"
 	"net"
 	"os"
+	"software.sslmate.com/src/go-pkcs12"
 	"strconv"
 	"strings"
 	"testing"
@@ -49,6 +52,8 @@ type testData struct {
 	privateKeyFormat     string
 	minCertTimeLeft      time.Duration
 	ignoreLocalStorage   bool
+	format               string
+	chain                string
 }
 
 type issueTestData struct {
@@ -674,6 +679,10 @@ func (e *testEnv) IssueCertificateAndSaveSerial(t *testing.T, data testData, con
 		issueData["custom_fields"] = strings.Join(data.customFields, ",")
 	}
 
+	if data.format != "" {
+		issueData["format"] = data.format
+	}
+
 	resp, err := e.Backend.HandleRequest(e.Context, &logical.Request{
 		Operation: logical.UpdateOperation,
 		Path:      "issue/" + e.RoleName,
@@ -705,6 +714,8 @@ func (e *testEnv) IssueCertificateAndSaveSerial(t *testing.T, data testData, con
 	} else {
 		data.privateKey = resp.Data["private_key"].(string)
 	}
+
+	data.chain = resp.Data["certificate_chain"].(string)
 
 	// it is needed to determine if we're checking cloud signed certificate in checkStandartCert
 	data.provider = configString
@@ -1919,6 +1930,26 @@ func (e *testEnv) TokenIntegrationIssueCertificateWithPassword(t *testing.T) {
 
 }
 
+func (e *testEnv) TokenIntegrationIssueCertificateAsPkcs12(t *testing.T) {
+
+	data := testData{}
+	randString := e.TestRandString
+	domain := "venafi.example.com"
+	data.cn = randString + "." + domain
+	data.dnsNS = "alt-" + data.cn
+	data.dnsIP = "192.168.1.1"
+	data.dnsEmail = "venafi@example.com"
+	data.keyPassword = "Pass0rd!"
+	certFormat := util.CertPKCS12
+	data.format = certFormat.String()
+
+	var config = venafiConfigToken
+
+	e.writeVenafiToBackend(t, config)
+	e.writeRoleToBackend(t, config)
+	e.IssueCertificateAndSaveSerial(t, data, config)
+}
+
 func (e *testEnv) TokenIntegrationIssueCertificateRestricted(t *testing.T) {
 
 	data := testData{}
@@ -2317,8 +2348,45 @@ func (e *testEnv) PreventReissuanceCNwithNoCNandThreeSANDNS(t *testing.T, data t
 
 func checkStandardCert(t *testing.T, data testData) {
 	var err error
-	log.Println("Testing certificate:", data.cert)
-	certPEMBlock, _ := pem.Decode([]byte(data.cert))
+
+	certificateData := ""
+	certificateDataRaw := data.cert
+	certFormat := util.CertFormatDefault
+	certFormat.Set(data.format)
+	if certFormat == util.CertPKCS12 {
+		log.Printf("Found Certificate in PKCS12: %s", certificateDataRaw)
+		log.Println("Parsing PKCS12 data")
+		pcks12Decoded, err := base64.StdEncoding.DecodeString(certificateDataRaw)
+		if err != nil {
+			t.Fatalf("Error parsing decoding PKCS12 in base64 format: %s", err)
+		}
+		_, certDecoded, caCertsDecoded, err := pkcs12.DecodeChain(pcks12Decoded, data.keyPassword)
+		if err != nil {
+			t.Fatalf("Error parsing decoding certificate from PKCS12 format: %s", err)
+		}
+
+		chainArray, err := util.ConvertsChainCertificateStringToStringSlice(data.chain)
+		if err != nil {
+			t.Fatal("Failed to parse the original chain to list of strings: ", err)
+		}
+
+		//getting the original CAChain
+		var chainList []*x509.Certificate
+		chainList, err = util.ParseChain(chainArray)
+		if err != nil {
+			t.Fatal("Failed to parse the original chain of certificates: ", err)
+		}
+
+		//asserting the original CAChain and the decoded CAChain from the generated PKCS12 are the same
+		assert.Equal(t, chainList, caCertsDecoded)
+
+		certificateData = util.CertificateToPEMString(certDecoded)
+	} else {
+		certificateData = certificateDataRaw
+	}
+
+	log.Println("Testing certificate:", certificateData)
+	certPEMBlock, _ := pem.Decode([]byte(certificateData))
 	if certPEMBlock == nil {
 		t.Fatalf("Certificate data is nil in the pem block")
 	}
@@ -2329,12 +2397,12 @@ func checkStandardCert(t *testing.T, data testData) {
 		if keyPEMBlock == nil {
 			t.Fatalf("Private key data is nil in thew private key")
 		}
-		_, err = tls.X509KeyPair([]byte(data.cert), []byte(data.privateKey))
+		_, err = tls.X509KeyPair([]byte(certificateData), []byte(data.privateKey))
 		if err != nil {
 			t.Fatalf("Error parsing certificate key pair: %s", err)
 		}
 	} else {
-		_, err = tls.X509KeyPair([]byte(data.cert), []byte(data.csrPK))
+		_, err = tls.X509KeyPair([]byte(certificateData), []byte(data.csrPK))
 		if err != nil {
 			t.Fatalf("Error parsing certificate key pair: %s", err)
 		}

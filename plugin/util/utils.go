@@ -4,11 +4,14 @@ import (
 	"bytes"
 	"crypto/rand"
 	"crypto/sha1"
+	"crypto/x509"
 	"encoding/hex"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	mathrand "math/rand"
 	"net"
+	"software.sslmate.com/src/go-pkcs12"
 	"sort"
 	"strconv"
 	"strings"
@@ -205,6 +208,124 @@ func DecryptPkcs8PrivateKey(privateKey string, password string) (string, error) 
 	pemBytes := pem.EncodeToMemory(&pem.Block{Type: pemType, Bytes: privateKeyBytes})
 
 	return string(pemBytes), nil
+}
+
+func AsPKCS12(certificate string, privateKey string, chain []string, keyPassword string) ([]byte, error) {
+
+	if len(certificate) == 0 || len(privateKey) == 0 {
+		return nil, fmt.Errorf("at least certificate and private key are required")
+	}
+	p, _ := pem.Decode([]byte(certificate))
+	if p == nil || p.Type != "CERTIFICATE" {
+		return nil, fmt.Errorf("certificate parse error(1)")
+	}
+	cert, err := x509.ParseCertificate(p.Bytes)
+	if err != nil {
+		return nil, fmt.Errorf("certificate parse error(2)")
+	}
+
+	// chain?
+	var chainList = []*x509.Certificate{}
+	for _, chainCert := range chain {
+		crt, _ := pem.Decode([]byte(chainCert))
+		cert, err := x509.ParseCertificate(crt.Bytes)
+		if err != nil {
+			return nil, fmt.Errorf("chain certificate parse error")
+		}
+		chainList = append(chainList, cert)
+	}
+
+	// key?
+	p, _ = pem.Decode([]byte(privateKey))
+	if p == nil {
+		return nil, fmt.Errorf("missing private key PEM")
+	}
+	var privDER []byte
+	if util.X509IsEncryptedPEMBlock(p) {
+		privDER, err = util.X509DecryptPEMBlock(p, []byte(keyPassword))
+		if err != nil {
+			return nil, fmt.Errorf("private key PEM decryption error: %s", err)
+		}
+	} else {
+		privDER = p.Bytes
+	}
+	var privKey interface{}
+	switch p.Type {
+	case "EC PRIVATE KEY":
+		privKey, err = x509.ParseECPrivateKey(privDER)
+		if err != nil {
+			privKey, err = x509.ParsePKCS8PrivateKey(privDER)
+		}
+	case "RSA PRIVATE KEY":
+		privKey, err = x509.ParsePKCS1PrivateKey(privDER)
+		if err != nil {
+			privKey, err = x509.ParsePKCS8PrivateKey(privDER)
+		}
+	default:
+		return nil, fmt.Errorf("unexpected private key PEM type: %s", p.Type)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("private key error(3): %s", err)
+	}
+
+	bytes, err := pkcs12.Encode(rand.Reader, privKey, cert, chainList, keyPassword)
+	if err != nil {
+		return nil, fmt.Errorf("encode error: %s", err)
+	}
+
+	return bytes, nil
+}
+
+func ParseChain(chain []string) ([]*x509.Certificate, error) {
+	var chainList []*x509.Certificate
+	for _, chainCert := range chain {
+		certPEMBlock, _ := pem.Decode([]byte(chainCert))
+		if certPEMBlock == nil {
+			return nil, errors.New("it was not possible to decode the CA certificate")
+		}
+		parsedCert, err := x509.ParseCertificate(certPEMBlock.Bytes)
+		if err != nil {
+			return nil, err
+		}
+		chainList = append(chainList, parsedCert)
+	}
+
+	return chainList, nil
+}
+
+func ConvertsChainCertificateStringToStringSlice(pemData string) ([]string, error) {
+	var certList []string
+
+	// Create a PEM block from the input data
+	block, rest := pem.Decode([]byte(pemData))
+
+	for block != nil {
+		if block.Type == "CERTIFICATE" {
+			cert, err := x509.ParseCertificate(block.Bytes)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse certificate: %w", err)
+			}
+			block := &pem.Block{
+				Type:  "CERTIFICATE",
+				Bytes: cert.Raw,
+			}
+			certList = append(certList, string(pem.EncodeToMemory(block)))
+		}
+
+		// Move to the next PEM block
+		block, rest = pem.Decode(rest)
+	}
+
+	return certList, nil
+}
+
+func CertificateToPEMString(cert *x509.Certificate) string {
+	block := &pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: cert.Raw,
+	}
+	pemBlock := pem.EncodeToMemory(block)
+	return string(pemBlock)
 }
 
 func EncryptPkcs1PrivateKey(privateKey string, password string) (string, error) {

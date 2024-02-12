@@ -7,10 +7,12 @@ require (
 	github.com/hashicorp/go-hclog v1.5.0
 	github.com/hashicorp/vault/api v1.10.0
 	github.com/hashicorp/vault/sdk v0.10.0
+	github.com/magiconair/properties v1.8.1
 	github.com/onsi/ginkgo v1.14.0
 	github.com/onsi/gomega v1.10.1
 	github.com/rendon/testcli v0.0.0-20161027181003-6283090d169f
 	github.com/youmark/pkcs8 v0.0.0-20201027041543-1326539a0a0a
+	software.sslmate.com/src/go-pkcs12 v0.2.1
 )
 
 require (

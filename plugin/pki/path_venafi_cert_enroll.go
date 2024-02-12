@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/base64"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -88,6 +89,11 @@ If not specified the role default is used. Cannot be larger than the role max TT
 				Type:        framework.TypeBool,
 				Description: `When true, bypasses prevent re-issue logic to issue new certificate'`,
 				Default:     false,
+			},
+			"format": {
+				Type:        framework.TypeString,
+				Description: "Specifies the format for returned data. Can be 'pem' or 'p12' for PKCS12; defaults to 'pem'. If 'p12', the output is base64 encoded",
+				Default:     util.CertFormatDefault,
 			},
 		},
 		Operations: map[logical.Operation]framework.OperationHandler{
@@ -241,6 +247,12 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, logicalRequest *logi
 	} else {
 		ignoreLocalStorage = role.IgnoreLocalStorage
 	}
+	format := util.CertFormatDefault
+	formatRaw, ok := data.GetOk("format")
+	if ok {
+		formatString := formatRaw.(string)
+		format.Set(formatString)
+	}
 
 	if !ignoreLocalStorage && role.StorePrivateKey && role.StoreBy == util.StoreBySerialString && !signCSR {
 		// if we don't receive a logic response, whenever is an error or the actual certificate found in storage
@@ -331,7 +343,7 @@ func (b *backend) pathVenafiCertObtain(ctx context.Context, logicalRequest *logi
 	}
 
 	if !role.NoStore {
-		err = b.storingCertificate(ctx, logicalRequest, pcc, parsedCertificate, role, signCSR, certId, (*reqData).commonName)
+		err = b.storingCertificate(ctx, logicalRequest, pcc, parsedCertificate, role, signCSR, certId, (*reqData).commonName, format, (*reqData).keyPassword)
 		if err != nil {
 			if !signCSR && role.StoreBy == util.StoreByHASHstring {
 				b.recoverBroadcast(cert, logResp, certId, err)
@@ -435,11 +447,11 @@ func createCertificateRequest(b *backend, connector *endpoint.Connector, ctx con
 
 func runningEnrollRequest(b *backend, data *framework.FieldData, certReq *certificate.Request, connector endpoint.Connector, role *roleEntry, signCSR bool) (*certificate.PEMCollection, error) {
 	b.Logger().Info("Running enroll request")
-	format := ""
+	privKeyFormat := ""
 	privateKeyFormat, ok := data.GetOk("private_key_format")
 	if ok {
 		if privateKeyFormat == LEGACY_PEM {
-			format = "legacy-pem"
+			privKeyFormat = "legacy-pem"
 		}
 	}
 
@@ -448,10 +460,10 @@ func runningEnrollRequest(b *backend, data *framework.FieldData, certReq *certif
 
 	var pcc *certificate.PEMCollection
 	var err error
-	pcc, err = issueCertificate(certReq, keyPass, connector, role, format, privateKeyFormat, signCSR)
+	pcc, err = issueCertificate(certReq, keyPass, connector, role, privKeyFormat, privateKeyFormat, signCSR)
 	if err != nil {
 		if retry == true {
-			pcc, err = issueCertificate(certReq, keyPass, connector, role, format, privateKeyFormat, signCSR)
+			pcc, err = issueCertificate(certReq, keyPass, connector, role, privKeyFormat, privateKeyFormat, signCSR)
 			if err != nil {
 				return nil, err
 			}
@@ -462,13 +474,34 @@ func runningEnrollRequest(b *backend, data *framework.FieldData, certReq *certif
 	return pcc, nil
 }
 
-func (b *backend) storingCertificate(ctx context.Context, logicalRequest *logical.Request, pcc *certificate.PEMCollection, parsedCertificate *ParsedCertificate, role *roleEntry, signCSR bool, certId string, commonName string) error {
+func (b *backend) storingCertificate(
+	ctx context.Context,
+	logicalRequest *logical.Request,
+	pcc *certificate.PEMCollection,
+	parsedCertificate *ParsedCertificate,
+	role *roleEntry, signCSR bool, certId string, commonName string, certFormat util.CertificateFormat, keyPassword string,
+) error {
 	b.Logger().Info("Storing certificate")
 
 	var err error
 	var entry *logical.StorageEntry
 
-	if role.StorePrivateKey && !signCSR {
+	if certFormat == util.CertPKCS12 {
+		var pkcs12Cert []byte
+		var chainList []string
+		chainList, err = util.ConvertsChainCertificateStringToStringSlice((*parsedCertificate).Chain)
+		pkcs12Cert, err = util.AsPKCS12(pcc.Certificate, pcc.PrivateKey, chainList, keyPassword)
+		pcc.Certificate = base64.StdEncoding.EncodeToString(pkcs12Cert)
+		venafiCertResp := VenafiCert{
+			Certificate:      pcc.Certificate,
+			CertificateChain: (*parsedCertificate).Chain,
+			SerialNumber:     (*parsedCertificate).SerialNumber,
+		}
+		if role.StorePrivateKey && !signCSR {
+			venafiCertResp.PrivateKey = pcc.PrivateKey
+		}
+		entry, err = logical.StorageEntryJSON("", venafiCertResp)
+	} else if role.StorePrivateKey && !signCSR {
 		entry, err = logical.StorageEntryJSON("", VenafiCert{
 			Certificate:      pcc.Certificate,
 			CertificateChain: (*parsedCertificate).Chain,
@@ -524,7 +557,9 @@ func (b *backend) parseCertificateData(pcc *certificate.PEMCollection) (*ParsedC
 	return &pCert, nil
 }
 
-func (b *backend) buildLogicalResponse(pcc *certificate.PEMCollection, parsedCertificate *ParsedCertificate, role *roleEntry, certId string, commonName string, signCSR bool, keyPassword string) (*logical.Response, error) {
+func (b *backend) buildLogicalResponse(
+	pcc *certificate.PEMCollection, parsedCertificate *ParsedCertificate, role *roleEntry,
+	certId string, commonName string, signCSR bool, keyPassword string) (*logical.Response, error) {
 	issuingCA := ""
 	if len(pcc.Chain) > 0 {
 		issuingCA = pcc.Chain[0]

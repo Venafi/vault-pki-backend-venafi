@@ -1,6 +1,9 @@
 package util
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 const (
 	CredentialsRootPath                          = `venafi/`
@@ -33,3 +36,36 @@ var (
 	ErrorTextMixedTPPAndCloud   = fmt.Sprintf(errorMultiModeMessage, tppMode, cloudMode)
 	ErrorTextMixedTokenAndCloud = fmt.Sprintf(errorMultiModeMessage, tokenMode, cloudMode)
 )
+
+type CertificateFormat int
+
+const (
+	CertPEM CertificateFormat = iota
+	CertPKCS12
+	CertFormatDefault = CertPEM
+	certStrPEM        = "pem"
+	certStrPKCS12     = "p12"
+)
+
+func (f *CertificateFormat) String() string {
+	switch *f {
+	case CertPEM:
+		return certStrPEM
+	case CertPKCS12:
+		return certStrPKCS12
+	default:
+		return ""
+	}
+}
+
+// Set EllipticCurve value via a string
+func (f *CertificateFormat) Set(value string) {
+	switch strings.ToLower(value) {
+	case certStrPEM:
+		*f = CertPEM
+	case certStrPKCS12:
+		*f = CertPKCS12
+	default:
+		*f = CertFormatDefault
+	}
+}
