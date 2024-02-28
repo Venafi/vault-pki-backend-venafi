@@ -2,7 +2,12 @@ package pki
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
+	"github.com/Venafi/vcert/v5/pkg/verror"
+	"log"
+	"net/http"
 	"os"
 
 	"github.com/Venafi/vcert/v5"
@@ -109,6 +114,28 @@ func (b *backend) getConfig(ctx context.Context, req *logical.Request, role *rol
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to get Venafi issuer client: %s", err)
+	}
+
+	if role.ServerTimeout != 0 {
+		cfg.Client = &http.Client{
+			Timeout: role.ServerTimeout,
+		}
+
+		var connectionTrustBundle *x509.CertPool
+
+		if cfg.ConnectionTrust != "" {
+			log.Println("Using trust bundle in custom http client")
+			connectionTrustBundle = x509.NewCertPool()
+			if !connectionTrustBundle.AppendCertsFromPEM([]byte(cfg.ConnectionTrust)) {
+				return nil, fmt.Errorf("%w: failed to parse PEM trust bundle", verror.UserDataError)
+			}
+		}
+
+		cfg.Client.Transport = &http.Transport{
+			TLSClientConfig: &tls.Config{
+				RootCAs: connectionTrustBundle,
+			},
+		}
 	}
 
 	return cfg, nil
