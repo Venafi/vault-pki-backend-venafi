@@ -116,7 +116,7 @@ func (b *backend) getConfig(ctx context.Context, req *logical.Request, role *rol
 		return nil, fmt.Errorf("failed to get Venafi issuer client: %s", err)
 	}
 
-	if role.ServerTimeout != 0 {
+	if role.ServerTimeout > 0 {
 		cfg.Client = &http.Client{
 			Timeout: role.ServerTimeout,
 		}

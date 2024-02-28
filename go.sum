@@ -9,6 +9,8 @@ github.com/Venafi/vcert/v5 v5.4.1-0.20240228173741-cffa6dfb6a4a h1:Rp35JvIrHNObD
 github.com/Venafi/vcert/v5 v5.4.1-0.20240228173741-cffa6dfb6a4a/go.mod h1:PS81bd6tLLzptBUeAA7JaFOK5ah5GInMDd/RXIMG0kI=
 github.com/Venafi/vcert/v5 v5.4.1-0.20240228184021-dd6dc944a40f h1:adkyNN+CIBsTsDd5PwKG6Af8zMdDMgMHldvqYS/HJwc=
 github.com/Venafi/vcert/v5 v5.4.1-0.20240228184021-dd6dc944a40f/go.mod h1:PS81bd6tLLzptBUeAA7JaFOK5ah5GInMDd/RXIMG0kI=
+github.com/Venafi/vcert/v5 v5.5.0 h1:A0xHhmTz4At8ODt8UYAEhnnlth/6usFZBaaVgPmTdYs=
+github.com/Venafi/vcert/v5 v5.5.0/go.mod h1:PS81bd6tLLzptBUeAA7JaFOK5ah5GInMDd/RXIMG0kI=
 github.com/alecthomas/template v0.0.0-20160405071501-a0175ee3bccc/go.mod h1:LOuyumcjzFXgccqObfd/Ljyb9UuFJ6TxHnclSeseNhc=
 github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751/go.mod h1:LOuyumcjzFXgccqObfd/Ljyb9UuFJ6TxHnclSeseNhc=
 github.com/alecthomas/units v0.0.0-20151022065526-2efee857e7cf/go.mod h1:ybxpYRFXyAe+OPACYpWeL0wqObRcbAqCMya13uyzqw0=

@@ -934,7 +934,7 @@ func formRequest(reqData requestData, role *roleEntry, cl *endpoint.Connector, s
 		}
 	}
 
-	if role.ServerTimeout != 0 {
+	if role.ServerTimeout > 0 {
 		certReq.Timeout = role.ServerTimeout
 	}
 

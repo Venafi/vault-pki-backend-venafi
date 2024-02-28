@@ -342,7 +342,7 @@ func (e *testEnv) writeRoleToBackendWithData(t *testing.T, configString venafiCo
 		roleData["service_generated_cert"] = data.serviceGeneratedCert
 	}
 
-	if data.serverTimeout != 0 {
+	if data.serverTimeout > 0 {
 		roleData["server_timeout"] = data.serverTimeout
 	}
 
