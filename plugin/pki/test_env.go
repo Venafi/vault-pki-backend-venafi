@@ -49,6 +49,7 @@ type testData struct {
 	privateKeyFormat     string
 	minCertTimeLeft      time.Duration
 	ignoreLocalStorage   bool
+	serverTimeout        time.Duration
 }
 
 type issueTestData struct {
@@ -339,6 +340,10 @@ func (e *testEnv) writeRoleToBackendWithData(t *testing.T, configString venafiCo
 
 	if &data.serviceGeneratedCert != nil {
 		roleData["service_generated_cert"] = data.serviceGeneratedCert
+	}
+
+	if data.serverTimeout > 0 {
+		roleData["server_timeout"] = data.serverTimeout
 	}
 
 	resp, err := e.Backend.HandleRequest(e.Context, &logical.Request{
@@ -1915,6 +1920,26 @@ func (e *testEnv) TokenIntegrationIssueCertificateWithPassword(t *testing.T) {
 
 	e.writeVenafiToBackend(t, config)
 	e.writeRoleToBackend(t, config)
+	e.IssueCertificateAndSaveSerial(t, data, config)
+
+}
+
+func (e *testEnv) TokenIntegrationIssueCertificateWithExtended(t *testing.T) {
+
+	data := testData{}
+	randString := e.TestRandString
+	domain := "venafi.example.com"
+	data.cn = randString + "." + domain
+	data.dnsNS = "alt-" + data.cn
+	data.dnsIP = "192.168.1.1"
+	data.dnsEmail = "venafi@example.com"
+	data.keyPassword = "Pass0rd!"
+	data.serverTimeout = time.Duration(3) * time.Minute
+
+	var config = venafiConfigToken
+
+	e.writeVenafiToBackend(t, config)
+	e.writeRoleToBackendWithData(t, config, data)
 	e.IssueCertificateAndSaveSerial(t, data, config)
 
 }

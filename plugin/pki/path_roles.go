@@ -115,7 +115,7 @@ If set, certificates issued/signed against this role will have Vault leases
 attached to them. Defaults to "false".`,
 			},
 			"server_timeout": {
-				Type:        framework.TypeInt,
+				Type:        framework.TypeDurationSecond,
 				Description: "Timeout of waiting certificate (seconds)",
 				Default:     180,
 			},
@@ -514,6 +514,7 @@ func (r *roleEntry) ToResponseData() map[string]interface{} {
 		"generate_lease":         r.GenerateLease,
 		"chain_option":           r.ChainOption,
 		"min_cert_time_left":     util.ShortDurationString(r.MinCertTimeLeft),
+		"server_timeout":         util.ShortDurationString(r.ServerTimeout),
 		"ignore_local_storage":   r.IgnoreLocalStorage,
 	}
 	return responseData
