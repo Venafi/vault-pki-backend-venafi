@@ -5,13 +5,13 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"github.com/Venafi/vcert/v5/pkg/verror"
 	"log"
 	"net/http"
 	"os"
 
 	"github.com/Venafi/vcert/v5"
 	"github.com/Venafi/vcert/v5/pkg/endpoint"
+	"github.com/Venafi/vcert/v5/pkg/verror"
 	"github.com/hashicorp/vault/sdk/logical"
 )
 
