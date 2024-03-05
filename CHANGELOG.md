@@ -1,3 +1,7 @@
+# v0.13.0 (February 29, 2023)
+* Enables adding a custom timeout for requests by fixing bug below
+* Fixes bug for current `server_timeout` role attribute
+
 # v0.12.1 (January 19, 2023)
 * Added `ignore_local_storage` and `min_cert_time_left` new attributes at `issue` path, which
 bypasses `prevent-reissue-local` feature, if enabled, and requests the certificate, and handles

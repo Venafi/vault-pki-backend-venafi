@@ -308,6 +308,25 @@ Venafi secrets engine:
    single Venafi secret.  If `zone` is not specified by the role, the `zone` specified by
    the Venafi secret applies.
 
+   :pushpin: **NOTE**: You can use `server_timeout` that in order to overwrite default server
+timeout. Default is 180 seconds. Applicable to both TLSPDC (TPP) and TLSPC (VaaS).
+   This attribute will have the following behaviors for TLSPDC and TLSPC:
+   - TLSPDC: During enrollment, http client timeout will use the defined `server_timeout` for every request.
+   Also it will be used for TPP request attribute `WorkToDoTimeout` which will override the waiting
+   for set CA's in Policy to finish issuance.
+   - TLSPC: During enrollment, http client timeout will use the defined `server_timeout` for every request.
+   Also it will be used for inner VCert retry logic to pickup certificate (as moment of adding this information
+   180 secs)
+   
+   Example usage:
+   ```
+   vault write venafi-pki/roles/tpp \
+       venafi_secret=tpp \
+       server_timeout="200s"
+   Success! Data written to: venafi-pki/roles/tpp
+   ```
+
+
 ## Usage
 
 After the Venafi secrets engine is configured and a user/machine has a Vault
