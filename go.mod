@@ -9,7 +9,7 @@ require (
 	github.com/hashicorp/vault/sdk v0.11.0
 	github.com/onsi/ginkgo v1.14.0
 	github.com/onsi/gomega v1.10.1
-	github.com/rendon/testcli v0.0.0-20161027181003-6283090d169f
+	github.com/rendon/testcli v1.0.0
 	github.com/youmark/pkcs8 v0.0.0-20201027041543-1326539a0a0a
 )
 
