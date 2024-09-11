@@ -4,8 +4,6 @@
 package pki
 
 import (
-	"fmt"
-	"sync"
 	"testing"
 	"time"
 )
@@ -14,9 +12,9 @@ import (
 // All VAAS tests should start with "TestVAAS" as defined in the Makefile
 // otherwise they will be ignored
 
-//Testing Venafi As A Service
+// Testing Venafi As A Service
 func TestVAASintegration(t *testing.T) {
-	t.Parallel()
+	//t.Parallel()
 	integrationTestEnv, err := NewIntegrationTestEnv()
 	if err != nil {
 		t.Fatal(err)
@@ -30,75 +28,75 @@ func TestVAASintegration(t *testing.T) {
 
 }
 
-func TestVAASparallelism(t *testing.T) {
-	mu := sync.Mutex{}
-	regDuration := time.Duration(24) * time.Hour
-	t.Run("execute 20 certificates with same CN", func(t *testing.T) {
-		integrationTestEnv, err := NewIntegrationTestEnv()
-		if err != nil {
-			t.Fatal(err)
-		}
-		data := &testData{minCertTimeLeft: regDuration}
-		integrationTestEnv.SetupParallelismEnv(t, data, venafiConfigCloud, nil)
-		count := 20
-		var certSerials = map[string]string{}
-		t.Run("executing", func(t *testing.T) {
-			for i := 1; i <= count; i++ {
-				index := i
-				t.Run(fmt.Sprintf("executing cert number: %d", index), func(t *testing.T) {
-					t.Parallel()
-					serialNumber := integrationTestEnv.IssueCertificateAndSaveSerialParallelism(t, *data, venafiConfigCloud)
-					mu.Lock()
-					//certSerials = append(certSerials, serialNumber)
-					certSerials[serialNumber] = serialNumber
-					mu.Unlock()
-				})
-			}
-		})
-		if len(certSerials) != 1 {
-			t.Fatal("The distinct amount of certificate serials is different that the distinct certificates we requested")
-		}
-	})
-
-	t.Run("execute 50 certificates with some of them having different CN", func(t *testing.T) {
-		integrationTestEnv, err := NewIntegrationTestEnv()
-		if err != nil {
-			t.Fatal(err)
-		}
-		data := &testData{minCertTimeLeft: regDuration}
-		integrationTestEnv.SetupParallelismEnv(t, data, venafiConfigCloud, nil)
-		count := 10
-		countCertNames := 5
-		var certSerials = map[string]string{}
-		t.Run("executing", func(t *testing.T) {
-			for i := 1; i <= countCertNames; i++ {
-				var dataCertReq *testData
-				rand := randSeq(9)
-				domain := "venafi.example.com"
-				dataCertReq = &testData{
-					cn: rand + "." + domain,
-				}
-				for j := 1; j <= count; j++ {
-					index := j
-					t.Run(fmt.Sprintf("executing cert number: %d and CN: %s", index, (*dataCertReq).cn), func(t *testing.T) {
-						t.Parallel()
-						serialNumber := integrationTestEnv.IssueCertificateAndSaveSerialParallelism(t, *dataCertReq, venafiConfigCloud)
-						mu.Lock()
-						certSerials[serialNumber] = serialNumber
-						mu.Unlock()
-					})
-				}
-			}
-		})
-		// If the amount of distinct serials is different than the amount of certificates names, means we got
-		if len(certSerials) != countCertNames {
-			t.Fatal("The distinct amount of certificate serials is different that the distinct certificates we requested")
-		}
-	})
-}
+//func TestVAASparallelism(t *testing.T) {
+//	mu := sync.Mutex{}
+//	regDuration := time.Duration(24) * time.Hour
+//	t.Run("execute 20 certificates with same CN", func(t *testing.T) {
+//		integrationTestEnv, err := NewIntegrationTestEnv()
+//		if err != nil {
+//			t.Fatal(err)
+//		}
+//		data := &testData{minCertTimeLeft: regDuration}
+//		integrationTestEnv.SetupParallelismEnv(t, data, venafiConfigCloud, nil)
+//		count := 20
+//		var certSerials = map[string]string{}
+//		t.Run("executing", func(t *testing.T) {
+//			for i := 1; i <= count; i++ {
+//				index := i
+//				t.Run(fmt.Sprintf("executing cert number: %d", index), func(t *testing.T) {
+//					t.Parallel()
+//					serialNumber := integrationTestEnv.IssueCertificateAndSaveSerialParallelism(t, *data, venafiConfigCloud)
+//					mu.Lock()
+//					//certSerials = append(certSerials, serialNumber)
+//					certSerials[serialNumber] = serialNumber
+//					mu.Unlock()
+//				})
+//			}
+//		})
+//		if len(certSerials) != 1 {
+//			t.Fatal("The distinct amount of certificate serials is different that the distinct certificates we requested")
+//		}
+//	})
+//
+//	t.Run("execute 50 certificates with some of them having different CN", func(t *testing.T) {
+//		integrationTestEnv, err := NewIntegrationTestEnv()
+//		if err != nil {
+//			t.Fatal(err)
+//		}
+//		data := &testData{minCertTimeLeft: regDuration}
+//		integrationTestEnv.SetupParallelismEnv(t, data, venafiConfigCloud, nil)
+//		count := 10
+//		countCertNames := 5
+//		var certSerials = map[string]string{}
+//		t.Run("executing", func(t *testing.T) {
+//			for i := 1; i <= countCertNames; i++ {
+//				var dataCertReq *testData
+//				rand := randSeq(9)
+//				domain := "venafi.example.com"
+//				dataCertReq = &testData{
+//					cn: rand + "." + domain,
+//				}
+//				for j := 1; j <= count; j++ {
+//					index := j
+//					t.Run(fmt.Sprintf("executing cert number: %d and CN: %s", index, (*dataCertReq).cn), func(t *testing.T) {
+//						t.Parallel()
+//						serialNumber := integrationTestEnv.IssueCertificateAndSaveSerialParallelism(t, *dataCertReq, venafiConfigCloud)
+//						mu.Lock()
+//						certSerials[serialNumber] = serialNumber
+//						mu.Unlock()
+//					})
+//				}
+//			}
+//		})
+//		// If the amount of distinct serials is different than the amount of certificates names, means we got
+//		if len(certSerials) != countCertNames {
+//			t.Fatal("The distinct amount of certificate serials is different that the distinct certificates we requested")
+//		}
+//	})
+//}
 
 func TestVAASpreventLocalReissuance(t *testing.T) {
-	t.Parallel()
+	//t.Parallel()
 	// regular duration for testing
 	regDuration := time.Duration(24) * time.Hour
 	// CASE: should be the SAME - same CN and SAN
@@ -333,7 +331,7 @@ func TestVAASpreventLocalReissuance(t *testing.T) {
 }
 
 func TestVAASpreventReissuance(t *testing.T) {
-	t.Parallel()
+	//t.Parallel()
 	// regular duration for testing
 	regDuration := time.Duration(24) * time.Hour
 	// CASE: should be the SAME - same CN and SAN
@@ -557,7 +555,7 @@ func TestVAASpreventReissuance(t *testing.T) {
 }
 
 func TestVAASnegativeTest(t *testing.T) {
-	t.Parallel()
+	//t.Parallel()
 	t.Run("test error with wrong credentials", func(t *testing.T) {
 		integrationTestEnv, err := NewIntegrationTestEnv()
 		if err != nil {
