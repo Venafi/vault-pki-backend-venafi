@@ -142,11 +142,12 @@ func (b *backend) getConfig(ctx context.Context, req *logical.Request, role *rol
 			}
 		}
 
-		cfg.Client.Transport = &http.Transport{
-			TLSClientConfig: &tls.Config{
-				RootCAs: connectionTrustBundle,
-			},
+		netTransport.TLSClientConfig = &tls.Config{
+			RootCAs:    connectionTrustBundle,
+			MinVersion: tls.VersionTLS12,
 		}
+
+		cfg.Client.Transport = netTransport
 	}
 
 	return cfg, nil
