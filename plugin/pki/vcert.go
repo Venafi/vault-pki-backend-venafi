@@ -140,14 +140,12 @@ func (b *backend) getConfig(ctx context.Context, req *logical.Request, role *rol
 			if !connectionTrustBundle.AppendCertsFromPEM([]byte(cfg.ConnectionTrust)) {
 				return nil, fmt.Errorf("%w: failed to parse PEM trust bundle", verror.UserDataError)
 			}
+			netTransport.TLSClientConfig = &tls.Config{
+				RootCAs:    connectionTrustBundle,
+				MinVersion: tls.VersionTLS12,
+			}
+			cfg.Client.Transport = netTransport
 		}
-
-		netTransport.TLSClientConfig = &tls.Config{
-			RootCAs:    connectionTrustBundle,
-			MinVersion: tls.VersionTLS12,
-		}
-
-		cfg.Client.Transport = netTransport
 	}
 
 	return cfg, nil
