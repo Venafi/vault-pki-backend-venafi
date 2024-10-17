@@ -132,16 +132,20 @@ Venafi secrets engine:
 
 5. Get the SHA-256 checksum of the `venafi-pki-backend` plugin binary:
 
-   ```text
-   $ SHA256=$(sha256sum /etc/vault/vault_plugins/venafi-pki-backend| cut -d' ' -f1)
+   ```bash
+   SHA256=$(sha256sum /etc/vault/vault_plugins/venafi-pki-backend| cut -d' ' -f1)
    ```
 
 6. Register the `venafi-pki-backend` plugin in the Vault
    [system catalog](https://www.vaultproject.io/docs/internals/plugins#plugin-catalog):
 
-   ```text
-   $ vault write sys/plugins/catalog/secret/venafi-pki-backend \
+   ```bash
+   vault write sys/plugins/catalog/secret/venafi-pki-backend \
        sha_256="${SHA256}" command="venafi-pki-backend"
+   ```
+
+   Expected output:
+   ```
    Success! Data written to: sys/plugins/catalog/secret/venafi-pki-backend
    ```
 
@@ -152,8 +156,12 @@ Venafi secrets engine:
 
 7. Enable the Venafi secrets engine:
 
-   ```text
-   $ vault secrets enable -path=venafi-pki -plugin-name=venafi-pki-backend plugin
+   ```bash
+   vault secrets enable -path=venafi-pki -plugin-name=venafi-pki-backend plugin
+   ```
+
+   Expected output:
+   ```
    Success! Enabled the pki-backend-venafi secrets engine at: venafi-pki/
    ```
 
@@ -175,14 +183,19 @@ Venafi secrets engine:
 
    **Trust Protection Platform**:
 
-   ```
-   $ vault write venafi-pki/venafi/tpp \
+   ```bash
+   vault write venafi-pki/venafi/tpp \
        url="https://tpp.venafi.example" \
        access_token="tn1PwE1QTZorXmvnTowSyA==" \
        refresh_token="MGxV7DzNnclQi9CkJMCXCg==" \
        refresh_token_2="p0WTt3sDPbzm2BDIkoJROQ==" \
        zone="DevOps\\HashiCorp Vault" \
        trust_bundle_file="/opt/venafi/bundle.pem"
+   ```
+   
+   Expected output:
+
+   ```
    Success! Data written to: venafi-pki/venafi/tpp
    ```
    
@@ -214,14 +227,18 @@ Venafi secrets engine:
    Now set 1st pair of `access_token` and `refresh_token` and from 2nd pair, set only the second 
    `refresh_token_2` parameter as follows: (`access_token_1` and `access_token_2` are NOT interchangeable):
 
-   ```
-   $ vault write venafi-pki/venafi/tpp \
+   ```bash
+   vault write venafi-pki/venafi/tpp \
        url="https://tpp.venafi.example" \
        access_token=access_token_1 \
        refresh_token=refresh_token_1 \
        refresh_token_2=refresh_token_2 \
        zone="DevOps\\HashiCorp Vault" \
        trust_bundle_file="/opt/venafi/bundle.pem"
+   ```
+   
+   Expected output:
+   ```
    Success! Data written to: venafi-pki/venafi/tpp
    ```
 
@@ -231,8 +248,8 @@ Venafi secrets engine:
    `access_token` is valid. Generally, `refresh_interval` should not be more than 
    half the token validity; example with `access_token` with validity of 1 day:
 
-   ```
-   $ vault write venafi-pki/venafi/tpp \
+   ```bash
+   vault write venafi-pki/venafi/tpp \
        url="https://tpp.venafi.example" \
        access_token="tn1PwE1QTZorXmvnTowSyA==" \
        refresh_token="MGxV7DzNnclQi9CkJMCXCg==" \
@@ -240,6 +257,10 @@ Venafi secrets engine:
        refresh_interval="12h" \
        zone="DevOps\\HashiCorp Vault" \
        trust_bundle_file="/opt/venafi/bundle.pem"
+   ```
+
+   Expected output:
+   ```
    Success! Data written to: venafi-pki/venafi/tpp
    ```
 
@@ -257,20 +278,28 @@ Venafi secrets engine:
 
    **Venafi as a Service**:
 
-   ```
-   $ vault write venafi-pki/venafi/vaas \
+   ```bash
+   vault write venafi-pki/venafi/vaas \
        apikey="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" \
        zone="Business App\\Enterprise CIT"
+   ```
+
+   Expected output:
+   ```
    Success! Data written to: venafi-pki/roles/vaas
    ```
 
    **Venafi as a Service EU**:
 
-   ```
-   $ vault write venafi-pki/venafi/vaas \
+   ```bash
+   vault write venafi-pki/venafi/vaas \
        url="https://api.venafi.eu" \
        apikey="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" \
        zone="Business App\\Enterprise CIT"
+   ```
+
+   Expected output:
+   ```
    Success! Data written to: venafi-pki/roles/vaas
    ```
 
@@ -280,19 +309,27 @@ Venafi secrets engine:
 
    **Trust Protection Platform**:
 
-   ```text
-   $ vault write venafi-pki/roles/tpp \
+   ```bash
+   vault write venafi-pki/roles/tpp \
        venafi_secret=tpp \
        generate_lease=true store_by=serial store_pkey=true
-   Success! Data written to: venafi-pki/roles/tpp
    ```
+
+   Expected output:
+   ```
+   Success! Data written to: venafi-pki/roles/tpp
+   ``` 
 
    **Venafi as a Service**:
 
-   ```text
-   $ vault write venafi-pki/roles/vaas \
+   ```bash
+   vault write venafi-pki/roles/vaas \
        venafi_secret=vaas \
        generate_lease=true store_by=serial store_pkey=true
+   ```
+   
+   Expected output:
+   ```
    Success! Data written to: venafi-pki/roles/vaas
    ```
 
@@ -320,10 +357,13 @@ Venafi secrets engine:
    180 secs)
    
    Example usage:
-   ```
+   ```bash
    vault write venafi-pki/roles/tpp \
        venafi_secret=tpp \
        server_timeout="200s"
+   ```
+   Expected output:
+   ```
    Success! Data written to: venafi-pki/roles/tpp
    ```
 
@@ -339,10 +379,13 @@ token with the proper permission, it can enroll certificates using Venafi.
 
    **Trust Protection Platform**:
 
-   ```text
-   $ vault write venafi-pki/issue/tpp common_name="common-name.example.com" \
+   ```bash
+   vault write venafi-pki/issue/tpp common_name="common-name.example.com" \
        alt_names="dns-san-1.example.com,dns-san-2.example.com"
+   ```
 
+   Expected output:
+   ```
    Key                  Value
    ---                  -----
    lease_id             venafi-pki/issue/tpp/oLih42SCFzyjntxGc00vqmWH
@@ -357,10 +400,12 @@ token with the proper permission, it can enroll certificates using Venafi.
 
    **Venafi as a Service**:
 
-   ```text
-   $ vault write venafi-pki/issue/vaas common_name="common-name.example.com" \
+   ```bash
+   vault write venafi-pki/issue/vaas common_name="common-name.example.com" \
        alt_names="dns-san-1.example.com,dns-san-2.example.com"
-
+   ```
+   Expected output:
+   ```
    Key                  Value
    ---                  -----
    lease_id             venafi-pki/issue/vaas/1WCNvXKiwboWfRRfjzlPAwEi
@@ -378,9 +423,12 @@ token with the proper permission, it can enroll certificates using Venafi.
 
    **Trust Protection Platform**:
 
-   ```text
-   $ vault write venafi-pki/sign/tpp csr=@example.req
+   ```bash
+   vault write venafi-pki/sign/tpp csr=@example.req
+   ```
 
+   Expected output:
+   ```
    Key                  Value
    ---                  -----
    lease_id             venafi-pki/sign/tpp/tQq3QNY45e4sJMqTTI9DXEGK
@@ -394,9 +442,11 @@ token with the proper permission, it can enroll certificates using Venafi.
 
    **Venafi as a Service**:
 
-   ```text
-   $ vault write venafi-pki/sign/vaas csr=@example.req
-
+   ```bash
+   vault write venafi-pki/sign/vaas csr=@example.req
+   ```
+   Expected output:
+   ```
    Key                  Value
    ---                  -----
    lease_id             venafi-pki/sign/vaas/fF44FdMAjuCdC29w3Ff81hes
@@ -420,8 +470,8 @@ you would need to provide them as the following:
 
 **Vault CLI**
 
-```
-$ vault write venafi-pki/sign/tpp csr="-----BEGIN CERTIFICATE REQUEST-----
+```bash
+vault write venafi-pki/sign/tpp csr="-----BEGIN CERTIFICATE REQUEST-----
 MIICeTCCAWECAQAwGDEWMBQGA1UEAxMNbHVpcy50ZXN0LmNvbTCCASIwDQYJKoZI
 ...
 +MuJtq1+tKhPdHo36v1qMDUEC7StRnoI0BMK0YzPP17BCdXBo9JHgoS08vaUisd7
@@ -431,7 +481,7 @@ custom_fields="field1_name=valueX,valueY,valueZ" custom_fields="field2_name=valu
 ```
 
 **Vault API**
-```
+```bash
 vault write venafi-pki/sign/tpp csr="-----BEGIN CERTIFICATE REQUEST-----
 MIICeTCCAWECAQAwGDEWMBQGA1UEAxMNbHVpcy50ZXN0LmNvbTCCASIwDQYJKoZI
 ...
@@ -462,9 +512,11 @@ To upgrade to a new version of this plugin, review the
 [standard procedure](https://www.vaultproject.io/docs/upgrading/plugins).
 The following command will trigger a plugin reload globally:
 
-```text
-$ vault write sys/plugins/reload/backend plugin=venafi-pki-backend scope=global
-
+```bash
+vault write sys/plugins/reload/backend plugin=venafi-pki-backend scope=global
+```
+Expected output:
+```
 Key          Value
 ---          -----
 reload_id    d8180af4-01e0-d4d8-10ce-0daf69fbb6ed
