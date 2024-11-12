@@ -3,7 +3,7 @@ module github.com/Venafi/vault-pki-backend-venafi
 go 1.21
 
 require (
-	github.com/Venafi/vcert/v5 v5.7.2-0.20240923163807-2869d570a4fe
+	github.com/Venafi/vcert/v5 v5.7.2
 	github.com/hashicorp/go-hclog v1.5.0
 	github.com/hashicorp/vault/api v1.10.0
 	github.com/hashicorp/vault/sdk v0.11.0
