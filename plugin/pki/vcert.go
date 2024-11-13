@@ -6,8 +6,10 @@ import (
 	"crypto/x509"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/Venafi/vcert/v5"
 	"github.com/Venafi/vcert/v5/pkg/endpoint"
@@ -112,13 +114,22 @@ func (b *backend) getConfig(ctx context.Context, req *logical.Request, role *rol
 		return nil, fmt.Errorf("failed to build config for Venafi issuer")
 	}
 
-	if err != nil {
-		return nil, fmt.Errorf("failed to get Venafi issuer client: %s", err)
-	}
-
 	if role.ServerTimeout > 0 {
+		var netTransport = &http.Transport{
+			Proxy: http.ProxyFromEnvironment,
+			DialContext: (&net.Dialer{
+				Timeout:   role.ServerTimeout,
+				KeepAlive: role.ServerTimeout,
+			}).DialContext,
+			MaxIdleConns:          100,
+			IdleConnTimeout:       90 * time.Second,
+			TLSHandshakeTimeout:   10 * time.Second,
+			ExpectContinueTimeout: 1 * time.Second,
+		}
+
 		cfg.Client = &http.Client{
-			Timeout: role.ServerTimeout,
+			Timeout:   role.ServerTimeout,
+			Transport: netTransport,
 		}
 
 		var connectionTrustBundle *x509.CertPool
@@ -129,12 +140,11 @@ func (b *backend) getConfig(ctx context.Context, req *logical.Request, role *rol
 			if !connectionTrustBundle.AppendCertsFromPEM([]byte(cfg.ConnectionTrust)) {
 				return nil, fmt.Errorf("%w: failed to parse PEM trust bundle", verror.UserDataError)
 			}
-		}
-
-		cfg.Client.Transport = &http.Transport{
-			TLSClientConfig: &tls.Config{
-				RootCAs: connectionTrustBundle,
-			},
+			netTransport.TLSClientConfig = &tls.Config{
+				RootCAs:    connectionTrustBundle,
+				MinVersion: tls.VersionTLS12,
+			}
+			cfg.Client.Transport = netTransport
 		}
 	}
 
