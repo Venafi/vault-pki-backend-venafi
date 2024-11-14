@@ -369,5 +369,5 @@ release:
 	echo '```' > release.txt
 	cd artifacts; sha256sum * >> ../release.txt
 	echo '```' >> release.txt
-	go install github.com/tcnksm/ghr@latest
+	go install github.com/tcnksm/ghr@v0.16.2
 	ghr -prerelease -n $$RELEASE_VERSION -body="$$(cat ./release.txt)" $$RELEASE_VERSION artifacts/
