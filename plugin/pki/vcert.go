@@ -11,10 +11,11 @@ import (
 	"os"
 	"time"
 
+	"github.com/hashicorp/vault/sdk/logical"
+
 	"github.com/Venafi/vcert/v5"
 	"github.com/Venafi/vcert/v5/pkg/endpoint"
 	"github.com/Venafi/vcert/v5/pkg/verror"
-	"github.com/hashicorp/vault/sdk/logical"
 )
 
 func (b *backend) ClientVenafi(ctx context.Context, req *logical.Request, role *roleEntry) (
@@ -67,6 +68,18 @@ func (b *backend) getConfig(ctx context.Context, req *logical.Request, role *rol
 		zone = venafiSecret.Zone
 	}
 
+	var netTransport = &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: (&net.Dialer{
+			Timeout:   role.ServerTimeout,
+			KeepAlive: role.ServerTimeout,
+		}).DialContext,
+		MaxIdleConns:          100,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+	}
+
 	cfg = &vcert.Config{}
 	cfg.BaseUrl = venafiSecret.URL
 	cfg.Zone = zone
@@ -115,37 +128,25 @@ func (b *backend) getConfig(ctx context.Context, req *logical.Request, role *rol
 	}
 
 	if role.ServerTimeout > 0 {
-		var netTransport = &http.Transport{
-			Proxy: http.ProxyFromEnvironment,
-			DialContext: (&net.Dialer{
-				Timeout:   role.ServerTimeout,
-				KeepAlive: role.ServerTimeout,
-			}).DialContext,
-			MaxIdleConns:          100,
-			IdleConnTimeout:       90 * time.Second,
-			TLSHandshakeTimeout:   10 * time.Second,
-			ExpectContinueTimeout: 1 * time.Second,
-		}
-
 		cfg.Client = &http.Client{
 			Timeout:   role.ServerTimeout,
 			Transport: netTransport,
 		}
+	}
 
-		var connectionTrustBundle *x509.CertPool
+	var connectionTrustBundle *x509.CertPool
 
-		if cfg.ConnectionTrust != "" {
-			log.Println("Using trust bundle in custom http client")
-			connectionTrustBundle = x509.NewCertPool()
-			if !connectionTrustBundle.AppendCertsFromPEM([]byte(cfg.ConnectionTrust)) {
-				return nil, fmt.Errorf("%w: failed to parse PEM trust bundle", verror.UserDataError)
-			}
-			netTransport.TLSClientConfig = &tls.Config{
-				RootCAs:    connectionTrustBundle,
-				MinVersion: tls.VersionTLS12,
-			}
-			cfg.Client.Transport = netTransport
+	if cfg.ConnectionTrust != "" {
+		log.Println("Using trust bundle in custom http client")
+		connectionTrustBundle = x509.NewCertPool()
+		if !connectionTrustBundle.AppendCertsFromPEM([]byte(cfg.ConnectionTrust)) {
+			return nil, fmt.Errorf("%w: failed to parse PEM trust bundle", verror.UserDataError)
 		}
+		netTransport.TLSClientConfig = &tls.Config{
+			RootCAs:    connectionTrustBundle,
+			MinVersion: tls.VersionTLS12,
+		}
+		cfg.Client.Transport = netTransport
 	}
 
 	return cfg, nil
