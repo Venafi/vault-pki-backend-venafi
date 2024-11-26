@@ -81,7 +81,7 @@ require (
 	github.com/sasha-s/go-deadlock v0.2.0 // indirect
 	github.com/sosodev/duration v1.2.0 // indirect
 	github.com/stretchr/testify v1.9.0 // indirect
-	github.com/vektah/gqlparser/v2 v2.5.11 // indirect
+	github.com/vektah/gqlparser/v2 v2.5.15 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.52.0 // indirect
 	go.opentelemetry.io/otel v1.27.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.27.0 // indirect

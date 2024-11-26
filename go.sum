@@ -290,8 +290,8 @@ github.com/stretchr/testify v1.7.2/go.mod h1:R6va5+xMeoiuVRoj+gSkQ7d3FALtqAAGI1F
 github.com/stretchr/testify v1.9.0 h1:HtqpIVDClZ4nwg75+f6Lvsy/wHu+3BoSGCbBAcpTsTg=
 github.com/stretchr/testify v1.9.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8C91i36aY=
 github.com/tv42/httpunix v0.0.0-20150427012821-b75d8614f926/go.mod h1:9ESjWnEqriFuLhtthL60Sar/7RFoluCcXsuvEwTV5KM=
-github.com/vektah/gqlparser/v2 v2.5.11 h1:JJxLtXIoN7+3x6MBdtIP59TP1RANnY7pXOaDnADQSf8=
-github.com/vektah/gqlparser/v2 v2.5.11/go.mod h1:1rCcfwB2ekJofmluGWXMSEnPMZgbxzwj6FaZ/4OT8Cc=
+github.com/vektah/gqlparser/v2 v2.5.15 h1:fYdnU8roQniJziV5TDiFPm/Ff7pE8xbVSOJqbsdl88A=
+github.com/vektah/gqlparser/v2 v2.5.15/go.mod h1:WQQjFc+I1YIzoPvZBhUQX7waZgg3pMLi0r8KymvAE2w=
 github.com/youmark/pkcs8 v0.0.0-20201027041543-1326539a0a0a h1:fZHgsYlfvtyqToslyjUt3VOPF4J7aK/3MPcK7xp3PDk=
 github.com/youmark/pkcs8 v0.0.0-20201027041543-1326539a0a0a/go.mod h1:ul22v+Nro/R083muKhosV54bj5niojjWZvU8xrevuH4=
 github.com/yuin/goldmark v1.1.27/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
