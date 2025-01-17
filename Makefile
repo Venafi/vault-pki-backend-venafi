@@ -114,7 +114,7 @@ compress:
 		"$(PLUGIN_DIR)/darwin/$(PLUGIN_NAME)" \
 		"$(PLUGIN_DIR)/darwin/$(PLUGIN_NAME)_darwin.sig" \
 		"$(PLUGIN_DIR)/darwin/$(PLUGIN_NAME).SHA256SUM" || exit 1
-	zip -j "$(CURRENT_DIR)/$(DIST_DIR)/$(PLUGIN_NAME)_$(VERSION)_darwin.zip" \
+	zip -j "$(CURRENT_DIR)/$(DIST_DIR)/$(PLUGIN_NAME)_$(VERSION)_darwin_arm.zip" \
 			"$(PLUGIN_DIR)/darwin_arm/$(PLUGIN_NAME)" \
 			"$(PLUGIN_DIR)/darwin_arm/$(PLUGIN_NAME)_darwin_arm.sig" \
 			"$(PLUGIN_DIR)/darwin_arm/$(PLUGIN_NAME).SHA256SUM" || exit 1
