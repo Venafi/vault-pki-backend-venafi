@@ -83,12 +83,14 @@ build:
 	env CGO_ENABLED=0 GOOS=linux   GOARCH=amd64 $(GO_BUILD) -o $(PLUGIN_DIR)/linux/$(PLUGIN_NAME) || exit 1
 	env CGO_ENABLED=0 GOOS=linux   GOARCH=386   $(GO_BUILD) -o $(PLUGIN_DIR)/linux86/$(PLUGIN_NAME) || exit 1
 	env CGO_ENABLED=0 GOOS=darwin  GOARCH=amd64 $(GO_BUILD) -o $(PLUGIN_DIR)/darwin/$(PLUGIN_NAME) || exit 1
+	env CGO_ENABLED=0 GOOS=darwin  GOARCH=arm64 $(GO_BUILD) -o $(PLUGIN_DIR)/darwin_arm/$(PLUGIN_NAME) || exit 1
 	env CGO_ENABLED=0 GOOS=windows GOARCH=amd64 $(GO_BUILD) -o $(PLUGIN_DIR)/windows/$(PLUGIN_NAME).exe || exit 1
 	env CGO_ENABLED=0 GOOS=windows GOARCH=386   $(GO_BUILD) -o $(PLUGIN_DIR)/windows86/$(PLUGIN_NAME).exe || exit 1
 	chmod +x $(PLUGIN_DIR)/*
 	shasum -a 256 "$(PLUGIN_DIR)/linux/$(PLUGIN_NAME)" | cut -d' ' -f1 > $(PLUGIN_DIR)/linux/$(PLUGIN_NAME).SHA256SUM
 	shasum -a 256 "$(PLUGIN_DIR)/linux86/$(PLUGIN_NAME)" | cut -d' ' -f1 > $(PLUGIN_DIR)/linux86/$(PLUGIN_NAME).SHA256SUM
 	shasum -a 256 "$(PLUGIN_DIR)/darwin/$(PLUGIN_NAME)" | cut -d' ' -f1 > $(PLUGIN_DIR)/darwin/$(PLUGIN_NAME).SHA256SUM
+	shasum -a 256 "$(PLUGIN_DIR)/darwin_arm/$(PLUGIN_NAME)" | cut -d' ' -f1 > $(PLUGIN_DIR)/darwin_arm/$(PLUGIN_NAME).SHA256SUM
 	shasum -a 256 "$(PLUGIN_DIR)/windows/$(PLUGIN_NAME).exe" | cut -d' ' -f1 > $(PLUGIN_DIR)/windows/$(PLUGIN_NAME).exe.SHA256SUM
 	shasum -a 256 "$(PLUGIN_DIR)/windows86/$(PLUGIN_NAME).exe" | cut -d' ' -f1 > $(PLUGIN_DIR)/windows86/$(PLUGIN_NAME).exe.SHA256SUM
 
@@ -112,6 +114,10 @@ compress:
 		"$(PLUGIN_DIR)/darwin/$(PLUGIN_NAME)" \
 		"$(PLUGIN_DIR)/darwin/$(PLUGIN_NAME)_darwin.sig" \
 		"$(PLUGIN_DIR)/darwin/$(PLUGIN_NAME).SHA256SUM" || exit 1
+	zip -j "$(CURRENT_DIR)/$(DIST_DIR)/$(PLUGIN_NAME)_$(VERSION)_darwin.zip" \
+			"$(PLUGIN_DIR)/darwin_arm/$(PLUGIN_NAME)" \
+			"$(PLUGIN_DIR)/darwin_arm/$(PLUGIN_NAME)_darwin_arm.sig" \
+			"$(PLUGIN_DIR)/darwin_arm/$(PLUGIN_NAME).SHA256SUM" || exit 1
 	zip -j "$(CURRENT_DIR)/$(DIST_DIR)/$(PLUGIN_NAME)_$(VERSION)_windows.zip" \
 		"$(PLUGIN_DIR)/windows/$(PLUGIN_NAME).exe" "$(PLUGIN_DIR)/windows/$(PLUGIN_NAME).exe.SHA256SUM" || exit 1
 	zip -j "$(CURRENT_DIR)/$(DIST_DIR)/$(PLUGIN_NAME)_$(VERSION)_windows86.zip"\
