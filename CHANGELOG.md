@@ -1,3 +1,7 @@
+# v0.14.0 (February 17, 2025)
+* Adds support for Darwin ARM based systems
+* Fixes issues for found CVE's
+
 # v0.13.0 (February 29, 2023)
 * Enables adding a custom timeout for requests by fixing bug below
 * Fixes bug for current `server_timeout` role attribute

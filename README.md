@@ -70,8 +70,10 @@ Vault.
 
 If you are using Venafi as a Service, verify the following:
 
-- The Venafi as a Service REST API at [https://api.venafi.cloud](https://api.venafi.cloud/vaas)
-  or [https://api.venafi.eu](https://api.venafi.eu/vaas) (if you have an EU account) is accessible from the systems where Vault will be running.
+- The Venafi as a Service REST API is accessible from the systems where Vault will be running. Currently we support the following regions:
+  - [https://api.venafi.cloud](https://api.venafi.cloud/vaas) [US]
+  - [https://api.venafi.eu](https://api.venafi.eu/vaas) [EU]
+  - [https://api.au.venafi.cloud](https://api.au.venafi.cloud/vaas) [AU]
 - You have successfully registered for a Venafi as a Service account, have been granted at least the
 "Resource Owner" role, and know your API key.
 - A CA Account and Issuing Template exist and have been configured with:
@@ -286,7 +288,7 @@ Venafi secrets engine:
 
    Expected output:
    ```
-   Success! Data written to: venafi-pki/roles/vaas
+   Success! Data written to: venafi-pki/venafi/vaas
    ```
 
    **Venafi as a Service EU**:
@@ -298,9 +300,18 @@ Venafi secrets engine:
        zone="Business App\\Enterprise CIT"
    ```
 
+   **Venafi as a Service AU**:
+
+   ```bash
+   vault write venafi-pki/venafi/vaas \
+       url="https://api.au.venafi.cloud" \
+       apikey="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" \
+       zone="Business App\\Enterprise CIT"
+   ```
+
    Expected output:
    ```
-   Success! Data written to: venafi-pki/roles/vaas
+   Success! Data written to: venafi-pki/venafi/vaas
    ```
 
 9. Lastly, configure a [role](https://www.vaultproject.io/api-docs/secret/pki#create-update-role)
