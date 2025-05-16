@@ -75,6 +75,8 @@ If you are using Venafi as a Service, verify the following:
   - [https://api.venafi.eu](https://api.venafi.eu/vaas) [EU]
   - [https://api.au.venafi.cloud](https://api.au.venafi.cloud/vaas) [AU]
   - [https://api.uk.venafi.cloud](https://api.uk.venafi.cloud/vaas) [UK]
+  - [https://api.sg.venafi.cloud](https://api.sg.venafi.cloud/vaas) [SG]
+  - [https://api.ca.venafi.cloud](https://api.ca.venafi.cloud/vaas) [CA]
 - You have successfully registered for a Venafi as a Service account, have been granted at least the
 "Resource Owner" role, and know your API key.
 - A CA Account and Issuing Template exist and have been configured with:
@@ -315,6 +317,24 @@ Venafi secrets engine:
    ```bash
    vault write venafi-pki/venafi/vaas \
        url="https://api.uk.venafi.cloud" \
+       apikey="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" \
+       zone="Business App\\Enterprise CIT"
+   ```
+
+   **Venafi as a Service SG**:
+
+   ```bash
+   vault write venafi-pki/venafi/vaas \
+       url="https://api.sg.venafi.cloud" \
+       apikey="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" \
+       zone="Business App\\Enterprise CIT"
+   ```
+
+   **Venafi as a Service CA**:
+
+   ```bash
+   vault write venafi-pki/venafi/vaas \
+       url="https://api.ca.venafi.cloud" \
        apikey="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" \
        zone="Business App\\Enterprise CIT"
    ```
