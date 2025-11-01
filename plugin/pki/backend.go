@@ -60,7 +60,7 @@ func Backend(conf *logical.BackendConfig) *backend {
 
 const (
 	backendHelp = `
-The Venafi certificates backend plugin requests certificates from TPP of Condor.
+The Venafi certificates backend plugin requests certificates from Certificate Manager, Self-Hosted or Certificate Manager, SaaS.
 
 After mounting this backend create a role using role/ path.
 `

@@ -35,10 +35,10 @@ func pathRoles(b *backend) *framework.Path {
 			},
 			"zone": {
 				Type: framework.TypeString,
-				Description: `Name of Venafi Platform policy or Venafi Cloud project zone.
+				Description: `Name of Certificate Manager, Self-Hosted policy or Certificate Manager, SaaS project zone.
 This field overrides the zone field declared in the Venafi secret.
-Example for Platform: testpolicy\\vault
-Example for Venafi Cloud: e33f3e40-4e7e-11ea-8da3-b3c196ebeb0b`,
+Example for Certificate Manager, Self-Hosted: testpolicy\\vault
+Example for Certificate Manager, SaaS: e33f3e40-4e7e-11ea-8da3-b3c196ebeb0b`,
 				Required: false,
 			},
 			"store_by_cn": {
@@ -65,7 +65,7 @@ Example for Venafi Cloud: e33f3e40-4e7e-11ea-8da3-b3c196ebeb0b`,
 
 			"service_generated_cert": {
 				Type:        framework.TypeBool,
-				Description: `Have Trust Protection Platform or Venafi as a Service generate keys and CSRs`,
+				Description: `Have Certificate Manager, Self-Hosted or Certificate Manager, SaaS generate keys and CSRs`,
 				Default:     false,
 			},
 			"store_pkey": {
@@ -101,7 +101,7 @@ the key_type. Default: 2048`,
 			},
 			"issuer_hint": {
 				Type:        framework.TypeString,
-				Description: `Indicate the target issuer to enable ttl with Venafi Platform; "DigiCert", "Entrust", and "Microsoft" are supported values.`,
+				Description: `Indicate the target issuer to enable ttl with Certificate Manager, Self-Hosted; "DigiCert", "Entrust", and "Microsoft" are supported values.`,
 			},
 			"max_ttl": {
 				Type:        framework.TypeDurationSecond,

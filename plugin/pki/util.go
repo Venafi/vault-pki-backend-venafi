@@ -86,7 +86,7 @@ func getTppConnector(cfg *vcert.Config) (*tpp.Connector, error) {
 	}
 	tppConnector, err := tpp.NewConnector(cfg.BaseUrl, "", cfg.LogVerbose, connectionTrustBundle)
 	if err != nil {
-		return nil, fmt.Errorf("could not create TPP connector: %s", err)
+		return nil, fmt.Errorf("could not create Certificate Manager, Self-Hosted connector: %s", err)
 	}
 
 	return tppConnector, nil
@@ -141,7 +141,7 @@ func updateAccessToken(b *backend, ctx context.Context, req *logical.Request, cf
 func storeAccessData(b *backend, ctx context.Context, req *logical.Request, role *roleEntry, resp tpp.OauthRefreshAccessTokenResponse) error {
 
 	if role.VenafiSecret == "" {
-		return fmt.Errorf("Role " + role.Name + " does not have any Venafi secret associated")
+		return fmt.Errorf("Role " + role.Name + " does not have any CyberArk secret associated")
 	}
 
 	venafiEntry, err := b.getVenafiSecret(ctx, req.Storage, role.VenafiSecret)
@@ -162,12 +162,12 @@ func storeAccessData(b *backend, ctx context.Context, req *logical.Request, role
 	jsonEntry, err := logical.StorageEntryJSON(util.CredentialsRootPath+role.VenafiSecret, venafiEntry)
 
 	if err != nil {
-		b.Logger().Error("Error on creating new tokens into venafi secret:", err.Error())
+		b.Logger().Error("Error on creating new tokens into CyberArk secret:", err.Error())
 		return err
 	}
 	b.Logger().Info("storing new tokens")
 	if err := req.Storage.Put(ctx, jsonEntry); err != nil {
-		b.Logger().Error("Error on storing new tokens into Venafi secret:", err.Error())
+		b.Logger().Error("Error on storing new tokens into CyberArk secret:", err.Error())
 		return err
 	}
 	return nil
@@ -291,16 +291,16 @@ func loadCertificateFromStorage(b *backend, ctx context.Context, req *logical.Re
 
 	entry, err := req.Storage.Get(ctx, path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read Venafi certificate: %s", err)
+		return nil, fmt.Errorf("failed to read CyberArk certificate: %s", err)
 	}
 	if entry == nil {
 		return nil, vpkierror.CertEntryNotFound{EntryPath: path}
 	}
 
-	b.Logger().Info(fmt.Sprintf("Getting venafi certificate from storage with ID: %v", certUID))
+	b.Logger().Info(fmt.Sprintf("Getting CyberArk certificate from storage with ID: %v", certUID))
 
 	if err := entry.DecodeJSON(&cert); err != nil {
-		return nil, fmt.Errorf("error reading venafi configuration: %s", err.Error())
+		return nil, fmt.Errorf("error reading CyberArk configuration: %s", err.Error())
 	}
 	b.Logger().Debug("certificate is:" + cert.Certificate)
 	b.Logger().Debug("chain is:" + cert.CertificateChain)

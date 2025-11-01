@@ -29,7 +29,7 @@ func (b *backend) ClientVenafi(ctx context.Context, req *logical.Request, role *
 
 	client, err := vcert.NewClient(cfg)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get Venafi issuer client: %s", err)
+		return nil, nil, fmt.Errorf("failed to get CyberArk issuer client: %s", err)
 	}
 
 	return client, cfg, nil
@@ -44,7 +44,7 @@ func (b *backend) getConfig(ctx context.Context, req *logical.Request, role *rol
 		return nil, err
 	}
 	if venafiSecret == nil {
-		return nil, fmt.Errorf("unknown venafi secret %v", role.VenafiSecret)
+		return nil, fmt.Errorf("unknown CyberArk secret %v", role.VenafiSecret)
 	}
 
 	var trustBundlePEM string
@@ -58,13 +58,13 @@ func (b *backend) getConfig(ctx context.Context, req *logical.Request, role *rol
 		trustBundlePEM = string(trustBundle)
 	}
 
-	// If the role has a Zone declared, it takes priority over the Zone in the Venafi secret
+	// If the role has a Zone declared, it takes priority over the Zone in the CyberArk secret
 	var zone string
 	if role.Zone != "" {
-		b.Logger().Debug(fmt.Sprintf("Using role zone: [%s]. Overrides venafi Secret zone: [%s]", role.Zone, venafiSecret.Zone))
+		b.Logger().Debug(fmt.Sprintf("Using role zone: [%s]. Overrides CyberArk Secret zone: [%s]", role.Zone, venafiSecret.Zone))
 		zone = role.Zone
 	} else {
-		b.Logger().Debug(fmt.Sprintf("Using venafi secret zone: [%s]. Role zone not found. ", venafiSecret.Zone))
+		b.Logger().Debug(fmt.Sprintf("Using CyberArk secret zone: [%s]. Role zone not found. ", venafiSecret.Zone))
 		zone = venafiSecret.Zone
 	}
 
@@ -96,7 +96,7 @@ func (b *backend) getConfig(ctx context.Context, req *logical.Request, role *rol
 		}
 
 	} else if venafiSecret.URL != "" && venafiSecret.TppUser != "" && venafiSecret.TppPassword != "" {
-		b.Logger().Debug(fmt.Sprintf("Using Venafi Platform with URL %s to issue certificate", venafiSecret.URL))
+		b.Logger().Debug(fmt.Sprintf("Using Certificate Manager, Self-Hosted with URL %s to issue certificate", venafiSecret.URL))
 		cfg.ConnectorType = endpoint.ConnectorTypeTPP
 		cfg.Credentials = &endpoint.Authentication{
 			User:     venafiSecret.TppUser,
@@ -104,7 +104,7 @@ func (b *backend) getConfig(ctx context.Context, req *logical.Request, role *rol
 		}
 
 	} else if venafiSecret.URL != "" && venafiSecret.AccessToken != "" {
-		b.Logger().Debug(fmt.Sprintf("Using Venafi Platform with URL %s to issue certificate", venafiSecret.URL))
+		b.Logger().Debug(fmt.Sprintf("Using CyberArk Platform with URL %s to issue certificate", venafiSecret.URL))
 		cfg.ConnectorType = endpoint.ConnectorTypeTPP
 		var refreshToken string
 		if includeRefreshToken {
@@ -117,14 +117,14 @@ func (b *backend) getConfig(ctx context.Context, req *logical.Request, role *rol
 		}
 
 	} else if venafiSecret.Apikey != "" {
-		b.Logger().Debug("Using Venafi Cloud to issue certificate")
+		b.Logger().Debug("Using Certificate Manager, SaaS to issue certificate")
 		cfg.ConnectorType = endpoint.ConnectorTypeCloud
 		cfg.Credentials = &endpoint.Authentication{
 			APIKey: venafiSecret.Apikey,
 		}
 
 	} else {
-		return nil, fmt.Errorf("failed to build config for Venafi issuer")
+		return nil, fmt.Errorf("failed to build config for CyberArk issuer")
 	}
 
 	if role.ServerTimeout > 0 {

@@ -1,7 +1,6 @@
-[![Venafi](https://raw.githubusercontent.com/Venafi/.github/master/images/Venafi_logo.png)](https://www.venafi.com/)
 [![MPL 2.0 License](https://img.shields.io/badge/License-MPL%202.0-blue.svg)](https://opensource.org/licenses/MPL-2.0)
 ![Community Supported](https://img.shields.io/badge/Support%20Level-Community-brightgreen)
-![Compatible with TPP 17.3+ & VaaS](https://img.shields.io/badge/Compatibility-TPP%2017.3+%20%26%20VaaS-f9a90c)  
+![Compatible with CyberArk Certificate Manager, Self-Hosted+ & CyberArk Certificate Manager, SaaS](https://img.shields.io/badge/Compatibility-Certificate%20Manager%2C%20Self--Hosted_17.3%2B_%26Certificate%20Manager%2C%20SaaS-f9a90c)
 _**This open source project is community-supported.** To report a problem or share an idea, use
 **[Issues](../../issues)**; and if you have a suggestion for fixing the issue, please include those details, too.
 In addition, use **[Pull Requests](../../pulls)** to contribute actual bug fixes or proposed enhancements.
@@ -11,19 +10,19 @@ We welcome and appreciate all contributions. Got questions or want to discuss so
 # Venafi PKI Secrets Engine for HashiCorp Vault
 
 This solution enables [HashiCorp Vault](https://www.vaultproject.io/) users to have certificate requests fulfilled by
-the [Venafi Trust Protection Platform](https://www.venafi.com/platform/trust-protection-platform) or
-[Venafi as a Service](https://www.venafi.com/venaficloud) ensuring compliance with corporate security policy and
+the [CyberArk Certificate Manager, Self-Hosted](https://www.cyberark.com/products/certificate-manager) or
+[CyberArk Certificate Manager, SaaS](https://www.cyberark.com/products/certificate-manager) ensuring compliance with corporate security policy and
 providing visibility into certificate issuance enterprise wide.
 
-### Venafi Trust Protection Platform Requirements
+### CyberArk Certificate Manager, Self-Hosted Requirements
 
 Your certificate authority (CA) must be able to issue a certificate in
 under one minute. Microsoft Active Directory Certificate Services (ADCS) is a
 popular choice. Other CA choices may have slightly different
 requirements.
 
-Within Trust Protection Platform, configure these settings. For more
-information see the _Venafi Administration Guide_.
+Within CyberArk Certificate Manager, Self-Hosted, configure these settings. For more
+information see the _CyberArk Administration Guide_.
 
 - A user account that has an authentication token for the "Venafi Secrets
   Engine for HashiCorp Vault" (ID "hashicorp-vault-by-venafi") API Application
@@ -35,7 +34,7 @@ information see the _Venafi Administration Guide_.
 
   - Subject DN values for Organizational Unit (OU), Organization (O),
     City/Locality (L), State/Province (ST) and Country (C).
-  - CA Template that Trust Protection Platform will use to enroll general
+  - CA Template that CyberArk Certificate Manager, Self-Hosted will use to enroll general
     certificate requests.
   - Management Type not locked or locked to 'Enrollment'.
   - Certificate Signing Request (CSR) Generation unlocked or not locked to
@@ -51,9 +50,9 @@ information see the _Venafi Administration Guide_.
   extensions, some applications will fail, such as NGINX ingress controllers.
   These applications aren't able to retrieve CRL and OCSP information.
 
-#### Trust between Vault and Trust Protection Platform
+#### Trust between Vault and CyberArk Certificate Manager, Self-Hosted
 
-The Trust Protection Platform REST API (WebSDK) must be secured with a
+The CyberArk Certificate Manager, Self-Hosted REST API (WebSDK) must be secured with a
 certificate. Generally, the certificate is issued by a CA that is not publicly
 trusted so establishing trust is a critical part of your setup.
 
@@ -62,22 +61,22 @@ Two methods can be used to establish trust. Both require the trust anchor
 access, you can import the root certificate into the trust store for your
 operating system. If you don't have administrative access, or prefer not to
 make changes to your system configuration, save the root certificate to a file
-in PEM format (e.g. /opt/venafi/bundle.pem) and reference it using the
+in PEM format (e.g. /opt/cyberark/bundle.pem) and reference it using the
 `trust_bundle_file` parameter whenever you create or update a PKI role in your
 Vault.
 
-### Venafi as a Service Requirements
+### CyberArk Certificate Manager, SaaS Requirements
 
-If you are using Venafi as a Service, verify the following:
+If you are using CyberArk Certificate Manager, SaaS, verify the following:
 
-- The Venafi as a Service REST API is accessible from the systems where Vault will be running. Currently we support the following regions:
-  - [https://api.venafi.cloud](https://api.venafi.cloud/vaas) [US]
-  - [https://api.venafi.eu](https://api.venafi.eu/vaas) [EU]
-  - [https://api.au.venafi.cloud](https://api.au.venafi.cloud/vaas) [AU]
-  - [https://api.uk.venafi.cloud](https://api.uk.venafi.cloud/vaas) [UK]
-  - [https://api.sg.venafi.cloud](https://api.sg.venafi.cloud/vaas) [SG]
-  - [https://api.ca.venafi.cloud](https://api.ca.venafi.cloud/vaas) [CA]
-- You have successfully registered for a Venafi as a Service account, have been granted at least the
+- The CyberArk Certificate Manager, SaaS REST API is accessible from the systems where Vault will be running. Currently we support the following regions:
+  - `https://api.venafi.cloud` [US]
+  - `https://api.venafi.eu` [EU]
+  - `https://api.au.venafi.cloud` [AU]
+  - `https://api.uk.venafi.cloud` [UK]
+  - `https://api.sg.venafi.cloud` [SG]
+  - `https://api.ca.venafi.cloud` [CA]
+- You have successfully registered for a CyberArk Certificate Manager, SaaS account, have been granted at least the
 "Resource Owner" role, and know your API key.
 - A CA Account and Issuing Template exist and have been configured with:
     - Recommended Settings values for:
@@ -170,11 +169,10 @@ Venafi secrets engine:
    Success! Enabled the pki-backend-venafi secrets engine at: venafi-pki/
    ```
 
-8. Configure a Venafi secret that maps a name in Vault to connection and authentication
-   settings for enrolling certificate using Venafi. The zone is a policy folder for Trust
-   Protection Platform or an Application name and Issuing Template API Alias (e.g.
-   "Business App\Enterprise CIT") for Venafi as a Service. Obtain the `access_token` and (optional)
-   bootstrap two refresh tokens for `refresh_token` and `refresh_token_2` for Trust Protection Platform using the 
+8. Configure a CyberArk secret that maps a name in Vault to connection and authentication
+   settings for enrolling certificate using CyberArk. The zone is a policy folder for CyberArk Certificate Manager, Self-Hosted or an Application name and Issuing Template API Alias (e.g.
+   "Business App\Enterprise CIT") for CyberArk Certificate Manager, SaaS. Obtain the `access_token` and (optional)
+   bootstrap two refresh tokens for `refresh_token` and `refresh_token_2` for CyberArk Certificate Manager, Self-Hosted using the 
    [VCert CLI](https://github.com/Venafi/vcert/blob/master/README-CLI-PLATFORM.md#obtaining-an-authorization-token)
    (`getcred` action with `--client-id "hashicorp-vault-by-venafi"` and
    `--scope "certificate:manage"`) or the Platform's Authorize REST API method. To see
@@ -182,11 +180,11 @@ Venafi secrets engine:
    `vault path-help venafi-pki/venafi/:name`.
 
     :pushpin: **NOTE**: When obtaining a `access_token` and `refresh_token` from
-    Trust Protection Platform, make sure you use the same _client id_ when
-    configuring the Venafi secret in Vault. Default the `client_id` is set to
+    CyberArk Certificate Manager, Self-Hosted, make sure you use the same _client id_ when
+    configuring the CyberArk secret in Vault. Default the `client_id` is set to
     "hashicorp-vault-by-venafi".
 
-   **Trust Protection Platform**:
+   **CyberArk Certificate Manager, Self-Hosted**:
 
    ```bash
    vault write venafi-pki/venafi/tpp \
@@ -281,7 +279,7 @@ Venafi secrets engine:
    more than one Venafi secret for the same set of tokens would result in all but 
    one Venafi secret being rendered inoperable when the token is refreshed.
 
-   **Venafi as a Service**:
+   **CyberArk Certificate Manager, SaaS**:
 
    ```bash
    vault write venafi-pki/venafi/vaas \
@@ -294,7 +292,7 @@ Venafi secrets engine:
    Success! Data written to: venafi-pki/venafi/vaas
    ```
 
-   **Venafi as a Service EU**:
+   **CyberArk Certificate Manager, SaaS EU**:
 
    ```bash
    vault write venafi-pki/venafi/vaas \
@@ -303,7 +301,7 @@ Venafi secrets engine:
        zone="Business App\\Enterprise CIT"
    ```
 
-   **Venafi as a Service AU**:
+   **CyberArk Certificate Manager, SaaS AU**:
 
    ```bash
    vault write venafi-pki/venafi/vaas \
@@ -312,7 +310,7 @@ Venafi secrets engine:
        zone="Business App\\Enterprise CIT"
    ```
 
-    **Venafi as a Service UK**:
+    **CyberArk Certificate Manager, SaaS UK**:
 
    ```bash
    vault write venafi-pki/venafi/vaas \
@@ -321,7 +319,7 @@ Venafi secrets engine:
        zone="Business App\\Enterprise CIT"
    ```
 
-   **Venafi as a Service SG**:
+   **CyberArk Certificate Manager, SaaS SG**:
 
    ```bash
    vault write venafi-pki/venafi/vaas \
@@ -330,7 +328,7 @@ Venafi secrets engine:
        zone="Business App\\Enterprise CIT"
    ```
 
-   **Venafi as a Service CA**:
+   **CyberArk Certificate Manager, SaaS CA**:
 
    ```bash
    vault write venafi-pki/venafi/vaas \
@@ -348,7 +346,7 @@ Venafi secrets engine:
    that maps a name in Vault to a Venafi secret for enrollment. To see other available
    options for the role after it is created, use `vault path-help venafi-pki/roles/:name`.
 
-   **Trust Protection Platform**:
+   **CyberArk Certificate Manager, Self-Hosted**:
 
    ```bash
    vault write venafi-pki/roles/tpp \
@@ -361,7 +359,7 @@ Venafi secrets engine:
    Success! Data written to: venafi-pki/roles/tpp
    ``` 
 
-   **Venafi as a Service**:
+   **CyberArk Certificate Manager, SaaS**:
 
    ```bash
    vault write venafi-pki/roles/vaas \
@@ -377,7 +375,7 @@ Venafi secrets engine:
    :pushpin: **NOTE**: The `ttl` and `max_ttl` role parameters can be used specify the
    default and maximum allowed validity for certificate requests if the Venafi CA template
    supports flexible validity periods.  If the CA is DigiCert, Entrust, or Microsoft with
-   Trust Protection Platform, the `issuer_hint` parameter is also required for `ttl`
+   CyberArk Certificate Manager, Self-Hosted, the `issuer_hint` parameter is also required for `ttl`
    functionality (e.g. `issuer_hint="m"` for Microsoft).  When issue or sign operations
    include the `ttl` parameter it overrides the role default `ttl` and will be constrained
    by the role `max_ttl`.
@@ -388,12 +386,12 @@ Venafi secrets engine:
 
    :pushpin: **NOTE**: Starting version [0.13.0](https://github.com/Venafi/vault-pki-backend-venafi/releases/tag/v0.13.0),
    you can use `server_timeout` in order to overwrite timeout to perform an enrollment request.
-   Default is 180 seconds. Applicable to both TLSPDC (TPP) and TLSPC (VaaS).
-   This attribute will have the following behaviors for TLSPDC and TLSPC:
-   - TLSPDC: During enrollment, http client timeout will use the defined value of `server_timeout` for every request.
-   Also it will be used for TPP request attribute `WorkToDoTimeout` which will override the waiting
+   Default is 180 seconds. Applicable to both CyberArk Certificate Manager, Self-Hosted and CyberArk Certificate Manager, SaaS.
+   This attribute will have the following behaviors for CyberArk Certificate Manager, Self-Hosted and CyberArk Certificate Manager, SaaS:
+   - CyberArk Certificate Manager, Self-Hosted: During enrollment, http client timeout will use the defined value of `server_timeout` for every request.
+   Also it will be used for CyberArk Certificate Manager, Self-Hosted request attribute `WorkToDoTimeout` which will override the waiting
    for set CA's in Policy to finish issuance.
-   - TLSPC: During enrollment, http client timeout will use the defined value of `server_timeout` for every request.
+   - CyberArk Certificate Manager, SaaS: During enrollment, http client timeout will use the defined value of `server_timeout` for every request.
    Also it will be used for inner VCert retry logic to pickup certificate (as moment of adding this information
    180 secs)
    
@@ -412,13 +410,13 @@ Venafi secrets engine:
 ## Usage
 
 After the Venafi secrets engine is configured and a user/machine has a Vault
-token with the proper permission, it can enroll certificates using Venafi.
+token with the proper permission, it can enroll certificates using CyberArk.
 
 1. Generate a certificate by writing to the `/issue` endpoint with the name of
    the role (add the `key_password` parameter to get a password encrypted
    private key in the output):
 
-   **Trust Protection Platform**:
+   **CyberArk Certificate Manager, Self-Hosted**:
 
    ```bash
    vault write venafi-pki/issue/tpp common_name="common-name.example.com" \
@@ -439,7 +437,7 @@ token with the proper permission, it can enroll certificates using Venafi.
    serial_number        1d:bc:a8:3c:00:00:00:05:5c:e8
    ```
 
-   **Venafi as a Service**:
+   **CyberArk Certificate Manager, SaaS**:
 
    ```bash
    vault write venafi-pki/issue/vaas common_name="common-name.example.com" \
@@ -462,7 +460,7 @@ token with the proper permission, it can enroll certificates using Venafi.
 1. Or sign a CSR from a file by writing to the `/sign` endpoint with the name of
    the role:
 
-   **Trust Protection Platform**:
+   **CyberArk Certificate Manager, Self-Hosted**:
 
    ```bash
    vault write venafi-pki/sign/tpp csr=@example.req
@@ -481,7 +479,7 @@ token with the proper permission, it can enroll certificates using Venafi.
    serial_number        1d:c4:07:9a:00:00:00:05:5c:ea
    ```
 
-   **Venafi as a Service**:
+   **CyberArk Certificate Manager, SaaS**:
 
    ```bash
    vault write venafi-pki/sign/vaas csr=@example.req
@@ -499,9 +497,8 @@ token with the proper permission, it can enroll certificates using Venafi.
    serial_number        76:55:e2:14:de:c8:3f:e1:64:4a:fa:37:d4:6e:f5:ef:5e:4c:16:5b
    ```
 
-### Custom Fields for TLSPDC (p. k. a. TPP)
-Custom Fields can be set when requesting certificates from Trust Protection
-Platform using the `custom_fields` parameter (e.g.
+### Custom Fields for CyberArk Certificate Manager, Self-Hosted
+Custom Fields can be set when requesting certificates from CyberArk Certificate Manager, Self-Hosted using the `custom_fields` parameter (e.g.
 `custom_fields="field1_name=valueX,field2_name=valueY,field2_name=valueZ"`).
 
 #### More extended usage
@@ -531,7 +528,7 @@ OZPoXsqUv7B4eYKjuQ==
 custom_fields="field1_name=valueX,valueY,valueZ" custom_fields="field2_name=valueA" custom_fields="field2_name=valueB"
 ```
 
-Where our Custom Fields in TLSPDC are:
+Where our Custom Fields in CyberArk Certificate Manager, Self-Hosted are:
 
 - **field1_name:** `String`
 - **field2_name:** `List Type (MultiSelect)`
@@ -570,7 +567,7 @@ possibly erroneous results.
 ## Prevent Re-issue
 
 In order to prevent an issuance of a new certificate if current certificate exists in Vault's storage, we added a capability
-to return that certificate instead. We rely on Venafi's platforms (TPP/VaaS) to find out is certificate already exist.
+to return that certificate instead. We rely on CyberArk's platforms (CyberArk Certificate Manager, Self-Hosted/CyberArk Certificate Manager, SaaS) to find out is certificate already exist.
 To issue this feature you must set:
 
 - `min_cert_time_left` (_optional_): Golang's duration format string (e.g. 24h, 23h5m20s, 10000s, etc.). Default is 30 days.
@@ -582,7 +579,7 @@ in logs when `[DEBUG]` mode is set:
 
 ```
 2022-08-30T13:41:49.007-0500 [DEBUG] secrets.venafi-pki-backend.venafi-pki-backend_5df77702.venafi-pki-backend.venafi-pki-backend: Loading certificate from storage: timestamp=2022-08-30T13:41:49.006-0500
-2022-08-30T13:41:49.008-0500 [DEBUG] secrets.venafi-pki-backend.venafi-pki-backend_5df77702.venafi-pki-backend.venafi-pki-backend: Getting venafi certificate: timestamp=2022-08-30T13:41:49.008-0500
+2022-08-30T13:41:49.008-0500 [DEBUG] secrets.venafi-pki-backend.venafi-pki-backend_5df77702.venafi-pki-backend.venafi-pki-backend: Getting CyberArk certificate: timestamp=2022-08-30T13:41:49.008-0500
 2022-08-30T13:41:49.010-0500 [DEBUG] secrets.venafi-pki-backend.venafi-pki-backend_5df77702.venafi-pki-backend.venafi-pki-backend: certificate is:-----BEGIN CERTIFICATE-----
 MIIHvjCCBaagAwIBAgITbQCpUfV8kBfjsOaP8QAAAKlR9TANBgkqhkiG9w0BAQsF
 ADBbMRMwEQYKCZImiZPyLGQBGRYDY29tMRYwFAYKCZImiZPyLGQBGRYGdmVuYWZp
@@ -608,7 +605,7 @@ It's required to set any of (at least one): `Common Name` or `SAN DNS`.
 ### Using Prevent Re-issue Local
 
 In order to prevent an issuance of a new certificate if current certificate exists in Vault's storage, we added a capability
-to return that certificate instead. We rely on hash in order to get certificate from local storage (no TPP/VaaS is involved).
+to return that certificate instead. We rely on hash in order to get certificate from local storage (no CyberArk Certificate Manager, Self-Hosted/CyberArk Certificate Manager, SaaS is involved).
 To issue this feature you must set:
 
 - `min_cert_time_left` (_optional_): Golang's duration format string (e.g. 24h, 23h5m20s, 10000s, etc.). Default is 30 days.
@@ -620,7 +617,7 @@ in logs when `[DEBUG]` mode is set:
 
 ```
 2022-08-30T13:41:49.007-0500 [DEBUG] secrets.venafi-pki-backend.venafi-pki-backend_5df77702.venafi-pki-backend.venafi-pki-backend: Loading certificate from storage: timestamp=2022-08-30T13:41:49.006-0500
-2022-08-30T13:41:49.008-0500 [DEBUG] secrets.venafi-pki-backend.venafi-pki-backend_5df77702.venafi-pki-backend.venafi-pki-backend: Getting venafi certificate: timestamp=2022-08-30T13:41:49.008-0500
+2022-08-30T13:41:49.008-0500 [DEBUG] secrets.venafi-pki-backend.venafi-pki-backend_5df77702.venafi-pki-backend.venafi-pki-backend: Getting CyberArk certificate: timestamp=2022-08-30T13:41:49.008-0500
 2022-08-30T13:41:49.010-0500 [DEBUG] secrets.venafi-pki-backend.venafi-pki-backend_5df77702.venafi-pki-backend.venafi-pki-backend: certificate is:-----BEGIN CERTIFICATE-----
 MIIHvjCCBaagAwIBAgITbQCpUfV8kBfjsOaP8QAAAKlR9TANBgkqhkiG9w0BAQsF
 ADBbMRMwEQYKCZImiZPyLGQBGRYDY29tMRYwFAYKCZImiZPyLGQBGRYGdmVuYWZp
@@ -640,8 +637,8 @@ Default value is always `false`.
 
 ## License
 
-Copyright &copy; Venafi, Inc. All rights reserved.
+Copyright &copy; Venafi, Inc. and CyberArk Software Ltd. ("CyberArk")
 
 This solution is licensed under the Mozilla Public License, Version 2.0. See `LICENSE` for the full license text.
 
-Please direct questions/comments to opensource@venafi.com.
+Please direct questions/comments to mis-opensource@cyberark.com.
