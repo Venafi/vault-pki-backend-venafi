@@ -1092,21 +1092,21 @@ type ParsedCertificate struct {
 
 const (
 	pathConfigRootHelpSyn = `
-Configure the Venafi TPP credentials that are used to manage certificates,
+Configure the Certificate Manager, Self-Hosted credentials that are used to manage certificates,
 `
 	pathConfigRootHelpDesc = `
-Configure TPP first
+Configure Certificate Manager, Self-Hosted first
 `
 	pathVenafiCertEnrollHelp = `
-Enroll Venafi certificate
+Enroll CyberArk certificate
 `
 	pathVenafiCertEnrollDesc = `
-Enroll Venafi certificate
+Enroll CyberArk certificate
 `
 	pathVenafiCertSignHelp = `
-Sign Venafi certificate
+Sign CyberArk certificate
 `
 	pathVenafiCertSignDesc = `
-Sign Venafi certificate
+Sign CyberArk certificate
 `
 )

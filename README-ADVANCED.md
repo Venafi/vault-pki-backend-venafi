@@ -1,7 +1,6 @@
-![Venafi](Venafi_logo.png)
 [![MPL 2.0 License](https://img.shields.io/badge/License-MPL%202.0-blue.svg)](https://opensource.org/licenses/MPL-2.0)
 ![Community Supported](https://img.shields.io/badge/Support%20Level-Community-brightgreen)
-![Compatible with TPP 17.3+ & Cloud](https://img.shields.io/badge/Compatibility-TPP%2017.3+%20%26%20Cloud-f9a90c)  
+![Compatible with CyberArk Certificate Manager, Self-Hosted+ & CyberArk Certificate Manager, SaaS](https://img.shields.io/badge/Compatibility-Certificate%20Manager%2C%20Self--Hosted_17.3%2B_%26Certificate%20Manager%2C%20SaaS-f9a90c) 
 _This open source project is community-supported. To report a problem or share an idea, use the
 **[Issues](../../issues)** tab; and if you have a suggestion for fixing the issue, please include those details, too.
 In addition, use the **[Pull requests](../../pulls)** tab to contribute actual bug fixes or proposed enhancements.
@@ -9,7 +8,9 @@ We welcome and appreciate all contributions._
 
 # Venafi PKI Secrets Engine for HashiCorp Vault
 
-This solution enables [HashiCorp Vault](https://www.vaultproject.io/) users to have certificate requests fulfilled by the [Venafi Platform](https://www.venafi.com/platform/trust-protection-platform) or [Venafi Cloud](https://www.venafi.com/platform/cloud/devops) ensuring compliance with corporate security policy and providing visibility into certificate issuance enterprise wide.
+This solution enables [HashiCorp Vault](https://www.vaultproject.io/) users to have certificate requests fulfilled by 
+the [CyberArk Certificate Manager, Self-Hosted](https://www.cyberark.com/products/certificate-manager) or
+[CyberArk Certificate Manager, SaaS](https://www.cyberark.com/products/certificate-manager) ensuring compliance with corporate security policy and providing visibility into certificate issuance enterprise wide.
 
 ## Dependencies
 
@@ -21,19 +22,19 @@ This solution enables [HashiCorp Vault](https://www.vaultproject.io/) users to h
 
 Here, we'll use a Makefile to encapsulate several command sequences in a single step. For specific details on those commands and their parameters, please review the contents of the [Makefile](Makefile) itself.
 
-1. Export your Venafi Platform and/or Venafi Cloud configuration variables:
+1. Export your Certificate Manager, Self-Hosted and/or Certificate Manager, Saas configuration variables:
 
-    **Venafi Platform Variables**
+    **Certificate Manager, Self-Hosted Variables**
 
     ```text
-    export TPP_USER=<WebSDK User for Venafi Platform, e.g. "admin">
+    export TPP_USER=<WebSDK User for Certificate Manager, Self-Hosted, e.g. "admin">
     export TPP_PASSWORD=<Password for WebSDK User, e.g. "password">
-    export TPP_URL=<URL of Venafi Platform WebSDK, e.g. "https://venafi.example.com/vedsdk">
+    export TPP_URL=<URL of Certificate Manager, Self-Hosted WebSDK, e.g. "https://venafi.example.com/vedsdk">
     export TPP_ZONE=<Name of the policy folder that will hold all certificates that will be requested>
     export TRUST_BUNDLE=/bundle.pem
     ```
 
-    The syntax for the Venafi Platform policy folder can be tricky. If the policy folder name contains spaces, it must be wrapped in double quotes like this:
+    The syntax for the Certificate Manager, Self-Hosted policy folder can be tricky. If the policy folder name contains spaces, it must be wrapped in double quotes like this:
 
     ```text
     export TPP_ZONE="My Policy" *
@@ -45,12 +46,12 @@ Here, we'll use a Makefile to encapsulate several command sequences in a single 
     export TPP_ZONE="Parent Folder\\\\Child Folder"
     ```
 
-    **Venafi Cloud Variables**
+    **Certificate Manager, SaaS Variables**
 
     ```text
-    export CLOUD_APIKEY=<API key for Venafi Cloud>
-    export CLOUD_ZONE=<Zone that governs all certificates that are requested, refer to Venafi Cloud UI to get Zone ID>
-    export CLOUD_URL=<only set when instructed to use a non-production instance of Venafi Cloud>
+    export CLOUD_APIKEY=<API key for Certificate Manager, SaaS>
+    export CLOUD_ZONE=<Zone that governs all certificates that are requested, refer to Certificate Manager, SaaS UI to get Zone ID>
+    export CLOUD_URL=<only set when instructed to use a non-production instance of Certificate Manager, SaaS>
     ```
 
 1. Run `make prod`.
@@ -68,7 +69,7 @@ Here, we'll use a Makefile to encapsulate several command sequences in a single 
 
 1. To verify that the Vault is working, run `make consul_template_fake -e`.
 
-1. Run the following commands to check Venafi Platform:
+1. Run the following commands to check Certificate Manager, Self-Hosted:
 
     ```text
     make consul_template_tpp -e
@@ -77,7 +78,7 @@ Here, we'll use a Makefile to encapsulate several command sequences in a single 
 
     Or go to the URL https://127.0.0.1:3443.
 
-1. Run the following commands to check Venafi Cloud.
+1. Run the following commands to check Certificate Manager, SaaS.
 
     ```text
     make consul_template_cloud -e
@@ -86,7 +87,7 @@ Here, we'll use a Makefile to encapsulate several command sequences in a single 
 
     Or go to the URL https://127.0.0.1:2443.
 
-1. You also can verify how the Vault is working without using a HashiCorp Consul Template. Run the following commands for Fake, Platform and Cloud endpoints, respectively:
+1. You also can verify how the Vault is working without using a HashiCorp Consul Template. Run the following commands for Fake, Certificate Manager, Self-Hosted and Certificate Manager, SaaS endpoints, respectively:
 
     ```text
     make fake -e
@@ -105,7 +106,7 @@ Here, we'll use a Makefile to encapsulate several command sequences in a single 
 
 First, mount the Venafi plugin. Then, use one of the following sections to get the certificate and private key:
 
-* Use Trust Protection Platform and Node application
+* Use Certificate Manager, Self-Hosted and Node application
 * Use Consul-template engine
 
 ### Mount Venafi Plugin
@@ -178,11 +179,11 @@ To mount the plugin automatically run `make prod` as described in the previous s
     vault secrets enable -path=venafi-pki -plugin-name=venafi-pki-backend plugin
     ```
 
-### Use Trust Protection Platform and Node Application
+### Use Certificate Manager, Self-Hosted and Node Application
 
-Get the certificate and private key from Trust Protection Platform, and then pass them to the Node application.
+Get the certificate and private key from Certificate Manager, Self-Hosted, and then pass them to the Node application.
 
-1. Set up custom TPP role:
+1. Set up custom Certificate Manager, Self-Hosted role:
 
     ```text
     vault write venafi-pki/roles/custom-tpp \
@@ -390,9 +391,9 @@ To get the certificate and private key from HashiCorp Consul-template Engine, yo
                     DNS:alt-bnhz5.fake.example.com, DNS:alt2-bnhz5.fake.example.com, DNS:fake-bnhz5.fake.example.com
     ```
 
-1. Edit the Makefile and configure credentials for the Venafi Cloud and/or Venafi Platform.
+1. Edit the Makefile and configure credentials for the Certificate Manager, SaaS and/or Certificate Manager, Self-Hosted.
 
-1. To check the Cloud and TPP functionality, run `make cloud` and `make tpp`.
+1. To check the  Certificate Manager, SaaS and Certificate Manager, Self-Hosted functionality, run `make cloud` and `make tpp`.
 
 ## Deploy New Image for Prod
 
@@ -408,15 +409,15 @@ To get the certificate and private key from HashiCorp Consul-template Engine, yo
 
 ## Testing
 
-We have tests for fake vcert endpoint, if you don't have TPP or Cloud you can test all endpoints using this command:_
+We have tests for fake vcert endpoint, if you don't have Certificate Manager, Self-Hosted or Certificate Manager, SaaS you can test all endpoints using this command:_
 
 ```
 go test -run  ^TestFake -v github.com/Venafi/vault-pki-backend-venafi/plugin/pki
 ```
 
-Also you can run integration tests but for it you need to add TPP\Cloud credentials._
+Also you can run integration tests but for it you need to add Certificate Manager, Self-Hosted\Certificate Manager, SaaS credentials._
 
-Example fro TPP:_
+Example for Certificate Manager, Self-Hosted:_
 ```
 export TPP_USER='admin'
 export TPP_PASSWORD='strongPassword'
@@ -425,7 +426,7 @@ export TPP_URL="https://tpp.example.com:/vedsdk"
 export TPP_ZONE="devops\\\\vcert"
 
 ```
-Example for Cloud:_
+Example for Certificate Manager, SaaS:_
 ```
 export CLOUD_ZONE="xxxxxxx-xxxxx-xxxx-xxxx-xxxxxxx"
 export CLOUD_APIKEY='xxxxxxx-xxxxx-xxxx-xxxx-xxxxxxx'

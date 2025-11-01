@@ -4,8 +4,8 @@ import "fmt"
 
 const (
 	CredentialsRootPath                          = `venafi/`
-	tokenMode                                    = `TPP Token (access_token, refresh_token)` // #nosec G101
-	tppMode                                      = `TPP Credentials (tpp_user, tpp_password)`
+	tokenMode                                    = `Certificate Manager, Self-Hosted Token (access_token, refresh_token)` // #nosec G101
+	tppMode                                      = `Certificate Manager, Self-Hosted Credentials (tpp_user, tpp_password)`
 	cloudMode                                    = `Cloud API Key (apikey)`
 	StoreByCNString                              = "cn"
 	StoreByHASHstring                            = "hash"
@@ -18,9 +18,9 @@ const (
 	ErrorTextVenafiSecretEmpty                   = `"venafi_secret" argument is required`
 	ErrorTextURLEmpty                            = `"url" argument is required`
 	ErrorTextZoneEmpty                           = `"zone" argument is required`
-	ErrorTextInvalidMode                         = "invalid mode: fakemode or apikey or tpp credentials or tpp access token required"
+	ErrorTextInvalidMode                         = "invalid mode: fakemode or apikey or Certificate Manager, Self-Hosted credentials or Certificate Manager, Self-Hosted access token required"
 	ErrorTextNeed2RefreshTokens                  = "secrets engine requires 2 refresh tokens for no impact token refresh"
-	errorMultiModeMessage                        = `can't specify both: %s and %s modes in the same venafi secret`
+	errorMultiModeMessage                        = `can't specify both: %s and %s modes in the same CyberArk secret`
 )
 
 const (

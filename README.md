@@ -1,17 +1,17 @@
 [![MPL 2.0 License](https://img.shields.io/badge/License-MPL%202.0-blue.svg)](https://opensource.org/licenses/MPL-2.0)
 ![Community Supported](https://img.shields.io/badge/Support%20Level-Community-brightgreen)
-![Compatible with TPP 17.3+ & VaaS](https://img.shields.io/badge/Compatibility-TPP%2017.3+%20%26%20VaaS-f9a90c)  
+![Compatible with CyberArk Certificate Manager, Self-Hosted+ & CyberArk Certificate Manager, SaaS](https://img.shields.io/badge/Compatibility-Certificate%20Manager%2C%20Self--Hosted_17.3%2B_%26Certificate%20Manager%2C%20SaaS-f9a90c)
 _**This open source project is community-supported.** To report a problem or share an idea, use
 **[Issues](../../issues)**; and if you have a suggestion for fixing the issue, please include those details, too.
 In addition, use **[Pull Requests](../../pulls)** to contribute actual bug fixes or proposed enhancements.
 We welcome and appreciate all contributions. Got questions or want to discuss something with our team?
 **[Join us on Slack](https://join.slack.com/t/venafi-integrations/shared_invite/zt-i8fwc379-kDJlmzU8OiIQOJFSwiA~dg)**!_
 
-# CyberArk PKI Secrets Engine for HashiCorp Vault
+# Venafi PKI Secrets Engine for HashiCorp Vault
 
 This solution enables [HashiCorp Vault](https://www.vaultproject.io/) users to have certificate requests fulfilled by
-the [CyberArk Certificate Manager, Self-Hosted](https://www.venafi.com/platform/trust-protection-platform) or
-[CyberArk Certificate Manager, SaaS](https://www.venafi.com/venaficloud) ensuring compliance with corporate security policy and
+the [CyberArk Certificate Manager, Self-Hosted](https://www.cyberark.com/products/certificate-manager) or
+[CyberArk Certificate Manager, SaaS](https://www.cyberark.com/products/certificate-manager) ensuring compliance with corporate security policy and
 providing visibility into certificate issuance enterprise wide.
 
 ### CyberArk Certificate Manager, Self-Hosted Requirements
@@ -24,7 +24,7 @@ requirements.
 Within CyberArk Certificate Manager, Self-Hosted, configure these settings. For more
 information see the _CyberArk Administration Guide_.
 
-- A user account that has an authentication token for the "CyberArk Secrets
+- A user account that has an authentication token for the "Venafi Secrets
   Engine for HashiCorp Vault" (ID "hashicorp-vault-by-venafi") API Application
   as of 20.1 (or scope "certificate:manage" for 19.2 through 19.4) or has been
   granted WebSDK Access (deprecated)
@@ -95,7 +95,7 @@ If you are using CyberArk Certificate Manager, SaaS, verify the following:
 ## Setup
 
 Before certificates can be issued, you must complete these steps to configure the
-CyberArk secrets engine:
+Venafi secrets engine:
 
 1. Create the [directory](https://www.vaultproject.io/docs/internals/plugins#plugin-directory)
    where your Vault server will look for plugins (e.g. /etc/vault/vault_plugins).
@@ -158,7 +158,7 @@ CyberArk secrets engine:
     plugin directory correctly with a non-symlinked directory as mentioned earlier. Also,
     make sure this change is reflected when calling for the SHA-256 checksum.
 
-7. Enable the CyberArk secrets engine:
+7. Enable the Venafi secrets engine:
 
    ```bash
    vault secrets enable -path=venafi-pki -plugin-name=venafi-pki-backend plugin
@@ -176,7 +176,7 @@ CyberArk secrets engine:
    [VCert CLI](https://github.com/Venafi/vcert/blob/master/README-CLI-PLATFORM.md#obtaining-an-authorization-token)
    (`getcred` action with `--client-id "hashicorp-vault-by-venafi"` and
    `--scope "certificate:manage"`) or the Platform's Authorize REST API method. To see
-   other available options for the CyberArk secret after it is created, use
+   other available options for the Venafi secret after it is created, use
    `vault path-help venafi-pki/venafi/:name`.
 
     :pushpin: **NOTE**: When obtaining a `access_token` and `refresh_token` from
@@ -245,7 +245,7 @@ CyberArk secrets engine:
    Success! Data written to: venafi-pki/venafi/tpp
    ```
 
-   :pushpin: **NOTE**: You can also specify a `refresh_interval` for the CyberArk secret
+   :pushpin: **NOTE**: You can also specify a `refresh_interval` for the Venafi secret
    which represents the frequency at which secrets engine should refresh tokens.
    We default it to 30 days, but internally we validate it to be not longer than the
    `access_token` is valid. Generally, `refresh_interval` should not be more than 
@@ -267,17 +267,17 @@ CyberArk secrets engine:
    Success! Data written to: venafi-pki/venafi/tpp
    ```
 
-   :warning: **CAUTION**: Do not create more than one CyberArk secret for the same
+   :warning: **CAUTION**: Do not create more than one Venafi secret for the same
    set of tokens. Supplying a `refresh_token` and `refresh_token_2` (both must be set)
    allows the secrets engine to automatically obtain new tokens and operate without 
    interruption whenever the `access_token` expires.
 
    This behavior is important to understand because it may require you to provide 
    a new `access_token`, `refresh_token` and `refresh_token_2` if you need to modify
-   the CyberArk secret in the future (i.e. depending upon whether the original 
+   the Venafi secret in the future (i.e. depending upon whether the original 
    set of tokens has been refreshed by the secrets engine plugin). Having
-   more than one CyberArk secret for the same set of tokens would result in all but 
-   one CyberArk secret being rendered inoperable when the token is refreshed.
+   more than one Venafi secret for the same set of tokens would result in all but 
+   one Venafi secret being rendered inoperable when the token is refreshed.
 
    **CyberArk Certificate Manager, SaaS**:
 
@@ -343,7 +343,7 @@ CyberArk secrets engine:
    ```
 
 9. Lastly, configure a [role](https://www.vaultproject.io/api-docs/secret/pki#create-update-role)
-   that maps a name in Vault to a CyberArk secret for enrollment. To see other available
+   that maps a name in Vault to a Venafi secret for enrollment. To see other available
    options for the role after it is created, use `vault path-help venafi-pki/roles/:name`.
 
    **CyberArk Certificate Manager, Self-Hosted**:
@@ -373,7 +373,7 @@ CyberArk secrets engine:
    ```
 
    :pushpin: **NOTE**: The `ttl` and `max_ttl` role parameters can be used specify the
-   default and maximum allowed validity for certificate requests if the CyberArk CA template
+   default and maximum allowed validity for certificate requests if the Venafi CA template
    supports flexible validity periods.  If the CA is DigiCert, Entrust, or Microsoft with
    CyberArk Certificate Manager, Self-Hosted, the `issuer_hint` parameter is also required for `ttl`
    functionality (e.g. `issuer_hint="m"` for Microsoft).  When issue or sign operations
@@ -381,8 +381,8 @@ CyberArk secrets engine:
    by the role `max_ttl`.
    
    :pushpin: **NOTE**: The `zone` role parameter allows multiple zones to be used with a
-   single CyberArk secret.  If `zone` is not specified by the role, the `zone` specified by
-   the CyberArk secret applies.
+   single Venafi secret.  If `zone` is not specified by the role, the `zone` specified by
+   the Venafi secret applies.
 
    :pushpin: **NOTE**: Starting version [0.13.0](https://github.com/Venafi/vault-pki-backend-venafi/releases/tag/v0.13.0),
    you can use `server_timeout` in order to overwrite timeout to perform an enrollment request.
@@ -409,7 +409,7 @@ CyberArk secrets engine:
 
 ## Usage
 
-After the CyberArk secrets engine is configured and a user/machine has a Vault
+After the Venafi secrets engine is configured and a user/machine has a Vault
 token with the proper permission, it can enroll certificates using CyberArk.
 
 1. Generate a certificate by writing to the `/issue` endpoint with the name of
@@ -538,7 +538,7 @@ include commas, unlike `field1_name` which is defined as `string` type.
 
 ## API
 
-CyberArk PKI Secrets Engine uses the same
+Venafi Machine Identity Secrets Engine uses the same
 [Vault API](https://www.vaultproject.io/api/secret/pki)
 as the built-in PKI secrets engine. Some methods, such as those for
 managing certificate authorities, do not apply.
@@ -637,8 +637,8 @@ Default value is always `false`.
 
 ## License
 
-Copyright &copy; Venafi, Inc. All rights reserved.
+Copyright &copy; Venafi, Inc. and CyberArk Software Ltd. ("CyberArk")
 
 This solution is licensed under the Mozilla Public License, Version 2.0. See `LICENSE` for the full license text.
 
-Please direct questions/comments to opensource@venafi.com.
+Please direct questions/comments to mis-opensource@cyberark.com.
