@@ -89,7 +89,7 @@ func (b *backend) venafiCertRevoke(ctx context.Context, req *logical.Request, d 
 
 	revReq.CertificateDN = dn
 
-	err = cl.RevokeCertificate(&revReq)
+	_, err = cl.RevokeCertificate(&revReq)
 
 	if err != nil {
 		return logical.ErrorResponse("Failed to revoke certificate: %s", err), nil
