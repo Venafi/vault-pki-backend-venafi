@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -29,7 +30,7 @@ func (b *backend) ClientVenafi(ctx context.Context, req *logical.Request, role *
 
 	client, err := vcert.NewClient(cfg)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get CyberArk issuer client: %s", err)
+		return nil, nil, fmt.Errorf("failed to get CyberArk issuer client: %w", err)
 	}
 
 	return client, cfg, nil
@@ -49,7 +50,7 @@ func (b *backend) getConfig(ctx context.Context, req *logical.Request, role *rol
 
 	var trustBundlePEM string
 	if venafiSecret.TrustBundleFile != "" {
-		b.Logger().Debug(fmt.Sprintf("Reading trust bundle from file: " + venafiSecret.TrustBundleFile))
+		b.Logger().Debug(fmt.Sprintf("Reading trust bundle from file: %s", venafiSecret.TrustBundleFile))
 
 		trustBundle, err := os.ReadFile(venafiSecret.TrustBundleFile)
 		if err != nil {
@@ -124,7 +125,7 @@ func (b *backend) getConfig(ctx context.Context, req *logical.Request, role *rol
 		}
 
 	} else {
-		return nil, fmt.Errorf("failed to build config for CyberArk issuer")
+		return nil, errors.New("failed to build config for CyberArk issuer")
 	}
 
 	if role.ServerTimeout > 0 {

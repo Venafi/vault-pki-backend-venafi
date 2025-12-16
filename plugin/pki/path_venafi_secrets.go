@@ -2,6 +2,7 @@ package pki
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -310,34 +311,34 @@ func (b *backend) getVenafiSecret(ctx context.Context, s logical.Storage, name s
 
 func validateVenafiSecretEntry(entry *venafiSecretEntry) error {
 	if !entry.Fakemode && entry.Apikey == "" && (entry.TppUser == "" || entry.TppPassword == "") && entry.RefreshToken == "" && entry.AccessToken == "" {
-		return fmt.Errorf(util.ErrorTextInvalidMode)
+		return errors.New(util.ErrorTextInvalidMode)
 	}
 
 	//Only validate other fields if mode is not fakemode
 	if !entry.Fakemode {
 		//When api key is null, that means
 		if entry.URL == "" && entry.Apikey == "" {
-			return fmt.Errorf(util.ErrorTextURLEmpty)
+			return errors.New(util.ErrorTextURLEmpty)
 		}
 
 		if entry.Zone == "" {
-			return fmt.Errorf(util.ErrorTextZoneEmpty)
+			return errors.New(util.ErrorTextZoneEmpty)
 		}
 
 		if entry.TppUser != "" && entry.Apikey != "" {
-			return fmt.Errorf(util.ErrorTextMixedTPPAndCloud)
+			return errors.New(util.ErrorTextMixedTPPAndCloud)
 		}
 
 		if entry.TppUser != "" && entry.AccessToken != "" {
-			return fmt.Errorf(util.ErrorTextMixedTPPAndToken)
+			return errors.New(util.ErrorTextMixedTPPAndToken)
 		}
 
 		if entry.AccessToken != "" && entry.Apikey != "" {
-			return fmt.Errorf(util.ErrorTextMixedTokenAndCloud)
+			return errors.New(util.ErrorTextMixedTokenAndCloud)
 		}
 
 		if (entry.RefreshToken != "" && entry.RefreshToken2 == "") || (entry.RefreshToken == "" && entry.RefreshToken2 != "") {
-			return fmt.Errorf(util.ErrorTextNeed2RefreshTokens)
+			return errors.New(util.ErrorTextNeed2RefreshTokens)
 		}
 	}
 	return nil

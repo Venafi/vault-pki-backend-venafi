@@ -1,10 +1,28 @@
+version: "2"
 run:
-  tests: false
   modules-download-mode: readonly
-
+  tests: false
 linters:
   disable:
-    - deadcode
-    - varcheck
+    - unused
+    - staticcheck
   enable:
     - gosec
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

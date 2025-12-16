@@ -2,6 +2,7 @@ package pki
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -68,7 +69,7 @@ func (b *backend) venafiCertRevoke(ctx context.Context, req *logical.Request, d 
 		if err != nil {
 			return logical.ErrorResponse(err.Error()), err
 		}
-		return logical.ErrorResponse("the certificate is not stored"), fmt.Errorf("the certificate is not stored")
+		return logical.ErrorResponse("the certificate is not stored"), errors.New("the certificate is not stored")
 	}
 
 	b.Logger().Debug("Creating Venafi client:")
@@ -127,7 +128,7 @@ func isCertificateStored(ctx context.Context, req *logical.Request, id string, r
 
 	//there is nothing to remove.
 	if role.NoStore {
-		return false, fmt.Errorf("certificate is not stored")
+		return false, errors.New("certificate is not stored")
 	}
 
 	if !role.StoreByCN {
@@ -184,7 +185,7 @@ func getDn(b *backend, c *endpoint.Connector, ctx context.Context, req *logical.
 		serialNumber := strings.ReplaceAll(cert.SerialNumber, ":", "")
 		return getDnFromSerial(c, serialNumber)
 	default:
-		return "", fmt.Errorf("unknown role type of uid for storage")
+		return "", errors.New("unknown role type of uid for storage")
 	}
 
 	return dn, nil
