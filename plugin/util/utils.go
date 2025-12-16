@@ -3,7 +3,7 @@ package util
 import (
 	"bytes"
 	"crypto/rand"
-	"crypto/sha1"
+	"crypto/sha1" // #nosec G505
 	"encoding/hex"
 	"encoding/pem"
 	"errors"

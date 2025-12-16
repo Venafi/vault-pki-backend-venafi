@@ -191,7 +191,7 @@ func getHTTPClient(trustBundlePem string) (*http.Client, error) {
 	tlsConfig := http.DefaultTransport.(*http.Transport).TLSClientConfig
 
 	if tlsConfig == nil {
-		tlsConfig = &tls.Config{}
+		tlsConfig = &tls.Config{MinVersion: tls.VersionTLS12}
 	} else {
 		tlsConfig = tlsConfig.Clone()
 	}

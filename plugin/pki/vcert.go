@@ -50,7 +50,7 @@ func (b *backend) getConfig(ctx context.Context, req *logical.Request, role *rol
 
 	var trustBundlePEM string
 	if venafiSecret.TrustBundleFile != "" {
-		b.Logger().Debug(fmt.Sprintf("Reading trust bundle from file: " + venafiSecret.TrustBundleFile))
+		b.Logger().Debug(fmt.Sprintf("Reading trust bundle from file: %s", venafiSecret.TrustBundleFile))
 
 		trustBundle, err := os.ReadFile(venafiSecret.TrustBundleFile)
 		if err != nil {

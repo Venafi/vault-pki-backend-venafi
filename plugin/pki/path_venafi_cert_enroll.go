@@ -1055,7 +1055,7 @@ func validateAccessToken(b *backend, ctx context.Context, connector endpoint.Con
 		}
 		b.Logger().Info("Successfully updated tokens. Refreshing the connector with new token")
 		var newConnector endpoint.Connector
-		newConnector, cfg, err = b.ClientVenafi(ctx, logReq, role)
+		newConnector, _, err = b.ClientVenafi(ctx, logReq, role)
 		if err != nil {
 			b.Logger().Error(fmt.Sprintf("got error when getting new connector: %s", err.Error()))
 			return nil, err

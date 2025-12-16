@@ -10,15 +10,15 @@ import (
 	"github.com/Venafi/vault-pki-backend-venafi/plugin/pki"
 	"github.com/Venafi/vault-pki-backend-venafi/plugin/util"
 	"github.com/Venafi/vcert/v5/test"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
+	"github.com/onsi/ginkgo"
+	"github.com/onsi/gomega"
 )
 
 const (
 	vaultContainerName = "vault-pki-backend-venafi_vault_1"
 )
 
-var _ = Describe("Vault PKI Venafi backend e2e tests	", func() {
+var _ = ginkgo.Describe("Vault PKI Venafi backend e2e tests	", func() {
 	var (
 		cmd  string
 		out  string
@@ -80,110 +80,110 @@ var _ = Describe("Vault PKI Venafi backend e2e tests	", func() {
 		},
 	}
 
-	Describe("Checking vault status	", func() {
+	ginkgo.Describe("Checking vault status	", func() {
 
-		Describe("Vault status", func() {
-			It("should return that Vault is unseald", func() {
+		ginkgo.Describe("Vault status", func() {
+			ginkgo.It("should return that Vault is unseald", func() {
 				cmd = fmt.Sprintf("docker exec %s vault status", vaultContainerName)
-				By("running " + cmd)
+				ginkgo.By("running " + cmd)
 				out, err, code := testRun(cmd)
-				Expect(code).To(BeZero())
-				Expect(out).To(ContainSubstring("Sealed          false"))
-				Expect(err).To(BeEmpty())
+				gomega.Expect(code).To(gomega.BeZero())
+				gomega.Expect(out).To(gomega.ContainSubstring("Sealed          false"))
+				gomega.Expect(err).To(gomega.BeEmpty())
 			})
 		})
 	})
 
-	Describe("Enrolling certificates for test endpoints", func() {
-		Describe("with defaults", func() {
+	ginkgo.Describe("Enrolling certificates for test endpoints", func() {
+		ginkgo.Describe("with defaults", func() {
 			for _, endpoint := range endpoints {
 				if !endpoint.enabled {
 					continue
 				}
-				Context("with "+endpoint.name, func() {
-					It("Writing venafi secret configuration", func() {
+				ginkgo.Context("with "+endpoint.name, func() {
+					ginkgo.It("Writing venafi secret configuration", func() {
 						cmd = fmt.Sprintf(`docker exec %s vault write venafi-pki/venafi/%s `+endpoint.venafiOpt, vaultContainerName, endpoint.name+"Venafi")
-						By("Running " + cmd)
+						ginkgo.By("Running " + cmd)
 						out, err, code = testRun(cmd)
-						Expect(code).To(BeZero())
-						Expect(out).To(MatchRegexp("Success! Data written to: venafi-pki/venafi/" + endpoint.name + "Venafi"))
+						gomega.Expect(code).To(gomega.BeZero())
+						gomega.Expect(out).To(gomega.MatchRegexp("Success! Data written to: venafi-pki/venafi/" + endpoint.name + "Venafi"))
 					})
-					It("Writing role configuration", func() {
+					ginkgo.It("Writing role configuration", func() {
 						cmd = fmt.Sprintf(
 							`docker exec %s vault write venafi-pki/roles/%s
 							`+endpoint.roleOpt,
 							vaultContainerName, endpoint.name)
-						By("Running " + cmd)
+						ginkgo.By("Running " + cmd)
 						out, err, code = testRun(cmd)
-						Expect(code).To(BeZero())
-						Expect(out).To(MatchRegexp("Success! Data written to: venafi-pki/roles/" + endpoint.name))
+						gomega.Expect(code).To(gomega.BeZero())
+						gomega.Expect(out).To(gomega.MatchRegexp("Success! Data written to: venafi-pki/roles/" + endpoint.name))
 					})
 					cn := test.RandCN()
-					It("Enrolling certificate for "+endpoint.name, func() {
+					ginkgo.It("Enrolling certificate for "+endpoint.name, func() {
 						dns1 := "alt-" + test.RandCN()
 						dns2 := "alt-" + test.RandCN()
 						cmd = fmt.Sprintf(
 							`docker exec %s vault write venafi-pki/issue/%s common_name=%s alt_names=%s,%s -format=json`,
 							vaultContainerName, endpoint.name, cn, dns1, dns2)
 
-						By("Should run " + cmd)
+						ginkgo.By("Should run " + cmd)
 						out, err, code = testRun(cmd)
-						Expect(code).To(BeZero())
-						Expect(out).To(ContainSubstring("----BEGIN CERTIFICATE-----"))
-						Expect(err).To(BeEmpty())
+						gomega.Expect(code).To(gomega.BeZero())
+						gomega.Expect(out).To(gomega.ContainSubstring("----BEGIN CERTIFICATE-----"))
+						gomega.Expect(err).To(gomega.BeEmpty())
 
-						By("Should return valid JSON")
+						ginkgo.By("Should return valid JSON")
 						cert := vaultJSONCertificate{}
 						response := json.Unmarshal([]byte(out), &cert)
-						Expect(response).To(BeZero())
+						gomega.Expect(response).To(gomega.BeZero())
 
-						By("Should be valid certificate")
+						ginkgo.By("Should be valid certificate")
 						certificate := strings.Join([]string{cert.Data.Certificate}, "\n")
 						pemBlock, _ := pem.Decode([]byte(certificate))
 						parsedCertificate, parseErr := x509.ParseCertificate(pemBlock.Bytes)
-						Expect(parseErr).To(BeZero())
+						gomega.Expect(parseErr).To(gomega.BeZero())
 
 						haveCN := parsedCertificate.Subject.CommonName
-						By("Should have requested CN " + cn + " equal to " + haveCN)
-						Expect(haveCN).To(Equal(cn))
+						ginkgo.By("Should have requested CN " + cn + " equal to " + haveCN)
+						gomega.Expect(haveCN).To(gomega.Equal(cn))
 
 						//Skip DNS check for cloud since int not implemented in Condor.
 						if endpoint.id == tpp {
 							wantDNSNames := []string{cn, dns1, dns2}
 							haveDNSNames := parsedCertificate.DNSNames
-							By("Should have requested SANs and CN in DNSNames " + strings.Join(wantDNSNames, " ") + " same as " + strings.Join(haveDNSNames, " "))
-							Expect(util.SameStringSlice(haveDNSNames, wantDNSNames)).To(BeTrue())
+							ginkgo.By("Should have requested SANs and CN in DNSNames " + strings.Join(wantDNSNames, " ") + " same as " + strings.Join(haveDNSNames, " "))
+							gomega.Expect(util.SameStringSlice(haveDNSNames, wantDNSNames)).To(gomega.BeTrue())
 						}
 
-						By("Should have valid issuer CN")
+						ginkgo.By("Should have valid issuer CN")
 						haveIssuerCN := parsedCertificate.Issuer.CommonName
-						Expect(haveIssuerCN).To(Equal(endpoint.issuerCN))
+						gomega.Expect(haveIssuerCN).To(gomega.Equal(endpoint.issuerCN))
 
 					})
-					It("Fetching "+endpoint.name+" endpoint certificate with CN "+cn, func() {
-						By("Should be listed in certificates list")
+					ginkgo.It("Fetching "+endpoint.name+" endpoint certificate with CN "+cn, func() {
+						ginkgo.By("Should be listed in certificates list")
 						cmd = fmt.Sprintf(`docker exec %s vault list venafi-pki/certs`, vaultContainerName)
 						out, err, code = testRun(cmd)
-						Expect(code).To(BeZero())
-						Expect(out).To(MatchRegexp(cn))
+						gomega.Expect(code).To(gomega.BeZero())
+						gomega.Expect(out).To(gomega.MatchRegexp(cn))
 
-						By("Should return valid JSON")
+						ginkgo.By("Should return valid JSON")
 						cmd = fmt.Sprintf(`docker exec %s vault read -format=json venafi-pki/cert/%s`, vaultContainerName, cn)
 						fmt.Println(cmd)
 						out, err, code = testRun(cmd)
 						cert := vaultJSONCertificate{}
 						response := json.Unmarshal([]byte(out), &cert)
-						Expect(response).To(BeZero())
+						gomega.Expect(response).To(gomega.BeZero())
 
-						By("Should be valid certificate")
+						ginkgo.By("Should be valid certificate")
 						certificate := strings.Join([]string{cert.Data.Certificate}, "\n")
 						pemBlock, _ := pem.Decode([]byte(certificate))
 						parsedCertificate, parseErr := x509.ParseCertificate(pemBlock.Bytes)
-						Expect(parseErr).To(BeZero())
+						gomega.Expect(parseErr).To(gomega.BeZero())
 
-						By("Should have requested CN")
+						ginkgo.By("Should have requested CN")
 						haveCN := parsedCertificate.Subject.CommonName
-						Expect(haveCN).To(Equal(cn))
+						gomega.Expect(haveCN).To(gomega.Equal(cn))
 					})
 
 				})
