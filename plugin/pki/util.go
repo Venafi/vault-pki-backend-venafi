@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -81,7 +82,7 @@ func getTppConnector(cfg *vcert.Config) (*tpp.Connector, error) {
 	if cfg.ConnectionTrust != "" {
 		connectionTrustBundle = x509.NewCertPool()
 		if !connectionTrustBundle.AppendCertsFromPEM([]byte(cfg.ConnectionTrust)) {
-			return nil, fmt.Errorf("failed to parse PEM trust bundle")
+			return nil, errors.New("failed to parse PEM trust bundle")
 		}
 	}
 	tppConnector, err := tpp.NewConnector(cfg.BaseUrl, "", cfg.LogVerbose, connectionTrustBundle)
@@ -141,7 +142,7 @@ func updateAccessToken(b *backend, ctx context.Context, req *logical.Request, cf
 func storeAccessData(b *backend, ctx context.Context, req *logical.Request, role *roleEntry, resp tpp.OauthRefreshAccessTokenResponse) error {
 
 	if role.VenafiSecret == "" {
-		return fmt.Errorf("Role " + role.Name + " does not have any CyberArk secret associated")
+		return fmt.Errorf("Role %s does not have any CyberArk secret associated", role.Name)
 	}
 
 	venafiEntry, err := b.getVenafiSecret(ctx, req.Storage, role.VenafiSecret)
@@ -221,10 +222,10 @@ func parseTrustBundlePEM(trustBundlePem string) (*x509.CertPool, error) {
 	if trustBundlePem != "" {
 		connectionTrustBundle = x509.NewCertPool()
 		if !connectionTrustBundle.AppendCertsFromPEM([]byte(trustBundlePem)) {
-			return nil, fmt.Errorf("failed to parse PEM trust bundle")
+			return nil, errors.New("failed to parse PEM trust bundle")
 		}
 	} else {
-		return nil, fmt.Errorf("trust bundle PEM data is empty")
+		return nil, errors.New("trust bundle PEM data is empty")
 	}
 
 	return connectionTrustBundle, nil

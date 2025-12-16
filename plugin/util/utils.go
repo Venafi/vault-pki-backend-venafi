@@ -6,6 +6,7 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	mathrand "math/rand"
 	"net"
@@ -156,7 +157,7 @@ func GetPrivateKey(keyBytes []byte, passphrase string) ([]byte, error) {
 	// this section makes some small changes to code from notary/tuf/utils/x509.go
 	pemBlock, _ := pem.Decode(keyBytes)
 	if pemBlock == nil {
-		return nil, fmt.Errorf("no valid private key found")
+		return nil, errors.New("no valid private key found")
 	}
 
 	var err error
@@ -225,7 +226,7 @@ func EncryptPkcs1PrivateKey(privateKey string, password string) (string, error) 
 			return "", nil
 		}
 	} else {
-		return "", fmt.Errorf("unable to encrypt key in PKCS1 format")
+		return "", errors.New("unable to encrypt key in PKCS1 format")
 	}
 	return string(pem.EncodeToMemory(encrypted)), nil
 }
