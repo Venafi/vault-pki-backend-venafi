@@ -154,7 +154,7 @@ func (b *backend) pathVenafiIssue(ctx context.Context, req *logical.Request, dat
 	}
 
 	if role.KeyType == "any" {
-		return nil, fmt.Errorf(`role key type "any" not allowed for issuing certificates, only signing`)
+		return nil, errors.New(`role key type "any" not allowed for issuing certificates, only signing`)
 	}
 
 	logicResp, err := b.pathVenafiCertObtain(ctx, req, data, role, false)
@@ -376,7 +376,7 @@ func (b *backend) recoverBroadcast(cert *SyncedResponse, logResp *logical.Respon
 func populateReqData(data *framework.FieldData, role *roleEntry) (*requestData, error) {
 	var reqData requestData
 	if data == nil {
-		return nil, fmt.Errorf("data can't be nil")
+		return nil, errors.New("data can't be nil")
 	}
 
 	commonNameRaw, ok := data.GetOk("common_name")
@@ -498,7 +498,7 @@ func (b *backend) storingCertificate(ctx context.Context, logicalRequest *logica
 	b.Logger().Info("Writing certificate to the certs/" + certId)
 	entry.Key = "certs/" + certId
 	if err := logicalRequest.Storage.Put(ctx, entry); err != nil {
-		return fmt.Errorf("Error putting entry to storage: " + err.Error())
+		return fmt.Errorf("error putting entry to storage: %w", err)
 	}
 	b.Logger().Info(fmt.Sprintf("Stored certificate with ID: %v", certId))
 	return nil
@@ -616,7 +616,7 @@ func issueCertificate(certReq *certificate.Request, keyPass string, cl endpoint.
 	} else if role.ServiceGenerated {
 		// Service generated
 		if pemCollection.PrivateKey == "" {
-			return nil, fmt.Errorf("we got empty private private key when we expected one to be generated from service")
+			return nil, errors.New("we got empty private private key when we expected one to be generated from service")
 		}
 		privateKey, err := util.DecryptPkcs8PrivateKey(pemCollection.PrivateKey, keyPass)
 		if err != nil {
@@ -643,7 +643,7 @@ func issueCertificate(certReq *certificate.Request, keyPass string, cl endpoint.
 	if !signCSR {
 		_, err = tls.X509KeyPair([]byte(pemCollection.Certificate), []byte(pemCollection.PrivateKey))
 		if err != nil {
-			return nil, fmt.Errorf("the certificate returned by Venafi did not contain the requested private key," +
+			return nil, errors.New("the certificate returned by Venafi did not contain the requested private key," +
 				" key pair has been discarded")
 		}
 	}
@@ -802,7 +802,7 @@ func formRequest(reqData requestData, role *roleEntry, cl *endpoint.Connector, s
 		}
 		logger.Info(msg)
 		if len(reqData.altNames) == 0 && reqData.commonName == "" {
-			return certReq, fmt.Errorf("no domains specified on certificate")
+			return certReq, errors.New("no domains specified on certificate")
 		}
 		sanitizeRequestData(&reqData, logger)
 
@@ -853,12 +853,12 @@ func formRequest(reqData requestData, role *roleEntry, cl *endpoint.Connector, s
 		logger.Info("Signing user provided CSR")
 
 		if reqData.csrString == "" {
-			return certReq, fmt.Errorf("\"csr\" is empty")
+			return certReq, errors.New("\"csr\" is empty")
 		}
 		pemBytes := []byte(reqData.csrString)
 		pemBlock, _ := pem.Decode(pemBytes)
 		if pemBlock == nil {
-			return certReq, fmt.Errorf("csr contains no data")
+			return certReq, errors.New("csr contains no data")
 		}
 		csr, err := x509.ParseCertificateRequest(pemBlock.Bytes)
 		if err != nil {
@@ -923,7 +923,7 @@ func formRequest(reqData requestData, role *roleEntry, cl *endpoint.Connector, s
 
 	//Adding custom fields to certificate
 	if !isValidCustomFields(reqData.customFields) {
-		return certReq, fmt.Errorf("invalid custom fields; must be 'key=value' using commas to separate multiple key-value pairs")
+		return certReq, errors.New("invalid custom fields; must be 'key=value' using commas to separate multiple key-value pairs")
 	}
 	for _, f := range reqData.customFields {
 		tuple := strings.Split(f, "=")
@@ -1055,7 +1055,7 @@ func validateAccessToken(b *backend, ctx context.Context, connector endpoint.Con
 		}
 		b.Logger().Info("Successfully updated tokens. Refreshing the connector with new token")
 		var newConnector endpoint.Connector
-		newConnector, cfg, err = b.ClientVenafi(ctx, logReq, role)
+		newConnector, _, err = b.ClientVenafi(ctx, logReq, role)
 		if err != nil {
 			b.Logger().Error(fmt.Sprintf("got error when getting new connector: %s", err.Error()))
 			return nil, err

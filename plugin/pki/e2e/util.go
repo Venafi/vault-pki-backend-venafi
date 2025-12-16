@@ -2,8 +2,8 @@ package e2e
 
 import (
 	"fmt"
-	. "github.com/Venafi/vault-pki-backend-venafi/plugin/pki"
-	. "github.com/onsi/ginkgo"
+	"github.com/Venafi/vault-pki-backend-venafi/plugin/pki"
+	"github.com/onsi/ginkgo"
 	"github.com/rendon/testcli"
 	"strings"
 )
@@ -18,7 +18,7 @@ func testRunCmd(some ...string) (out, err string, exitCode int) {
 }
 
 type vaultJSONCertificate struct {
-	Data VenafiCert
+	Data pki.VenafiCert
 }
 
 func splitAndFlat(parts ...interface{}) (ret []string) {
@@ -39,7 +39,7 @@ func splitAndFlat(parts ...interface{}) (ret []string) {
 
 func testRun(cmd string) (out, err string, exitCode int) {
 	out, err, exitCode = testRunCmd(cmd)
-	fmt.Fprintf(GinkgoWriter,
+	fmt.Fprintf(ginkgo.GinkgoWriter,
 		"===CMD: %s\n===OUT:%s\n===ERR:%s\n===EXIT(%d)",
 		strings.Fields(cmd), out, err, exitCode)
 	return

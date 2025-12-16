@@ -65,8 +65,8 @@ const (
 	venafiConfigCloudPredefined             venafiConfigString = "CloudPredefined"
 	venafiConfigCloudRestricted             venafiConfigString = "CloudRestricted"
 	venafiConfigToken                       venafiConfigString = "TppToken"
-	venafiConfigTokenPredefined             venafiConfigString = "TppTokenPredefined"
-	venafiConfigTokenWithRefresh            venafiConfigString = "TppTokenWithRefresh"
+	venafiConfigTokenPredefined             venafiConfigString = "TppTokenPredefined"  // #nosec G101
+	venafiConfigTokenWithRefresh            venafiConfigString = "TppTokenWithRefresh" // #nosec G101
 	venafiConfigTokenWithOnlyOneRefresh     venafiConfigString = "TppTokenWithOnlyOneRefresh"
 	venafiConfigTokenWithSecondRefresh      venafiConfigString = "TppTokenWithOnlySecondRefresh"
 	venafiConfigTokenRestricted             venafiConfigString = "TppTokenRestricted"
@@ -83,7 +83,7 @@ const (
 	venafiVenafiConfigFake                  venafiConfigString = "VenafiFake"
 	venafiRoleConfig                        venafiConfigString = "Role"
 	venafiRoleWithZoneConfig                venafiConfigString = "venafiRoleWithZone"
-	venafiRoleWithVenafiSecretConfig        venafiConfigString = "venafiVenafiSecretZone"
+	venafiRoleWithVenafiSecretConfig        venafiConfigString = "venafiVenafiSecretZone" // #nosec G101
 )
 
 var venafiTestRoleConfig = map[string]interface{}{
@@ -2855,7 +2855,7 @@ func randSeq(n int) string {
 	var letters = []rune("abcdefghijklmnopqrstuvwxyz1234567890")
 	b := make([]rune, n)
 	for i := range b {
-		b[i] = letters[rand.Intn(len(letters))]
+		b[i] = letters[rand.Intn(len(letters))] // #nosec G404
 	}
 	return string(b)
 }

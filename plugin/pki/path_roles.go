@@ -2,6 +2,7 @@ package pki
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -418,29 +419,27 @@ func validateEntry(entry *roleEntry) (err error) {
 
 	credName := entry.VenafiSecret
 	if credName == "" {
-		return fmt.Errorf(util.ErrorTextVenafiSecretEmpty)
+		return errors.New(util.ErrorTextVenafiSecretEmpty)
 	}
 
 	if entry.MaxTTL > 0 && entry.TTL > entry.MaxTTL {
-		return fmt.Errorf(
+		return errors.New(
 			util.ErrorTextValueMustBeLess,
 		)
 	}
 
 	if (entry.StoreByCN || entry.StoreBySerial) && entry.StoreBy != "" {
-		return fmt.Errorf(util.ErrorTextStoreByAndStoreByCNOrSerialConflict)
+		return errors.New(util.ErrorTextStoreByAndStoreByCNOrSerialConflict)
 	}
 	if (entry.StoreByCN || entry.StoreBySerial) && entry.NoStore {
-		return fmt.Errorf(util.ErrorTextNoStoreAndStoreByCNOrSerialConflict)
+		return errors.New(util.ErrorTextNoStoreAndStoreByCNOrSerialConflict)
 	}
 	if entry.StoreBy != "" && entry.NoStore {
-		return fmt.Errorf(util.ErrorTextNoStoreAndStoreByConflict)
+		return errors.New(util.ErrorTextNoStoreAndStoreByConflict)
 	}
 	if entry.StoreBy != "" {
 		if (entry.StoreBy != util.StoreBySerialString) && (entry.StoreBy != util.StoreByCNString) && (entry.StoreBy != util.StoreByHASHstring) {
-			return fmt.Errorf(
-				fmt.Sprintf(util.ErrTextStoreByWrongOption, util.StoreBySerialString, util.StoreByCNString, util.StoreByHASHstring, entry.StoreBy),
-			)
+			return fmt.Errorf(util.ErrTextStoreByWrongOption, util.StoreBySerialString, util.StoreByCNString, util.StoreByHASHstring, entry.StoreBy)
 		}
 	}
 
