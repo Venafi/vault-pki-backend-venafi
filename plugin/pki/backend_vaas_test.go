@@ -334,6 +334,7 @@ func TestVAASpreventLocalReissuance(t *testing.T) {
 
 func TestVAASpreventReissuance(t *testing.T) {
 	t.Skip("Skipping TestVAASpreventReissuance tests because there are some little performance issues in Cert Manager, SaaS which are affecting the testing")
+	t.Parallel()
 	// regular duration for testing
 	regDuration := time.Duration(24) * time.Hour
 	// CASE: should be the SAME - same CN and SAN
