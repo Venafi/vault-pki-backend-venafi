@@ -1,4 +1,4 @@
-# v0.15.0 (December 15, 2025)
+# v0.15.0 (December 16, 2025)
 * CyberArk rebranding
 * Upgrade to Go 1.24.11
 * Upgrade dependencies
