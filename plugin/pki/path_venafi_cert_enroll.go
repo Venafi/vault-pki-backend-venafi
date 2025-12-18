@@ -882,12 +882,12 @@ func formRequest(reqData requestData, role *roleEntry, cl *endpoint.Connector, s
 			certReq.KeyLength = role.KeyBits
 		case "ec":
 			certReq.KeyType = certificate.KeyTypeECDSA
-			switch {
-			case role.KeyCurve == "P256":
+			switch role.KeyCurve {
+			case "P256":
 				certReq.KeyCurve = certificate.EllipticCurveP256
-			case role.KeyCurve == "P384":
+			case "P384":
 				certReq.KeyCurve = certificate.EllipticCurveP384
-			case role.KeyCurve == "P521":
+			case "P521":
 				certReq.KeyCurve = certificate.EllipticCurveP521
 			default:
 				return certReq, fmt.Errorf("can't use key curve %s", role.KeyCurve)
