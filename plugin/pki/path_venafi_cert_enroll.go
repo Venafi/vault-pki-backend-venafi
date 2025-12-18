@@ -911,14 +911,14 @@ func formRequest(reqData requestData, role *roleEntry, cl *endpoint.Connector, s
 		certReq.IssuerHint = getIssuerHint(role.IssuerHint)
 
 		ttl := int(reqData.ttl.Hours())
-		certReq.ValidityHours = ttl
+		certReq.ValidityHours = ttl //nolint SA1019 disabled deprecated validation until we remove the support for that
 
 	} else if role.TTL > 0 {
 
 		certReq.IssuerHint = getIssuerHint(role.IssuerHint)
 
 		ttl := int(role.TTL.Hours())
-		certReq.ValidityHours = ttl
+		certReq.ValidityHours = ttl //nolint SA1019 disabled deprecated validation until we remove the support for that
 	}
 
 	//Adding origin custom field with utility name to certificate metadata
