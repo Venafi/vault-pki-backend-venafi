@@ -64,7 +64,7 @@ func AddSeparatorToHexFormattedString(s string, sep string) (string, error) {
 }
 
 func NormalizeSerial(serial string) string {
-	return strings.Replace(strings.ToLower(serial), ":", "-", -1)
+	return strings.ReplaceAll(strings.ToLower(serial), ":", "-")
 }
 
 func SameIpSlice(x, y []net.IP) bool {
