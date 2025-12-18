@@ -673,7 +673,7 @@ func preventReissue(b *backend, ctx context.Context, req *logical.Request, reqDa
 		minCertTimeLeft = role.MinCertTimeLeft // should at least equals to defined default value
 	}
 	certInfo, err := (*cl).SearchCertificate(zone, commonName, sans, minCertTimeLeft)
-	if err != nil && !(err == verror.NoCertificateFoundError || err == verror.NoCertificateWithMatchingZoneFoundError) {
+	if err != nil && !(err == verror.NoCertificateFoundError) && !(err == verror.NoCertificateWithMatchingZoneFoundError) {
 		return logical.ErrorResponse(err.Error())
 	}
 	if certInfo != nil {
