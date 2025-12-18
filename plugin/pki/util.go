@@ -142,7 +142,7 @@ func updateAccessToken(b *backend, ctx context.Context, req *logical.Request, cf
 func storeAccessData(b *backend, ctx context.Context, req *logical.Request, role *roleEntry, resp tpp.OauthRefreshAccessTokenResponse) error {
 
 	if role.VenafiSecret == "" {
-		return fmt.Errorf("Role %s does not have any CyberArk secret associated", role.Name)
+		return fmt.Errorf("role %s does not have any CyberArk secret associated", role.Name)
 	}
 
 	venafiEntry, err := b.getVenafiSecret(ctx, req.Storage, role.VenafiSecret)
