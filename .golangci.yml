@@ -4,7 +4,6 @@ run:
   tests: false
 linters:
   disable:
-    - unused
     - staticcheck
   enable:
     - gosec
