@@ -3,8 +3,6 @@ run:
   modules-download-mode: readonly
   tests: false
 linters:
-  disable:
-    - staticcheck
   enable:
     - gosec
   exclusions:

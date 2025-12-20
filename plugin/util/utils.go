@@ -64,7 +64,7 @@ func AddSeparatorToHexFormattedString(s string, sep string) (string, error) {
 }
 
 func NormalizeSerial(serial string) string {
-	return strings.Replace(strings.ToLower(serial), ":", "-", -1)
+	return strings.ReplaceAll(strings.ToLower(serial), ":", "-")
 }
 
 func SameIpSlice(x, y []net.IP) bool {
@@ -215,17 +215,18 @@ func EncryptPkcs1PrivateKey(privateKey string, password string) (string, error) 
 	keyType := util.GetPrivateKeyType(privateKey, password)
 	var encrypted *pem.Block
 	var err error
-	if keyType == "RSA PRIVATE KEY" {
+	switch keyType {
+	case "RSA PRIVATE KEY":
 		encrypted, err = util.X509EncryptPEMBlock(rand.Reader, "RSA PRIVATE KEY", block.Bytes, []byte(password), util.PEMCipherAES256)
 		if err != nil {
 			return "", nil
 		}
-	} else if keyType == "EC PRIVATE KEY" {
+	case "EC PRIVATE KEY":
 		encrypted, err = util.X509EncryptPEMBlock(rand.Reader, "EC PRIVATE KEY", block.Bytes, []byte(password), util.PEMCipherAES256)
 		if err != nil {
 			return "", nil
 		}
-	} else {
+	default:
 		return "", errors.New("unable to encrypt key in PKCS1 format")
 	}
 	return string(pem.EncodeToMemory(encrypted)), nil
