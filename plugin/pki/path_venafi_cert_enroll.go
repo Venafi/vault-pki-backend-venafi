@@ -673,7 +673,7 @@ func preventReissue(b *backend, ctx context.Context, req *logical.Request, reqDa
 		minCertTimeLeft = role.MinCertTimeLeft // should at least equals to defined default value
 	}
 	certInfo, err := (*cl).SearchCertificate(zone, commonName, sans, minCertTimeLeft)
-	if err != nil && !(err == verror.NoCertificateFoundError || err == verror.NoCertificateWithMatchingZoneFoundError) {
+	if err != nil && !(errors.Is(err, verror.NoCertificateFoundError)) && !(errors.Is(err, verror.NoCertificateWithMatchingZoneFoundError)) {
 		return logical.ErrorResponse(err.Error())
 	}
 	if certInfo != nil {
@@ -911,14 +911,14 @@ func formRequest(reqData requestData, role *roleEntry, cl *endpoint.Connector, s
 		certReq.IssuerHint = getIssuerHint(role.IssuerHint)
 
 		ttl := int(reqData.ttl.Hours())
-		certReq.ValidityHours = ttl
+		certReq.ValidityHours = ttl //nolint SA1019 disabled until we remove the support for the deprecated code
 
 	} else if role.TTL > 0 {
 
 		certReq.IssuerHint = getIssuerHint(role.IssuerHint)
 
 		ttl := int(role.TTL.Hours())
-		certReq.ValidityHours = ttl
+		certReq.ValidityHours = ttl //nolint SA1019 disabled until we remove the support for the deprecated code
 	}
 
 	//Adding origin custom field with utility name to certificate metadata
