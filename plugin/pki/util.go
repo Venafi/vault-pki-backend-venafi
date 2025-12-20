@@ -6,7 +6,6 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
@@ -244,7 +243,7 @@ func createConfigFromFieldData(data *venafiSecretEntry) (*vcert.Config, error) {
 	if trustBundlePath != "" {
 
 		var trustBundlePEM string
-		trustBundle, err := ioutil.ReadFile(trustBundlePath)
+		trustBundle, err := os.ReadFile(trustBundlePath)
 
 		if err != nil {
 			return cfg, err
