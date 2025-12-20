@@ -11,10 +11,10 @@ const (
 	StoreByHASHstring                            = "hash"
 	StoreBySerialString                          = "serial"
 	ErrorTextValueMustBeLess                     = `"ttl" value must be less than "max_ttl" value`
-	ErrorTextStoreByAndStoreByCNOrSerialConflict = `Can't specify both story_by and store_by_cn or store_by_serial options '`
-	ErrorTextNoStoreAndStoreByCNOrSerialConflict = `Can't specify both no_store and store_by_cn or store_by_serial options '`
-	ErrorTextNoStoreAndStoreByConflict           = `Can't specify both no_store and store_by options '`
-	ErrTextStoreByWrongOption                    = "Option store_by can be %s, %s or %s, not %s"
+	ErrorTextStoreByAndStoreByCNOrSerialConflict = `can't specify both story_by and store_by_cn or store_by_serial options '`
+	ErrorTextNoStoreAndStoreByCNOrSerialConflict = `can't specify both no_store and store_by_cn or store_by_serial options '`
+	ErrorTextNoStoreAndStoreByConflict           = `can't specify both no_store and store_by options '`
+	ErrTextStoreByWrongOption                    = "option store_by can be %s, %s or %s, not %s"
 	ErrorTextVenafiSecretEmpty                   = `"venafi_secret" argument is required`
 	ErrorTextURLEmpty                            = `"url" argument is required`
 	ErrorTextZoneEmpty                           = `"zone" argument is required`

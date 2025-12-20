@@ -486,15 +486,17 @@ func (b *backend) storingCertificate(ctx context.Context, logicalRequest *logica
 		return err
 	}
 
-	if role.StoreBy == util.StoreByCNString {
+	switch role.StoreBy {
+	case util.StoreByCNString:
 		// Writing certificate to the storage with CN
 		certId = commonName
-	} else if role.StoreBy == util.StoreByHASHstring {
+	case util.StoreByHASHstring:
 		// do nothing as we already calculated the hash above
-	} else {
+	default:
 		//Writing certificate to the storage with Serial Number
 		certId = util.NormalizeSerial((*parsedCertificate).SerialNumber)
 	}
+
 	b.Logger().Info("Writing certificate to the certs/" + certId)
 	entry.Key = "certs/" + certId
 	if err := logicalRequest.Storage.Put(ctx, entry); err != nil {
@@ -671,7 +673,7 @@ func preventReissue(b *backend, ctx context.Context, req *logical.Request, reqDa
 		minCertTimeLeft = role.MinCertTimeLeft // should at least equals to defined default value
 	}
 	certInfo, err := (*cl).SearchCertificate(zone, commonName, sans, minCertTimeLeft)
-	if err != nil && !(err == verror.NoCertificateFoundError || err == verror.NoCertificateWithMatchingZoneFoundError) {
+	if err != nil && !(errors.Is(err, verror.NoCertificateFoundError)) && !(errors.Is(err, verror.NoCertificateWithMatchingZoneFoundError)) {
 		return logical.ErrorResponse(err.Error())
 	}
 	if certInfo != nil {
@@ -875,31 +877,32 @@ func formRequest(reqData requestData, role *roleEntry, cl *endpoint.Connector, s
 	}
 
 	if !signCSR {
-		if role.KeyType == "rsa" {
+		switch role.KeyType {
+		case "rsa":
 			certReq.KeyLength = role.KeyBits
-		} else if role.KeyType == "ec" {
+		case "ec":
 			certReq.KeyType = certificate.KeyTypeECDSA
-			switch {
-			case role.KeyCurve == "P256":
+			switch role.KeyCurve {
+			case "P256":
 				certReq.KeyCurve = certificate.EllipticCurveP256
-			case role.KeyCurve == "P384":
+			case "P384":
 				certReq.KeyCurve = certificate.EllipticCurveP384
-			case role.KeyCurve == "P521":
+			case "P521":
 				certReq.KeyCurve = certificate.EllipticCurveP521
 			default:
 				return certReq, fmt.Errorf("can't use key curve %s", role.KeyCurve)
 			}
-
-		} else {
+		default:
 			return certReq, fmt.Errorf("can't determine key algorithm for %s", role.KeyType)
 		}
 	}
 
-	if role.ChainOption == "first" {
+	switch role.ChainOption {
+	case "first":
 		certReq.ChainOption = certificate.ChainOptionRootFirst
-	} else if role.ChainOption == "last" {
+	case "last":
 		certReq.ChainOption = certificate.ChainOptionRootLast
-	} else {
+	default:
 		return certReq, fmt.Errorf("invalid chain option %s", role.ChainOption)
 	}
 
@@ -908,14 +911,14 @@ func formRequest(reqData requestData, role *roleEntry, cl *endpoint.Connector, s
 		certReq.IssuerHint = getIssuerHint(role.IssuerHint)
 
 		ttl := int(reqData.ttl.Hours())
-		certReq.ValidityHours = ttl
+		certReq.ValidityHours = ttl //nolint SA1019 disabled until we remove the support for the deprecated code
 
 	} else if role.TTL > 0 {
 
 		certReq.IssuerHint = getIssuerHint(role.IssuerHint)
 
 		ttl := int(role.TTL.Hours())
-		certReq.ValidityHours = ttl
+		certReq.ValidityHours = ttl //nolint SA1019 disabled until we remove the support for the deprecated code
 	}
 
 	//Adding origin custom field with utility name to certificate metadata

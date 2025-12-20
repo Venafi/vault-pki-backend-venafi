@@ -6,7 +6,6 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
@@ -142,7 +141,7 @@ func updateAccessToken(b *backend, ctx context.Context, req *logical.Request, cf
 func storeAccessData(b *backend, ctx context.Context, req *logical.Request, role *roleEntry, resp tpp.OauthRefreshAccessTokenResponse) error {
 
 	if role.VenafiSecret == "" {
-		return fmt.Errorf("Role %s does not have any CyberArk secret associated", role.Name)
+		return fmt.Errorf("role %s does not have any CyberArk secret associated", role.Name)
 	}
 
 	venafiEntry, err := b.getVenafiSecret(ctx, req.Storage, role.VenafiSecret)
@@ -244,7 +243,7 @@ func createConfigFromFieldData(data *venafiSecretEntry) (*vcert.Config, error) {
 	if trustBundlePath != "" {
 
 		var trustBundlePEM string
-		trustBundle, err := ioutil.ReadFile(trustBundlePath)
+		trustBundle, err := os.ReadFile(trustBundlePath)
 
 		if err != nil {
 			return cfg, err
