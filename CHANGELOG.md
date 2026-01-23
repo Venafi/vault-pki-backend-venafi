@@ -1,3 +1,6 @@
+# v0.15.1 (January 23, 2026)
+* golangci-lint re-enabled
+
 # v0.15.0 (December 16, 2025)
 * CyberArk rebranding
 * Upgrade to Go 1.24.11
