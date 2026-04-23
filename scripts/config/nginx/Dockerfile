@@ -1,4 +1,4 @@
-FROM nginx
+FROM nginx:stable-trixie
 
 EXPOSE 80 443
 
