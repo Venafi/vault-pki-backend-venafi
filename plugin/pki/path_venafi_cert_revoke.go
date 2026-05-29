@@ -72,6 +72,17 @@ func (b *backend) venafiCertRevoke(ctx context.Context, req *logical.Request, d 
 		return logical.ErrorResponse("the certificate is not stored"), errors.New("the certificate is not stored")
 	}
 
+	// Load the stored certificate to verify ownership
+	storedCert, err := loadCertificateFromStorage(b, ctx, req, id, "")
+	if err != nil {
+		return logical.ErrorResponse("failed to load certificate: %s", err), err
+	}
+
+	// Verify that the certificate belongs to the requested role
+	if storedCert.Role != "" && storedCert.Role != roleName {
+		return logical.ErrorResponse("certificate does not belong to role %s", roleName), errors.New("unauthorized revocation attempt")
+	}
+
 	b.Logger().Debug("Creating Venafi client:")
 
 	cl, cfg, err := b.ClientVenafi(ctx, req, role)
@@ -80,7 +91,9 @@ func (b *backend) venafiCertRevoke(ctx context.Context, req *logical.Request, d 
 		return logical.ErrorResponse(err.Error()), nil
 	}
 
-	dn, err := getDn(b, &cl, ctx, req, cfg.Zone, id, role.StoreBy)
+	// Derive DN from stored serial number rather than caller-supplied ID (defense-in-depth)
+	serialNumber := strings.ReplaceAll(storedCert.SerialNumber, ":", "")
+	dn, err := getDnFromSerial(&cl, serialNumber)
 
 	if err != nil {
 		return logical.ErrorResponse(err.Error()), nil
