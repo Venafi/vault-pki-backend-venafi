@@ -145,13 +145,13 @@ func (b *backend) pathVenafiIssue(ctx context.Context, req *logical.Request, dat
 	b.Logger().Debug(fmt.Sprintf("Using role: %s", roleName))
 	// Get the role
 	role, err := b.getRole(ctx, req.Storage, roleName)
-	role.Name = roleName
 	if err != nil {
 		return nil, err
 	}
 	if role == nil {
 		return nil, fmt.Errorf("unknown role: %s", roleName)
 	}
+	role.Name = roleName
 
 	if role.KeyType == "any" {
 		return nil, errors.New(`role key type "any" not allowed for issuing certificates, only signing`)
@@ -171,7 +171,6 @@ func (b *backend) pathVenafiSign(ctx context.Context, req *logical.Request, data
 
 	// Get the role
 	role, err := b.getRole(ctx, req.Storage, roleName)
-	role.Name = roleName
 
 	if err != nil {
 		return nil, err
@@ -179,6 +178,7 @@ func (b *backend) pathVenafiSign(ctx context.Context, req *logical.Request, data
 	if role == nil {
 		return logical.ErrorResponse(fmt.Sprintf("unknown role: %s", roleName)), nil
 	}
+	role.Name = roleName
 	logicResp, err := b.pathVenafiCertObtain(ctx, req, data, role, true)
 	if err != nil {
 		return nil, err

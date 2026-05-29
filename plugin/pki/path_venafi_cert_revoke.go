@@ -201,6 +201,9 @@ func getDnFromSerial(c *endpoint.Connector, serial string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if len(data.Certificates) == 0 {
+		return "", errors.New("no certificates found for the given serial")
+	}
 	dn := data.Certificates[0].CertificateRequestId
 
 	return dn, nil
