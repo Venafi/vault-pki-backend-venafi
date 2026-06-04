@@ -51,15 +51,6 @@ func (b *backend) pathVenafiCertRead(ctx context.Context, req *logical.Request, 
 		"serial_number":     cert.SerialNumber,
 		"certificate_chain": cert.CertificateChain,
 		"certificate":       cert.Certificate,
-		"private_key":       cert.PrivateKey,
-	}
-
-	if keyPassword != "" {
-		encryptedPrivateKeyPem, err := util.EncryptPrivateKey(cert.PrivateKey, keyPassword)
-		if err != nil {
-			return nil, err
-		}
-		respData["private_key"] = encryptedPrivateKeyPem
 	}
 
 	return &logical.Response{
