@@ -474,12 +474,14 @@ func (b *backend) storingCertificate(ctx context.Context, logicalRequest *logica
 			CertificateChain: (*parsedCertificate).Chain,
 			PrivateKey:       pcc.PrivateKey,
 			SerialNumber:     (*parsedCertificate).SerialNumber,
+			Role:             role.Name,
 		})
 	} else {
 		entry, err = logical.StorageEntryJSON("", VenafiCert{
 			Certificate:      pcc.Certificate,
 			CertificateChain: (*parsedCertificate).Chain,
 			SerialNumber:     (*parsedCertificate).SerialNumber,
+			Role:             role.Name,
 		})
 	}
 	if err != nil {
@@ -1084,6 +1086,7 @@ type VenafiCert struct {
 	CertificateChain string `json:"certificate_chain"`
 	PrivateKey       string `json:"private_key"`
 	SerialNumber     string `json:"serial_number"`
+	Role             string `json:"role"`
 }
 
 type ParsedCertificate struct {
