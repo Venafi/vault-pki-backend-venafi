@@ -91,9 +91,7 @@ func (b *backend) venafiCertRevoke(ctx context.Context, req *logical.Request, d 
 		return logical.ErrorResponse(err.Error()), nil
 	}
 
-	// Derive DN from stored serial number rather than caller-supplied ID (defense-in-depth)
-	serialNumber := strings.ReplaceAll(storedCert.SerialNumber, ":", "")
-	dn, err := getDnFromSerial(&cl, serialNumber)
+	dn, err := getDn(b, &cl, ctx, req, cfg.Zone, id, role.StoreBy)
 
 	if err != nil {
 		return logical.ErrorResponse(err.Error()), nil
