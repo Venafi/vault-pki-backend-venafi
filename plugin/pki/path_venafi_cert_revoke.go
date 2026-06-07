@@ -2,6 +2,10 @@ package pki
 
 import (
 	"context"
+	"crypto/sha1" // #nosec G505
+	"crypto/x509"
+	"encoding/hex"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"strings"
@@ -27,6 +31,10 @@ func pathVenafiCertRevoke(b *backend) *framework.Path {
 			"certificate_uid": {
 				Type:        framework.TypeString,
 				Description: "Common name for created certificate",
+			},
+			"serial_number": {
+				Type:        framework.TypeString,
+				Description: "Serial number of the certificate to revoke",
 			},
 		},
 		Operations: map[logical.Operation]framework.OperationHandler{
@@ -63,13 +71,16 @@ func (b *backend) venafiCertRevoke(ctx context.Context, req *logical.Request, d 
 		return logical.ErrorResponse("role key type \"any\" not allowed for issuing certificates, only signing"), nil
 	}
 
-	id := d.Get("certificate_uid").(string)
+	id := getRevokeCertificateID(d, role)
+	if id == "" {
+		return logical.ErrorResponse("missing certificate_uid or serial_number"), nil
+	}
 
 	if exists, err := isCertificateStored(ctx, req, id, role); !exists {
 		if err != nil {
-			return logical.ErrorResponse(err.Error()), err
+			return logical.ErrorResponse(err.Error()), nil
 		}
-		return logical.ErrorResponse("the certificate is not stored"), errors.New("the certificate is not stored")
+		return logical.ErrorResponse("the certificate is not stored"), nil
 	}
 
 	// Load the stored certificate to verify ownership
@@ -91,17 +102,12 @@ func (b *backend) venafiCertRevoke(ctx context.Context, req *logical.Request, d 
 		return logical.ErrorResponse(err.Error()), nil
 	}
 
-	dn, err := getDn(b, &cl, ctx, req, cfg.Zone, id, role.StoreBy)
-
+	revReq, err := getRevocationRequest(b, &cl, ctx, req, cfg.Zone, id, role)
 	if err != nil {
 		return logical.ErrorResponse(err.Error()), nil
 	}
 
-	revReq := certificate.RevocationRequest{}
-
-	revReq.CertificateDN = dn
-
-	_, err = cl.RevokeCertificate(&revReq)
+	_, err = cl.RevokeCertificate(revReq)
 
 	if err != nil {
 		return logical.ErrorResponse("Failed to revoke certificate: %s", err), nil
@@ -116,11 +122,27 @@ func (b *backend) venafiCertRevoke(ctx context.Context, req *logical.Request, d 
 	return nil, nil
 }
 
+func getRevokeCertificateID(d *framework.FieldData, role *roleEntry) string {
+	id := d.Get("certificate_uid").(string)
+	if id == "" {
+		id = d.Get("serial_number").(string)
+	}
+	return normalizeRevokeCertificateID(id, role)
+}
+
+func normalizeRevokeCertificateID(id string, role *roleEntry) string {
+	if id == "" {
+		return id
+	}
+	if role.StoreBy == util.StoreByCNString || role.StoreByCN {
+		return id
+	}
+	return util.NormalizeSerial(id)
+}
+
 func deleteCertificateEntry(ctx context.Context, req *logical.Request, id string, role *roleEntry) error {
 
-	if !role.StoreByCN {
-		id = strings.ReplaceAll(id, ":", "-")
-	}
+	id = normalizeRevokeCertificateID(id, role)
 
 	path := "certs/" + id
 
@@ -142,14 +164,7 @@ func isCertificateStored(ctx context.Context, req *logical.Request, id string, r
 		return false, errors.New("certificate is not stored")
 	}
 
-	if !role.StoreByCN {
-		if strings.Contains(id, ":") {
-			id = strings.ReplaceAll(id, ":", "-")
-		}
-		if strings.Contains(id, "-") {
-			id = strings.ReplaceAll(id, "-", "-")
-		}
-	}
+	id = normalizeRevokeCertificateID(id, role)
 
 	path := "certs/" + id
 	entry, err := req.Storage.Get(ctx, path)
@@ -163,6 +178,47 @@ func isCertificateStored(ctx context.Context, req *logical.Request, id string, r
 	}
 
 	return true, nil
+}
+
+func getRevocationRequest(b *backend, c *endpoint.Connector, ctx context.Context, req *logical.Request, zone string, certID string, role *roleEntry) (*certificate.RevocationRequest, error) {
+	revReq := certificate.RevocationRequest{}
+
+	if (*c).GetType() == endpoint.ConnectorTypeCloud {
+		thumbprint, err := getThumbprintFromStorage(b, ctx, req, certID)
+		if err != nil {
+			return nil, err
+		}
+		revReq.Thumbprint = thumbprint
+		return &revReq, nil
+	}
+
+	dn, err := getDn(b, c, ctx, req, zone, certID, role.StoreBy)
+	if err != nil {
+		return nil, err
+	}
+	revReq.CertificateDN = dn
+
+	return &revReq, nil
+}
+
+func getThumbprintFromStorage(b *backend, ctx context.Context, req *logical.Request, certID string) (string, error) {
+	cert, err := loadCertificateFromStorage(b, ctx, req, certID, "")
+	if err != nil {
+		return "", err
+	}
+
+	block, _ := pem.Decode([]byte(cert.Certificate))
+	if block == nil {
+		return "", errors.New("failed to parse stored certificate PEM")
+	}
+
+	parsedCert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return "", err
+	}
+
+	thumbprint := sha1.Sum(parsedCert.Raw)
+	return strings.ToUpper(hex.EncodeToString(thumbprint[:])), nil
 }
 
 func getDn(b *backend, c *endpoint.Connector, ctx context.Context, req *logical.Request, zone string, CertId string, storeByType string) (string, error) {
