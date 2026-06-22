@@ -5,8 +5,6 @@ import (
 
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
-
-	"github.com/Venafi/vault-pki-backend-venafi/plugin/util"
 )
 
 func pathVenafiCertRead(b *backend) *framework.Path {
