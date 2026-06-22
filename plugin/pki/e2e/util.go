@@ -3,7 +3,7 @@ package e2e
 import (
 	"fmt"
 	"github.com/Venafi/vault-pki-backend-venafi/plugin/pki"
-	"github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/v2"
 	"github.com/rendon/testcli"
 	"strings"
 )

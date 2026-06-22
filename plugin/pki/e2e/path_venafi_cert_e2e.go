@@ -10,7 +10,7 @@ import (
 	"github.com/Venafi/vault-pki-backend-venafi/plugin/pki"
 	"github.com/Venafi/vault-pki-backend-venafi/plugin/util"
 	"github.com/Venafi/vcert/v5/test"
-	"github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 )
 
