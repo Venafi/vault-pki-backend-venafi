@@ -7,8 +7,7 @@ import (
 
 	"bufio"
 	"fmt"
-	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/reporters"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"strings"
 	"time"
@@ -60,8 +59,7 @@ func init() {
 
 func TestPki(t *testing.T) {
 	RegisterFailHandler(Fail)
-	junitReporter := reporters.NewJUnitReporter("junit_00.xml")
-	RunSpecsWithDefaultAndCustomReporters(t, "Integration tests for Venafi Vault PKI backend", []Reporter{junitReporter})
+	RunSpecs(t, "Integration tests for Venafi Vault PKI backend")
 }
 
 func run(command string) string {
