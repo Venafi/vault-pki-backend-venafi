@@ -160,6 +160,52 @@ func TestGetRevocationRequestCloudUsesStoredCertificateThumbprint(t *testing.T) 
 	}
 }
 
+func TestGetRevocationRequestNGTSUsesStoredCertificateThumbprint(t *testing.T) {
+	ctx := context.Background()
+	storage := &logical.InmemStorage{}
+	conf := logical.TestBackendConfig()
+	conf.StorageView = storage
+	b := Backend(conf)
+	if err := b.Setup(ctx, conf); err != nil {
+		t.Fatal(err)
+	}
+
+	certPEM, rawCert := testCertificatePEM(t)
+	entry, err := logical.StorageEntryJSON("certs/aa-bb-cc", VenafiCert{
+		Certificate:  certPEM,
+		SerialNumber: "aa:bb:cc",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := storage.Put(ctx, entry); err != nil {
+		t.Fatal(err)
+	}
+
+	connector := &revokeTestConnector{connectorType: endpoint.ConnectorTypeNGTS}
+	var cl endpoint.Connector = connector
+	req := &logical.Request{Storage: storage}
+	role := &roleEntry{StoreBy: util.StoreBySerialString}
+
+	revReq, err := getRevocationRequest(b, &cl, ctx, req, "", "aa-bb-cc", role)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if connector.searchCalled {
+		t.Fatal("NGTS revocation should not call SearchCertificates")
+	}
+	if revReq.CertificateDN != "" {
+		t.Fatalf("expected no CertificateDN for NGTS revocation, got %q", revReq.CertificateDN)
+	}
+
+	thumbprint := sha1.Sum(rawCert)
+	expectedThumbprint := strings.ToUpper(hex.EncodeToString(thumbprint[:]))
+	if revReq.Thumbprint != expectedThumbprint {
+		t.Fatalf("expected thumbprint %q, got %q", expectedThumbprint, revReq.Thumbprint)
+	}
+}
+
 func testCertificatePEM(t *testing.T) (string, []byte) {
 	t.Helper()
 

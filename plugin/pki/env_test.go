@@ -64,6 +64,8 @@ const (
 	venafiConfigCloud                       venafiConfigString = "Cloud"
 	venafiConfigCloudPredefined             venafiConfigString = "CloudPredefined"
 	venafiConfigCloudRestricted             venafiConfigString = "CloudRestricted"
+	venafiConfigNGTS                        venafiConfigString = "NGTS"
+	venafiConfigNGTSToken                   venafiConfigString = "NGTSToken" // #nosec G101
 	venafiConfigToken                       venafiConfigString = "TppToken"
 	venafiConfigTokenPredefined             venafiConfigString = "TppTokenPredefined"  // #nosec G101
 	venafiConfigTokenWithRefresh            venafiConfigString = "TppTokenWithRefresh" // #nosec G101
@@ -123,6 +125,23 @@ var venafiTestCloudConfig = map[string]interface{}{
 var venafiTestCloudConfigPredefined = map[string]interface{}{
 	"apikey": "xxxx-xxxxx-xxxxxx-xxxxxx",
 	"zone":   "xxxxx-xxxxx-xxxxxx-xxxxxx-xxxx",
+}
+
+// NGTS (Strata Cloud Manager) — service-account auth (4-tuple).
+var venafiTestNGTSConfig = map[string]interface{}{
+	"url":                os.Getenv("NGTS_URL"),
+	"zone":               os.Getenv("NGTS_ZONE"),
+	"ngts_token_url":     os.Getenv("NGTS_TOKEN_URL"),
+	"ngts_client_id":     os.Getenv("NGTS_CLIENT_ID"),
+	"ngts_client_secret": os.Getenv("NGTS_CLIENT_SECRET"),
+	"ngts_scope":         os.Getenv("NGTS_SCOPE"),
+}
+
+// NGTS (Strata Cloud Manager) — pre-issued access-token auth.
+var venafiTestNGTSTokenConfig = map[string]interface{}{
+	"url":               os.Getenv("NGTS_URL"),
+	"zone":              os.Getenv("NGTS_ZONE"),
+	"ngts_access_token": os.Getenv("NGTS_ACCESS_TOKEN"),
 }
 
 var venafiTestCloudConfigRestricted = map[string]interface{}{
@@ -1292,6 +1311,10 @@ func makeConfig(configString venafiConfigString) (roleData map[string]interface{
 		roleData = venafiTestCloudConfigPredefined
 	case venafiConfigCloudRestricted:
 		roleData = venafiTestCloudConfigRestricted
+	case venafiConfigNGTS:
+		roleData = venafiTestNGTSConfig
+	case venafiConfigNGTSToken:
+		roleData = venafiTestNGTSTokenConfig
 	case venafiConfigToken:
 		roleData = venafiTestTokenConfig
 	case venafiConfigTokenPredefined:
