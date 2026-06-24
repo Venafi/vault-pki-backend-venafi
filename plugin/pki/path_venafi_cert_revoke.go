@@ -183,7 +183,12 @@ func isCertificateStored(ctx context.Context, req *logical.Request, id string, r
 func getRevocationRequest(b *backend, c *endpoint.Connector, ctx context.Context, req *logical.Request, zone string, certID string, role *roleEntry) (*certificate.RevocationRequest, error) {
 	revReq := certificate.RevocationRequest{}
 
-	if (*c).GetType() == endpoint.ConnectorTypeCloud {
+	// Cloud/VaaS and NGTS (Strata Cloud Manager) revoke by certificate thumbprint
+	// (they ignore CertificateDN, and NGTS's SearchCertificates panics). The
+	// thumbprint is computed locally from the stored certificate, so no server
+	// search is needed for either backend.
+	connectorType := (*c).GetType()
+	if connectorType == endpoint.ConnectorTypeCloud || connectorType == endpoint.ConnectorTypeNGTS {
 		thumbprint, err := getThumbprintFromStorage(b, ctx, req, certID)
 		if err != nil {
 			return nil, err

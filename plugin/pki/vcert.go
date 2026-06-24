@@ -96,6 +96,24 @@ func (b *backend) getConfig(ctx context.Context, req *logical.Request, role *rol
 			LogVerbose:    true,
 		}
 
+	} else if venafiSecret.isNgts() {
+		b.Logger().Debug("Using Strata Cloud Manager (NGTS) to issue certificate")
+		cfg.ConnectorType = endpoint.ConnectorTypeNGTS
+		// cfg.BaseUrl is already set from venafiSecret.URL; an empty URL falls back to the
+		// SDK's production default (api.strata.paloaltonetworks.com/ngts at v5.13.7).
+		if venafiSecret.NgtsAccessToken != "" {
+			cfg.Credentials = &endpoint.Authentication{
+				AccessToken: venafiSecret.NgtsAccessToken,
+			}
+		} else {
+			cfg.Credentials = &endpoint.Authentication{
+				ClientId:     venafiSecret.NgtsClientId,
+				ClientSecret: venafiSecret.NgtsClientSecret,
+				TokenURL:     venafiSecret.NgtsTokenURL,
+				Scope:        venafiSecret.NgtsScope,
+			}
+		}
+
 	} else if venafiSecret.URL != "" && venafiSecret.TppUser != "" && venafiSecret.TppPassword != "" {
 		b.Logger().Debug(fmt.Sprintf("Using Certificate Manager, Self-Hosted with URL %s to issue certificate", venafiSecret.URL))
 		cfg.ConnectorType = endpoint.ConnectorTypeTPP

@@ -147,6 +147,9 @@ test_tpp:
 test_vaas:
 	go test -tags=vaas -run  ^TestVAAS -v github.com/Venafi/vault-pki-backend-venafi/plugin/pki
 
+test_ngts:
+	go test -tags=ngts -run ^TestNGTS -v github.com/Venafi/vault-pki-backend-venafi/plugin/pki
+
 test_fake:
 	go test -run  ^TestFake -v github.com/Venafi/vault-pki-backend-venafi/plugin/pki
 
