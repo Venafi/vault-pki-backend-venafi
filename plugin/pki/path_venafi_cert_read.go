@@ -9,7 +9,7 @@ import (
 
 func pathVenafiCertRead(b *backend) *framework.Path {
 	return &framework.Path{
-		Pattern: "cert/" + framework.GenericNameRegex("certificate_uid"),
+		Pattern: `cert/(?P<certificate_uid>[^/]+)`,
 		Fields: map[string]*framework.FieldSchema{
 			"certificate_uid": {
 				Type:        framework.TypeString,
@@ -21,8 +21,8 @@ func pathVenafiCertRead(b *backend) *framework.Path {
 			},
 		},
 		Callbacks: map[logical.Operation]framework.OperationFunc{
-			logical.ReadOperation: b.pathVenafiCertRead,
-			//todo: maybe add delete operation to delete certificate entry from storage
+			logical.ReadOperation:   b.pathVenafiCertRead,
+			logical.DeleteOperation: b.pathVenafiCertDelete,
 		},
 
 		HelpSynopsis:    pathConfigRootHelpSyn,
@@ -55,4 +55,17 @@ func (b *backend) pathVenafiCertRead(ctx context.Context, req *logical.Request, 
 		//Data: structs.New(cert).Map(),
 		Data: respData,
 	}, nil
+}
+
+func (b *backend) pathVenafiCertDelete(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+	certUID := data.Get("certificate_uid").(string)
+	if len(certUID) == 0 {
+		return logical.ErrorResponse("no common name specified on certificate"), nil
+	}
+
+	if err := req.Storage.Delete(ctx, "certs/"+certUID); err != nil {
+		return nil, err
+	}
+
+	return nil, nil
 }
