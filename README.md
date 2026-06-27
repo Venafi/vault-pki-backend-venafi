@@ -543,6 +543,18 @@ Venafi Machine Identity Secrets Engine uses the same
 as the built-in PKI secrets engine. Some methods, such as those for
 managing certificate authorities, do not apply.
 
+To remove a certificate from this plugin's local Vault storage without
+revoking it in CyberArk Certificate Manager, delete the stored certificate by
+its `certificate_uid`:
+
+```bash
+vault delete venafi-pki/cert/<certificate_uid>
+```
+
+This only deletes the cached certificate from Vault storage. Use the
+`revoke/<role>` endpoint or CyberArk Certificate Manager when the certificate
+itself must be revoked.
+
 ## Upgrading
 
 To upgrade to a new version of this plugin, review the
