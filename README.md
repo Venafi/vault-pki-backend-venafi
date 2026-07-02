@@ -358,7 +358,10 @@ Venafi secrets engine:
        zone="my-issuing-template-alias"
    ```
 
-   Alternatively, supply a pre-issued bearer token instead of the service account:
+   Alternatively, supply a pre-issued bearer token instead of the service account. Note that
+   NGTS access tokens have a lifespan of **15 minutes**, so this option is best suited for
+   short-lived or testing scenarios; for long-running configurations prefer the service
+   account, which lets the plugin obtain a fresh token as needed:
 
    ```bash
    vault write venafi-pki/venafi/ngts \
@@ -411,6 +414,23 @@ Venafi secrets engine:
    ```
    Success! Data written to: venafi-pki/roles/vaas
    ```
+
+   **Strata Cloud Manager (NGTS)**:
+
+   ```bash
+   vault write venafi-pki/roles/ngts \
+       venafi_secret=ngts \
+       generate_lease=true store_by=serial store_pkey=true
+   ```
+
+   Expected output:
+   ```
+   Success! Data written to: venafi-pki/roles/ngts
+   ```
+
+   :pushpin: **NOTE**: NGTS revocation relies on a certificate thumbprint computed from the
+   stored certificate, so an NGTS role used for revoke must store the certificate — keep
+   `store_by=serial store_pkey=true` (i.e. do not set `no_store=true`).
 
    :pushpin: **NOTE**: The `ttl` and `max_ttl` role parameters can be used specify the
    default and maximum allowed validity for certificate requests if the Venafi CA template
@@ -497,6 +517,9 @@ token with the proper permission, it can enroll certificates using CyberArk.
    serial_number        17:47:8b:13:90:b8:3d:87:b0:dc:b6:9e:00:2b:87:02:c9:d3:1e:8a
    ```
 
+   :pushpin: **NOTE**: For **Strata Cloud Manager (NGTS)** the command is the same — point it
+   at the NGTS role (e.g. `vault write venafi-pki/issue/ngts common_name="common-name.example.com"`).
+
 1. Or sign a CSR from a file by writing to the `/sign` endpoint with the name of
    the role:
 
@@ -536,6 +559,9 @@ token with the proper permission, it can enroll certificates using CyberArk.
    common_name          common-name.example.com
    serial_number        76:55:e2:14:de:c8:3f:e1:64:4a:fa:37:d4:6e:f5:ef:5e:4c:16:5b
    ```
+
+   :pushpin: **NOTE**: For **Strata Cloud Manager (NGTS)** the command is the same — point it
+   at the NGTS role (e.g. `vault write venafi-pki/sign/ngts csr=@example.req`).
 
 ### Custom Fields for CyberArk Certificate Manager, Self-Hosted
 Custom Fields can be set when requesting certificates from CyberArk Certificate Manager, Self-Hosted using the `custom_fields` parameter (e.g.
