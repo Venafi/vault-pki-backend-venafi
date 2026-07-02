@@ -1,3 +1,10 @@
+# v0.16.0 (June 23, 2026)
+* Adds support for Strata Cloud Manager (NGTS) as a fourth backend: issue, sign, read, and revoke
+* NGTS authenticates with an OAuth2 service account (`ngts_client_id`, `ngts_client_secret`, `ngts_token_url`, `ngts_scope`) or a pre-issued `ngts_access_token`
+* Hardens the NGTS token URL (credential sink): coerces `http://`→`https://` and rejects hosts outside `*.paloaltonetworks.com`
+* NGTS revoke (and Cloud revoke) compute the certificate thumbprint locally from the stored certificate
+* Upgrades the VCert SDK to v5.13.7
+
 # v0.15.1 (January 23, 2026)
 * golangci-lint re-enabled
 
