@@ -515,6 +515,8 @@ func (r *roleEntry) ToResponseData() map[string]interface{} {
 		"min_cert_time_left":     util.ShortDurationString(r.MinCertTimeLeft),
 		"server_timeout":         util.ShortDurationString(r.ServerTimeout),
 		"ignore_local_storage":   r.IgnoreLocalStorage,
+		"key_bits":               r.KeyBits,
+		"key_type":               r.KeyType,
 	}
 	return responseData
 }
