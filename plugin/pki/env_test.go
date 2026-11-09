@@ -1186,14 +1186,38 @@ func (e *testEnv) ReadCertificate(t *testing.T, data testData, configString vena
 		t.Fatalf("expected a cert to be in read data")
 	}
 
-	if resp.Data["private_key"] == nil {
-		t.Fatalf("expected a private_key to be in read data")
+	// The read response must never include the private key (VC-53759).
+	if _, ok := resp.Data["private_key"]; ok {
+		t.Fatalf("expected no private_key in read data")
+	}
+
+	// The key is still kept in storage; check it pairs with the certificate.
+	stored := e.loadStoredCertificate(t, certId)
+	if stored.PrivateKey == "" {
+		t.Fatalf("expected a private_key to be in storage")
 	}
 
 	data.cert = resp.Data["certificate"].(string)
-	data.privateKey = resp.Data["private_key"].(string)
+	data.privateKey = stored.PrivateKey
 	checkStandardCert(t, data)
 
+}
+
+// loadStoredCertificate reads a certificate entry straight from storage,
+// bypassing the read endpoint (which no longer returns the private key).
+func (e *testEnv) loadStoredCertificate(t *testing.T, certId string) *VenafiCert {
+	entry, err := e.Storage.Get(e.Context, "certs/"+certId)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if entry == nil {
+		t.Fatalf("expected certificate %s to be in storage", certId)
+	}
+	var cert VenafiCert
+	if err := entry.DecodeJSON(&cert); err != nil {
+		t.Fatal(err)
+	}
+	return &cert
 }
 
 func (e *testEnv) CheckThatThereIsNoCertificate(t *testing.T, certId string) {
@@ -1235,7 +1259,8 @@ func (e *testEnv) CheckThatThereIsNoPKey(t *testing.T, certId string) {
 		t.Fatalf("should be on output on issue certificate, but response is nil: %#v", resp)
 	}
 
-	if resp.Data["private_key"] != "" {
+	// The read endpoint never returns the key (VC-53759), so check storage.
+	if e.loadStoredCertificate(t, certId).PrivateKey != "" {
 		t.Fatalf("expected no private_key in the store")
 	}
 
