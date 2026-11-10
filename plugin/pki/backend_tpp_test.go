@@ -15,6 +15,10 @@ import (
 // otherwise they will be ignored
 
 func TestTPPdeprecratedAuth(t *testing.T) {
+	// TPP 26.1 removed the legacy username/password endpoint (vedsdk/authorize/
+	// returns 404), so tpp_user/tpp_password can't authenticate. The same
+	// scenarios run with an access token in TestTPPintegration.
+	t.Skip("VC-65185: legacy tpp_user/tpp_password login is not supported by TPP 26.1; re-enable once it uses OAuth (https://venafi.atlassian.net/browse/VC-65185)")
 	t.Parallel()
 	integrationTestEnv, err := NewIntegrationTestEnv()
 	if err != nil {
