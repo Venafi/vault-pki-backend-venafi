@@ -1,9 +1,20 @@
+# v0.17.1 (November 10, 2026)
+* Builds with Go 1.27.3. Earlier Go versions accept certificate chains from the compromised eMudhra intermediate CAs; Go 1.27.3 rejects them, so the plugin no longer trusts TLS servers presenting those chains
+* Upgrades the VCert SDK to v5.14.0 ([#219](https://github.com/Venafi/vault-pki-backend-venafi/pull/219))
+* Note: CyberArk Certificate Manager, Self-Hosted 26.1 no longer supports the deprecated `tpp_user`/`tpp_password` authentication; use `access_token` and `refresh_token` instead
+
+# v0.17.0 (August 26, 2026)
+* Adds a local-only delete for `cert/<certificate_uid>`: it removes the certificate from Vault storage without contacting CyberArk Certificate Manager ([#205](https://github.com/Venafi/vault-pki-backend-venafi/pull/205))
+* Adds `key_bits` and `key_type` to the role response ([#210](https://github.com/Venafi/vault-pki-backend-venafi/pull/210))
+* Upgrades the VCert SDK to v5.13.9 ([#212](https://github.com/Venafi/vault-pki-backend-venafi/pull/212))
+
 # v0.16.0 (June 23, 2026)
 * Adds support for Strata Cloud Manager (NGTS) as a fourth backend: issue, sign, read, and revoke
 * NGTS authenticates with an OAuth2 service account (`ngts_client_id`, `ngts_client_secret`, `ngts_token_url`, `ngts_scope`) or a pre-issued `ngts_access_token`
 * Hardens the NGTS token URL (credential sink): coerces `http://`→`https://` and rejects hosts outside `*.paloaltonetworks.com`
 * NGTS revoke (and Cloud revoke) compute the certificate thumbprint locally from the stored certificate
 * Upgrades the VCert SDK to v5.13.7
+* Security: reading `cert/<certificate_uid>` no longer returns the certificate's private key
 
 # v0.15.1 (January 23, 2026)
 * golangci-lint re-enabled
